@@ -9,10 +9,10 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mergeOnboardingDraft } from '../../services/onboardingDraft';
+import OnboardingHeader from '../../components/OnboardingHeader';
 
 const backgroundImg = require('../../assets/images/background.png');
 const starsImg = require('../../assets/images/stars.png');
@@ -83,27 +83,12 @@ export default function TimeScreen() {
       <Image source={starsImg} style={styles.stars} resizeMode="cover" />
 
       <View style={styles.content}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            disabled={submitting}
-          >
-            <Ionicons name="arrow-back" size={20} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Birth of Time</Text>
-        </View>
-
-        <View style={styles.progressWrapper}>
-          <View style={styles.progressRow}>
-            <View style={styles.progressBar}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <View key={i} style={[styles.step, i <= 2 && styles.activeStep]} />
-              ))}
-            </View>
-            <Text style={styles.progressText}>60%</Text>
-          </View>
-        </View>
+        <OnboardingHeader
+          title="Birth of Time"
+          step={3}
+          onBack={() => router.back()}
+          disabled={submitting}
+        />
 
         <Text style={styles.description}>
           Time is important for determining your houses,{'\n'}
@@ -131,11 +116,10 @@ export default function TimeScreen() {
             itemStyle={styles.pickerItem}
             enabled={!submitting}
           >
-            {['00', '01', '02', '03', '04', '05', '10', '15', '30', '45', '59'].map(
-              (val) => (
-                <Picker.Item key={val} label={val} value={val} />
-              )
-            )}
+            {Array.from({ length: 60 }, (_, i) => {
+              const val = String(i).padStart(2, '0');
+              return <Picker.Item key={val} label={val} value={val} />;
+            })}
           </Picker>
 
           <Picker
@@ -198,51 +182,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 30,
     paddingTop: 60,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  backButton: {
-    position: 'absolute',
-    left: 0,
-    backgroundColor: 'rgba(57, 60, 71, 0.4)',
-    borderRadius: 999,
-    padding: 10,
-  },
-  title: {
-    fontSize: 24,
-    color: '#fff',
-    fontFamily: 'CooperLtBT-Bold',
-  },
-  progressWrapper: {
-    marginBottom: 30,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  progressBar: {
-    flexDirection: 'row',
-    flex: 1,
-    marginRight: 10,
-  },
-  step: {
-    height: 8,
-    flex: 1,
-    borderRadius: 4,
-    backgroundColor: '#333',
-    marginRight: 6,
-  },
-  activeStep: {
-    backgroundColor: 'rgba(87, 124, 251, 1)',
-  },
-  progressText: {
-    fontSize: 12,
-    color: '#aaa',
   },
   description: {
     fontSize: 16,

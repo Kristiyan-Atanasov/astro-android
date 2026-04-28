@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Animated,
   Pressable,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getUserProfile, getDailyVibe, clearAccessToken } from '../services/api';
@@ -104,7 +105,7 @@ export default function HomeScreen() {
     }).start(() => setMenuVisible(false));
   };
 
-  const handleLogout = async () => {
+  const performLogout = async () => {
     try {
       await clearAccessToken();
       await clearOnboardingDraft();
@@ -116,6 +117,30 @@ export default function HomeScreen() {
     }
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Log out',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Log out', style: 'destructive', onPress: performLogout },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const todayLabel = React.useMemo(() => {
+    const now = new Date();
+    const weekday = now
+      .toLocaleDateString(undefined, { weekday: 'short' })
+      .toUpperCase();
+    const day = now.getDate();
+    const month = now
+      .toLocaleDateString(undefined, { month: 'long' })
+      .toUpperCase();
+    return `${weekday}, ${day} ${month}`;
+  }, []);
+
   return (
     <View style={styles.container}>
       <Image source={homeBg} style={styles.bg} resizeMode="cover" />
@@ -124,7 +149,7 @@ export default function HomeScreen() {
         {/* Top Section */}
         <View style={styles.topRow}>
           <View>
-            <Text style={styles.date}>WED, 13 AUGUST</Text>
+            <Text style={styles.date}>{todayLabel}</Text>
             <Text style={styles.greeting}>
               {userName ? `Hello, ${userName}!` : 'Hello!'}
             </Text>

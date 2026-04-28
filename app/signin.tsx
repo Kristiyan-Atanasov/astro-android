@@ -50,7 +50,6 @@ export default function SignInScreen() {
 
       const raw = await res.text();
       console.log("🌐 social_login status:", res.status);
-      console.log("🌐 social_login raw:", raw);
 
       let json: any = null;
       try {
@@ -60,7 +59,7 @@ export default function SignInScreen() {
       }
 
       if (!res.ok) {
-        throw new Error(json?.message || json?.detail || raw || `HTTP ${res.status}`);
+        throw new Error(json?.message || json?.detail || `HTTP ${res.status}`);
       }
 
       const jwt = json?.access || json?.access_token || json?.token || null;
@@ -83,7 +82,6 @@ export default function SignInScreen() {
 
     if (response.type === "success") {
       const idToken = (response.params as any)?.id_token;
-      console.log("✅ auth-session success, has id_token:", !!idToken);
 
       if (!idToken) {
         Alert.alert("Google Sign-In failed", "No id_token returned from Google.");
@@ -103,8 +101,7 @@ export default function SignInScreen() {
   const onPressGoogle = async () => {
     try {
       if (!request) return;
-      const result = await promptAsync({ useProxy: false });
-      console.log("🔍 promptAsync result:", result.type, result.params);
+      await promptAsync({ useProxy: false });
     } catch (e: any) {
       Alert.alert("Google Sign-In failed", e?.message ?? String(e));
     }

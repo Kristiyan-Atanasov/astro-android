@@ -10,9 +10,9 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mergeOnboardingDraft } from '../../services/onboardingDraft';
+import OnboardingHeader from '../../components/OnboardingHeader';
 
 const bgSocials = require('../../assets/images/bg-socials.png');
 
@@ -48,16 +48,11 @@ export default function SocialScreen() {
     <View style={styles.container}>
       <Image source={bgSocials} style={styles.bg} resizeMode="cover" />
 
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-          disabled={submitting}
-        >
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Add Social Accounts</Text>
-      </View>
+      <OnboardingHeader
+        title="Add Social Accounts"
+        onBack={() => router.back()}
+        disabled={submitting}
+      />
 
       <Text style={styles.subtitle}>
         Connect with friends and make new contacts through the app.
@@ -141,24 +136,6 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     zIndex: -1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  backButton: {
-    position: 'absolute',
-    left: 0,
-    backgroundColor: 'rgba(57, 60, 71, 0.4)',
-    borderRadius: 999,
-    padding: 10,
-  },
-  title: {
-    fontSize: 22,
-    color: '#fff',
-    fontFamily: 'CooperLtBT-Bold',
   },
   subtitle: {
     textAlign: 'center',

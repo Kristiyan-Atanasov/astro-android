@@ -121,7 +121,6 @@ export async function postOnboarding(payload) {
   const { raw, data } = await readResponse(res);
 
   console.log('🌐 on_boarding status:', res.status);
-  console.log('🌐 on_boarding raw:', raw);
 
   if (!res.ok) {
     throw new Error(

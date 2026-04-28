@@ -12,9 +12,9 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mergeOnboardingDraft } from '../../services/onboardingDraft';
+import OnboardingHeader from '../../components/OnboardingHeader';
 
 const backgroundImg = require('../../assets/images/background.png');
 const starsImg = require('../../assets/images/stars.png');
@@ -33,27 +33,12 @@ export default function NameScreen() {
       <Image source={starsImg} style={styles.stars} resizeMode="cover" />
 
       <View style={styles.content}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            disabled={submitting}
-          >
-            <Ionicons name="arrow-back" size={20} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Your Name</Text>
-        </View>
-
-        <View style={styles.progressWrapper}>
-          <View style={styles.progressRow}>
-            <View style={styles.progressBar}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <View key={i} style={[styles.step, i === 0 && styles.activeStep]} />
-              ))}
-            </View>
-            <Text style={styles.progressText}>20%</Text>
-          </View>
-        </View>
+        <OnboardingHeader
+          title="Your Name"
+          step={1}
+          onBack={() => router.back()}
+          disabled={submitting}
+        />
 
         <Text style={styles.description}>
           Tell us about yourself so that we can make a more personalised prediction.
@@ -133,45 +118,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     paddingTop: 60,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 25,
-  },
-  backButton: {
-    position: 'absolute',
-    left: 0,
-    backgroundColor: 'rgba(57, 60, 71, 0.4)',
-    borderRadius: 999,
-    padding: 10,
-  },
-  title: {
-    fontSize: 24,
-    color: '#fff',
-    textAlign: 'center',
-    fontFamily: 'CooperLtBT-Bold',
-  },
-  progressWrapper: { marginBottom: 30 },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  progressBar: {
-    flexDirection: 'row',
-    flex: 1,
-    marginRight: 10,
-  },
-  step: {
-    height: 8,
-    flex: 1,
-    borderRadius: 4,
-    backgroundColor: '#333',
-    marginRight: 6,
-  },
-  activeStep: { backgroundColor: 'rgba(87, 124, 251, 1)' },
-  progressText: { fontSize: 12, color: '#aaa' },
   description: {
     textAlign: 'center',
     color: 'rgba(200, 200, 200, 1)',

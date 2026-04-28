@@ -10,10 +10,10 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mergeOnboardingDraft } from '../../services/onboardingDraft';
+import OnboardingHeader from '../../components/OnboardingHeader';
 
 const backgroundImg = require('../../assets/images/background.png');
 const starsImg = require('../../assets/images/stars.png');
@@ -22,6 +22,14 @@ export default function BirthdayScreen() {
   const router = useRouter();
   const [date, setDate] = useState(new Date());
   const [submitting, setSubmitting] = useState(false);
+  const [showAndroidPicker, setShowAndroidPicker] = useState(false);
+
+  const formatDate = (d: Date) =>
+    d.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
 
   return (
     <View style={styles.container}>
@@ -29,47 +37,55 @@ export default function BirthdayScreen() {
       <Image source={starsImg} style={styles.stars} resizeMode="cover" />
 
       <View style={styles.content}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            disabled={submitting}
-          >
-            <Ionicons name="arrow-back" size={20} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Date of Birth</Text>
-        </View>
-
-        <View style={styles.progressWrapper}>
-          <View style={styles.progressRow}>
-            <View style={styles.progressBar}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <View
-                  key={i}
-                  style={[styles.step, i <= 1 && styles.activeStep]}
-                />
-              ))}
-            </View>
-            <Text style={styles.progressText}>40%</Text>
-          </View>
-        </View>
+        <OnboardingHeader
+          title="Date of Birth"
+          step={2}
+          onBack={() => router.back()}
+          disabled={submitting}
+        />
 
         <Text style={styles.description}>
           Date is important for determining your astrology profile
         </Text>
 
         <View style={styles.pickerWrapper}>
-          {Platform.OS === 'ios' && (
+          {Platform.OS === 'ios' ? (
             <DateTimePicker
               value={date}
               mode="date"
               display="spinner"
+              maximumDate={new Date()}
               onChange={(_, selectedDate) =>
                 selectedDate && setDate(selectedDate)
               }
               style={styles.datePicker}
               textColor="#fff"
             />
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.androidDateButton}
+                onPress={() => setShowAndroidPicker(true)}
+                disabled={submitting}
+              >
+                <Text style={styles.androidDateText}>{formatDate(date)}</Text>
+              </TouchableOpacity>
+
+              {showAndroidPicker && (
+                <DateTimePicker
+                  value={date}
+                  mode="date"
+                  display="default"
+                  maximumDate={new Date()}
+                  onChange={(event, selectedDate) => {
+                    setShowAndroidPicker(false);
+                    if (event.type === 'set' && selectedDate) {
+                      setDate(selectedDate);
+                    }
+                  }}
+                />
+              )}
+            </>
           )}
         </View>
 
@@ -141,52 +157,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     paddingTop: 60,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 25,
-  },
-  backButton: {
-    position: 'absolute',
-    left: 0,
-    backgroundColor: 'rgba(57, 60, 71, 0.4)',
-    borderRadius: 999,
-    padding: 10,
-  },
-  title: {
-    fontSize: 24,
-    color: '#fff',
-    textAlign: 'center',
-    fontFamily: 'CooperLtBT-Bold',
-  },
-  progressWrapper: {
-    marginBottom: 30,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  progressBar: {
-    flexDirection: 'row',
-    flex: 1,
-    marginRight: 10,
-  },
-  step: {
-    height: 8,
-    flex: 1,
-    borderRadius: 4,
-    backgroundColor: '#333',
-    marginRight: 6,
-  },
-  activeStep: {
-    backgroundColor: 'rgba(87, 124, 251, 1)',
-  },
-  progressText: {
-    fontSize: 12,
-    color: '#aaa',
-  },
   description: {
     textAlign: 'center',
     color: 'rgba(200, 200, 200, 1)',
@@ -200,6 +170,20 @@ const styles = StyleSheet.create({
   datePicker: {
     width: '100%',
     backgroundColor: 'transparent',
+  },
+  androidDateButton: {
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 213, 251, 0.2)',
+    backgroundColor: 'rgba(57, 102, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  androidDateText: {
+    color: '#fff',
+    fontSize: 18,
+    fontFamily: 'SFProDisplay-Regular',
   },
   info: {
     fontSize: 12,
