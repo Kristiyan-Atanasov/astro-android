@@ -1,43 +1,106 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-  Dimensions,
-  Platform,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import * as AppleAuthentication from 'expo-apple-authentication';
-import data from '../assets/data/insights.json';
-import { handleFacebookLogin } from '../services/handleFacebookLogin';
-import { handleGoogleSignIn } from '../services/handleGoogleLogin';
+import React from "react";
+import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from "react-native";
+import { useRouter, type Href } from "expo-router";
+import data from "../assets/data/insights.json";
 
+import * as WebBrowser from "expo-web-browser";
+import * as Google from "expo-auth-session/providers/google";
+import { makeRedirectUri } from "expo-auth-session";
+
+import { API_BASE, setAccessToken } from "../services/api";
+
+WebBrowser.maybeCompleteAuthSession(); // required for auth-session redirects [web:334]
+
+type WelcomeLink = {
+  label: string;
+  route: Href;
+};
+
+const WEB_CLIENT_ID =
+  "154762470670-dma1hg357n6n48ishn1b4gjodo33v08r.apps.googleusercontent.com";
+
+const IOS_CLIENT_ID =
+  "154762470670-n099k64j893h5qr85lrhh85fiutk533e.apps.googleusercontent.com";
 
 export default function SignInScreen() {
   const router = useRouter();
-  const links = data.welcome.links;
-  const { login: handleGoogleLogin } = handleGoogleSignIn();
-  const [appleAvailable, setAppleAvailable] = useState(false);
+  const links = (data.welcome.links as unknown as WelcomeLink[]) ?? [];
 
-  useEffect(() => {
-    if (Platform.OS === 'ios') {
-      AppleAuthentication.isAvailableAsync().then(setAppleAvailable);
-    }
-  }, []);
+  const APP_SCHEME = "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e";
 
-  const handleAppleSignIn = async () => {
-    try {
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
+  const redirectUri = makeRedirectUri({
+    native: `${APP_SCHEME}:/signin`,
+  });
+
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    iosClientId: IOS_CLIENT_ID,
+    webClientId: WEB_CLIENT_ID,
+    redirectUri,
+    scopes: ["openid", "profile", "email"],
+  });
+
+
+  const exchangeIdTokenWithBackend = React.useCallback(
+    async (idToken: string) => {
+      const res = await fetch(`${API_BASE}/authentication/social_login/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "google", id_token: idToken }),
       });
-      console.log('Apple login success:', credential);
-    } catch (e) {
-      console.log('Apple login failed:', e);
+
+      const raw = await res.text();
+      console.log("🌐 social_login status:", res.status);
+      console.log("🌐 social_login raw:", raw);
+
+      let json: any = null;
+      try {
+        json = raw ? JSON.parse(raw) : null;
+      } catch {
+        json = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(json?.message || json?.detail || raw || `HTTP ${res.status}`);
+      }
+
+      const jwt = json?.access || json?.access_token || json?.token || null;
+      if (!jwt) throw new Error("Backend returned no JWT.");
+
+      await setAccessToken(jwt);
+      router.replace("/onboarding/name");
+    },
+    [router]
+  );
+
+  React.useEffect(() => {
+    if (!response) return;
+
+    if (response.type === "success") {
+      const idToken = (response.params as any)?.id_token;
+      console.log("✅ auth-session success, has id_token:", !!idToken);
+
+      if (!idToken) {
+        Alert.alert("Google Sign-In failed", "No id_token returned from Google.");
+        return;
+      }
+
+      exchangeIdTokenWithBackend(idToken).catch((e: any) => {
+        Alert.alert("Login failed", e?.message ?? String(e));
+      });
+    }
+
+    if (response.type === "error") {
+      Alert.alert("Google Sign-In failed", response.error?.message ?? "Unknown error");
+    }
+  }, [response, exchangeIdTokenWithBackend]);
+
+  const onPressGoogle = async () => {
+    try {
+      if (!request) return;
+      const result = await promptAsync({ useProxy: false });
+      console.log("🔍 promptAsync result:", result.type, result.params);
+    } catch (e: any) {
+      Alert.alert("Google Sign-In failed", e?.message ?? String(e));
     }
   };
 
@@ -45,71 +108,47 @@ export default function SignInScreen() {
     <View style={styles.container}>
       <View style={styles.content}>
         <Image
-          source={require('../assets/images/signin-graphic.png')}
+          source={require("../assets/images/signin-graphic.png")}
           style={styles.image}
           resizeMode="contain"
         />
 
-        <Text style={styles.title}>Welcome to{"\n"}AstroInsights</Text>
-        <Text style={styles.subtitle}>
-          Begin your journey of personal transformation
+        <Text style={styles.title}>
+          Welcome to{"\n"}AstroInsights
         </Text>
+        <Text style={styles.subtitle}>Begin your journey of personal transformation</Text>
 
-        {appleAvailable && (
-          <AppleAuthentication.AppleAuthenticationButton
-            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-            cornerRadius={30}
-            style={styles.appleButton}
-            onPress={handleAppleSignIn}
-          />
-        )}
-
-<TouchableOpacity
-  style={styles.facebookButton}
-  onPress={() => handleFacebookLogin(router)}
->
-  <Text style={styles.facebookText}>Sign in with Facebook</Text>
-</TouchableOpacity>
-
-<View style={styles.socialButtons}>
-  <TouchableOpacity
-    style={styles.socialButton}
-    onPress={handleGoogleLogin}
-  >
-    <Text style={styles.googleText}>Sign in with Google</Text>
-  </TouchableOpacity>
-</View>
-
+        <TouchableOpacity style={styles.googleButton} onPress={onPressGoogle} disabled={!request}>
+          <Text style={styles.googleText}>Sign in with Google</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Footer links */}
       <View style={styles.linksContainer}>
-        <TouchableOpacity onPress={() => router.push(links[0].route)}>
-          <Text style={styles.link}>{links[0].label}</Text>
+        <TouchableOpacity onPress={() => router.push(links[0]?.route)}>
+          <Text style={styles.link}>{links[0]?.label}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push(links[1].route)}>
-          <Text style={styles.link}>{links[1].label}</Text>
+
+        <TouchableOpacity onPress={() => router.push(links[1]?.route)}>
+          <Text style={styles.link}>{links[1]?.label}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push(links[2].route)}>
-          <Text style={styles.link}>{links[2].label}</Text>
+
+        <TouchableOpacity onPress={() => router.push(links[2]?.route)}>
+          <Text style={styles.link}>{links[2]?.label}</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-const { width } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 60,
     paddingHorizontal: 30,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   content: {
-    alignItems: 'center',
+    alignItems: "center",
     flexGrow: 1,
   },
   image: {
@@ -119,78 +158,51 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 35,
-    color: '#fff',
-    fontFamily: 'CooperLtBT-Bold',
-    textAlign: 'center',
+    color: "#fff",
+    fontFamily: "CooperLtBT-Bold",
+    textAlign: "center",
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 14,
-    textAlign: 'center',
-    color: '#fff',
+    textAlign: "center",
+    color: "#fff",
     marginBottom: 30,
-    fontFamily: 'Nunito-Regular',
+    fontFamily: "Nunito-Regular",
   },
-  appleButton: {
-    width: 328,
-    height: 60,
-    marginBottom: 15,
-  },
-  facebookButton: {
+  googleButton: {
     width: 328,
     height: 60,
     borderRadius: 30,
     borderWidth: 1,
-    borderColor: '#4267B2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  facebookText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Nunito-Bold',
-  },
-  socialButtons: {
-    width: 328,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 10,
-  },
-  socialButton: {
-    width: 328,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    backgroundColor: 'transparent',
+    borderColor: "#ccc",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "transparent",
   },
   googleText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontFamily: 'Nunito-Bold',
+    fontFamily: "Nunito-Bold",
   },
   linksContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 20,
     left: 0,
     right: 0,
     paddingHorizontal: 30,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    justifyContent: "center",
+    flexWrap: "wrap",
     gap: 10,
   },
   link: {
     fontSize: 12,
     lineHeight: 12,
-    textAlign: 'center',
-    color: '#ccc',
-    textDecorationLine: 'underline',
+    textAlign: "center",
+    color: "#ccc",
+    textDecorationLine: "underline",
     marginHorizontal: 5,
-    fontFamily: 'Nunito-Regular',
+    fontFamily: "Nunito-Regular",
   },
 });

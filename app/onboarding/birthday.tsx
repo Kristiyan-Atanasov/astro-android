@@ -1,3 +1,4 @@
+// app/onboarding/birthday.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -12,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
+import { mergeOnboardingDraft } from '../../services/onboardingDraft';
 
 const backgroundImg = require('../../assets/images/background.png');
 const starsImg = require('../../assets/images/stars.png');
@@ -19,89 +21,80 @@ const starsImg = require('../../assets/images/stars.png');
 export default function BirthdayScreen() {
   const router = useRouter();
   const [date, setDate] = useState(new Date());
+  const [submitting, setSubmitting] = useState(false);
 
   return (
     <View style={styles.container}>
-      {/* Background */}
       <Image source={backgroundImg} style={styles.bg} resizeMode="cover" />
       <Image source={starsImg} style={styles.stars} resizeMode="cover" />
 
       <View style={styles.content}>
-        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            disabled={submitting}
+          >
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.title}>Date of Birth</Text>
         </View>
 
-        {/* Progress */}
         <View style={styles.progressWrapper}>
           <View style={styles.progressRow}>
             <View style={styles.progressBar}>
               {Array.from({ length: 5 }).map((_, i) => (
-                <View key={i} style={[styles.step, i <= 1 && styles.activeStep]} />
+                <View
+                  key={i}
+                  style={[styles.step, i <= 1 && styles.activeStep]}
+                />
               ))}
             </View>
             <Text style={styles.progressText}>40%</Text>
           </View>
         </View>
 
-        {/* Description */}
         <Text style={styles.description}>
           Date is important for determining your astrology profile
         </Text>
 
-        {/* Date Picker */}
         <View style={styles.pickerWrapper}>
           {Platform.OS === 'ios' && (
             <DateTimePicker
               value={date}
               mode="date"
               display="spinner"
-              onChange={(_, selectedDate) => selectedDate && setDate(selectedDate)}
+              onChange={(_, selectedDate) =>
+                selectedDate && setDate(selectedDate)
+              }
               style={styles.datePicker}
               textColor="#fff"
             />
           )}
         </View>
 
-        {/* Info */}
         <Text style={styles.info}>
-          We use this to generate your AstroInsights wheel. We never share or sell your data.
+          We use this to generate your AstroInsights wheel. We never share or
+          sell your data.
         </Text>
 
-        {/* Next */}
         <TouchableOpacity
+          disabled={submitting}
           onPress={async () => {
             try {
-              const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ2NTU3NDM0LCJpYXQiOjE3NDY1NTM4MzQsImp0aSI6Ijc2MDMwZDcxZjNhYTQ0ZThiYWE1NDczZTQ4YmJiYjk1IiwidXNlcl9pZCI6MjZ9.G_poBh0Ia5Rcn2xILxNFE5n781xli1jGsKGDgtKLXDY';
+              setSubmitting(true);
 
-              // Format date to ISO string, e.g. "1990-12-31"
-              const formattedDate = date.toISOString().split('T')[0];
+              const formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD
+              await mergeOnboardingDraft({ birth_date: formattedDate });
 
-              const response = await fetch('https://0806-78-83-190-19.ngrok-free.app/authentication/on_boarding/', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                  birth_date: formattedDate,
-                }),
-              });
-
-              const data = await response.json();
-
-              if (!response.ok) {
-                console.log('Server error:', data);
-                throw new Error(data?.message || 'Failed to submit birth date');
-              }
-
-              console.log('✅ Birth date submitted successfully:', data);
               router.push('/onboarding/time');
-            } catch (error) {
-              console.log('❌ Error submitting birth date:', error.message);
+            } catch (error: any) {
+              console.log(
+                '❌ Error saving birth date:',
+                error?.message ?? String(error)
+              );
+            } finally {
+              setSubmitting(false);
             }
           }}
         >
@@ -109,12 +102,13 @@ export default function BirthdayScreen() {
             colors={['rgba(178, 131, 237, 1)', 'rgba(87, 124, 251, 1)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.nextButton}
+            style={[styles.nextButton, submitting && styles.nextButtonDisabled]}
           >
-            <Text style={styles.nextText}>Next</Text>
+            <Text style={styles.nextText}>
+              {submitting ? 'Saving...' : 'Next'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
-
       </View>
     </View>
   );
@@ -219,6 +213,10 @@ const styles = StyleSheet.create({
     height: 60,
     alignItems: 'center',
     justifyContent: 'center',
+    opacity: 1,
+  },
+  nextButtonDisabled: {
+    opacity: 0.7,
   },
   nextText: {
     color: '#fff',

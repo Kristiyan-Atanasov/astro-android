@@ -1,74 +1,122 @@
-import React, { useState } from 'react';
+// app/onboarding/time.tsx
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
   TouchableOpacity,
-  Platform,
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
+import { mergeOnboardingDraft } from '../../services/onboardingDraft';
 
 const backgroundImg = require('../../assets/images/background.png');
 const starsImg = require('../../assets/images/stars.png');
+
+function to24Hour(hour12Str: string, minuteStr: string, period: 'AM' | 'PM') {
+  const h12 = Math.max(1, Math.min(12, parseInt(hour12Str, 10) || 12));
+  const m = Math.max(0, Math.min(59, parseInt(minuteStr, 10) || 0));
+
+  // 12 AM -> 0, 12 PM -> 12, 1..11 PM -> +12
+  let h24 = h12 % 12;
+  if (period === 'PM') h24 += 12;
+
+  return { birth_hour: h24, birth_minute: m };
+}
 
 export default function TimeScreen() {
   const router = useRouter();
   const [hour, setHour] = useState('8');
   const [minute, setMinute] = useState('00');
-  const [period, setPeriod] = useState('PM');
+  const [period, setPeriod] = useState<'AM' | 'PM'>('PM');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleNext = () => {
-    router.push('/onboarding/location');
+  const computed = useMemo(
+    () => to24Hour(hour, minute, period),
+    [hour, minute, period]
+  );
+
+  const handleNext = async () => {
+    try {
+      setSubmitting(true);
+
+      await mergeOnboardingDraft({
+        birth_hour: computed.birth_hour,
+        birth_minute: computed.birth_minute,
+      });
+
+      router.push('/onboarding/location');
+    } catch (error: any) {
+      console.log('❌ Error saving birth time:', error?.message ?? String(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    try {
+      setSubmitting(true);
+
+      // If user doesn't know, store nulls (only if your final submit allows nulls).
+      // Alternatively remove these lines and just navigate without saving.
+      await mergeOnboardingDraft({
+        birth_hour: null,
+        birth_minute: null,
+      });
+
+      router.push('/onboarding/location');
+    } catch (error: any) {
+      console.log('❌ Error skipping birth time:', error?.message ?? String(error));
+      router.push('/onboarding/location');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <View style={styles.container}>
-      {/* Background */}
       <Image source={backgroundImg} style={styles.bg} resizeMode="cover" />
       <Image source={starsImg} style={styles.stars} resizeMode="cover" />
 
       <View style={styles.content}>
-        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            disabled={submitting}
+          >
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.title}>Birth of Time</Text>
         </View>
 
-        {/* Progress Bar */}
         <View style={styles.progressWrapper}>
           <View style={styles.progressRow}>
             <View style={styles.progressBar}>
               {Array.from({ length: 5 }).map((_, i) => (
-                <View
-                  key={i}
-                  style={[styles.step, i <= 2 && styles.activeStep]} // 3rd step (index 2)
-                />
+                <View key={i} style={[styles.step, i <= 2 && styles.activeStep]} />
               ))}
             </View>
             <Text style={styles.progressText}>60%</Text>
           </View>
         </View>
 
-        {/* Description */}
         <Text style={styles.description}>
-          Time is important for determining your houses,{"\n"}
+          Time is important for determining your houses,{'\n'}
           rising sign, and exact moon position.
         </Text>
 
-        {/* Time Pickers */}
         <View style={styles.pickerRow}>
           <Picker
             selectedValue={hour}
             style={styles.picker}
             onValueChange={setHour}
             itemStyle={styles.pickerItem}
+            enabled={!submitting}
           >
             {Array.from({ length: 12 }, (_, i) => {
               const val = (i + 1).toString();
@@ -81,41 +129,45 @@ export default function TimeScreen() {
             style={styles.picker}
             onValueChange={setMinute}
             itemStyle={styles.pickerItem}
+            enabled={!submitting}
           >
-            {['00', '01', '02', '03', '04', '05', '10', '15', '30', '45', '59'].map((val) => (
-              <Picker.Item key={val} label={val} value={val} />
-            ))}
+            {['00', '01', '02', '03', '04', '05', '10', '15', '30', '45', '59'].map(
+              (val) => (
+                <Picker.Item key={val} label={val} value={val} />
+              )
+            )}
           </Picker>
 
           <Picker
             selectedValue={period}
             style={styles.picker}
-            onValueChange={setPeriod}
+            onValueChange={(v) => setPeriod(v)}
             itemStyle={styles.pickerItem}
+            enabled={!submitting}
           >
             <Picker.Item label="AM" value="AM" />
             <Picker.Item label="PM" value="PM" />
           </Picker>
         </View>
 
-        {/* Info */}
         <Text style={styles.info}>
-          We use this to generate your AstroInsights{"\n"}wheel. We never share or sell your data.
+          We use this to generate your AstroInsights{'\n'}
+          wheel. We never share or sell your data.
         </Text>
 
-        {/* Buttons */}
         <View style={styles.buttonRow}>
-          <TouchableOpacity>
+          <TouchableOpacity disabled={submitting} onPress={handleSkip}>
             <Text style={styles.skipText}>I don’t know</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleNext}>
+
+          <TouchableOpacity disabled={submitting} onPress={handleNext}>
             <LinearGradient
               colors={['rgba(178, 131, 237, 1)', 'rgba(87, 124, 251, 1)']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.nextButton}
+              style={[styles.nextButton, submitting && styles.nextButtonDisabled]}
             >
-              <Text style={styles.nextText}>Next</Text>
+              <Text style={styles.nextText}>{submitting ? 'Saving...' : 'Next'}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -236,6 +288,10 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
+    opacity: 1,
+  },
+  nextButtonDisabled: {
+    opacity: 0.7,
   },
   nextText: {
     color: '#fff',

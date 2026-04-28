@@ -4,7 +4,7 @@
     "slug": "astroinsights",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "myapp",
+    "scheme": "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -14,12 +14,22 @@
       "infoPlist": {
         "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
         "SKAdNetworkItems": [
-          { "SKAdNetworkIdentifier": "v9wttpbfk9.skadnetwork" },
-          { "SKAdNetworkIdentifier": "n38lu8286q.skadnetwork" },
-          { "SKAdNetworkIdentifier": "v9wttpbfk9.skadnetwork" },
-          { "SKAdNetworkIdentifier": "n38lu8286q.skadnetwork" }
+          {
+            "SKAdNetworkIdentifier": "v9wttpbfk9.skadnetwork"
+          },
+          {
+            "SKAdNetworkIdentifier": "n38lu8286q.skadnetwork"
+          }
         ],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "Google Sign-In",
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e"
+            ]
+          }
+        ]
       }
     },
     "android": {},
@@ -27,11 +37,6 @@
       "bundler": "metro",
       "output": "static"
     },
-    "plugins": [
-      "expo-router",
-      "expo-facebook",
-      "expo-secure-store"
-    ],
     "experiments": {
       "typedRoutes": true
     },
@@ -40,11 +45,20 @@
         "projectId": "5b385fcd-cb4c-4770-b433-665e4c0f0cdf"
       }
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/5b385fcd-cb4c-4770-b433-665e4c0f0cdf"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e"
+        }
+      ],
+      "expo-font"
+    ]
   }
 }

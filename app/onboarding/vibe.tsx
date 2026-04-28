@@ -1,4 +1,5 @@
-import React from 'react';
+// app/onboarding/vibe.tsx
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,48 +7,99 @@ import {
   Image,
   Dimensions,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+
+import { postOnboarding } from '../../services/api';
+import { getOnboardingDraft, clearOnboardingDraft } from '../../services/onboardingDraft';
 
 const vibeBg = require('../../assets/images/vibe-bg.png');
 const vibeIcon = require('../../assets/images/vibe-icon.png');
 
 export default function VibeScreen() {
   const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+
+  const onContinue = async () => {
+    try {
+      setSubmitting(true);
+
+      const draft = await getOnboardingDraft();
+      console.log('🧾 onboarding draft:', draft);
+
+      // If name isn’t in the draft, final submit will fail with {"name":["This field is required."]}
+      if (!draft?.name) {
+        Alert.alert('Missing info', 'Please enter your name first.');
+        // If your name screen path differs, change this:
+        // router.push('/onboarding/name');
+        return;
+      }
+
+      const payload = {
+        name: String(draft.name),
+        birth_date: draft.birth_date ? String(draft.birth_date) : null,
+        birth_hour: draft.birth_hour === undefined ? null : draft.birth_hour,
+        birth_minute: draft.birth_minute === undefined ? null : draft.birth_minute,
+        birth_city: draft.birth_city ? String(draft.birth_city) : null,
+        social_acc_instagram: draft.social_acc_instagram ? String(draft.social_acc_instagram) : '',
+        social_acc_facebook: draft.social_acc_facebook ? String(draft.social_acc_facebook) : '',
+        user_settings: draft.user_settings ?? {
+          allow_notifications: true,
+          language: 'ENGLISH',
+          reminder_count: 1,
+          reminder_time_start: '09:00',
+          reminder_time_end: '21:00',
+        },
+      };
+
+      const res = await postOnboarding(payload);
+      console.log('✅ onboarding success response:', res);
+
+      await clearOnboardingDraft();
+      router.replace('/home');
+    } catch (e: any) {
+      console.log('❌ onboarding submit error:', e?.message ?? String(e));
+      Alert.alert('Onboarding failed', e?.message ?? String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* Background */}
       <Image source={vibeBg} style={styles.bg} resizeMode="cover" />
 
-      {/* Card */}
-      <View style={styles.card}>
-        <View style={styles.cardTitleRow}>
-          <Image source={vibeIcon} style={styles.vibeIcon} />
-          <Text style={styles.cardTitle}>Your daily vibe</Text>
+      {/* Shadow wrapper (solid bg to avoid iOS shadow warning) */}
+      <View style={styles.cardShadow}>
+        {/* Inner translucent card (no shadow here) */}
+        <View style={styles.card}>
+          <View style={styles.cardTitleRow}>
+            <Image source={vibeIcon} style={styles.vibeIcon} />
+            <Text style={styles.cardTitle}>Your daily vibe</Text>
+          </View>
+
+          <Text style={styles.cardQuote}>
+            “Real liberation comes not from glossing{'\n'}
+            over or repressing painful states of feeling,{'\n'}
+            but only from experiencing them to the full.”
+          </Text>
+
+          <View style={styles.cardBar} />
+          <View style={styles.cardBar} />
+          <View style={styles.cardBar} />
         </View>
-
-        <Text style={styles.cardQuote}>
-          “Real liberation comes not from glossing{'\n'}
-          over or repressing painful states of feeling,{'\n'}
-          but only from experiencing them to the full.”
-        </Text>
-
-        <View style={styles.cardBar} />
-        <View style={styles.cardBar} />
-        <View style={styles.cardBar} />
       </View>
 
-      {/* Continue Button */}
-      <TouchableOpacity onPress={() => router.push('/home')}>
+      <TouchableOpacity disabled={submitting} onPress={onContinue}>
         <LinearGradient
           colors={['rgba(87, 102, 255, 1)', 'rgba(178, 131, 237, 1)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
-          style={styles.button}
+          style={[styles.button, submitting && styles.buttonDisabled]}
         >
-          <Text style={styles.buttonText}>Continue</Text>
+          <Text style={styles.buttonText}>{submitting ? 'Submitting...' : 'Continue'}</Text>
         </LinearGradient>
       </TouchableOpacity>
     </View>
@@ -73,19 +125,28 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: -1,
   },
-  card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 20,
+
+  // Solid background + shadow lives here (prevents iOS warning) [web:640][web:647]
+  cardShadow: {
     width: '100%',
+    borderRadius: 16,
+    backgroundColor: '#0B0F1A', // solid
     marginBottom: 40,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 10,
   },
+
+  // Translucent overlay lives here (no shadow)
+  card: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 20,
+  },
+
   cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -117,6 +178,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#00AEEF',
     alignSelf: 'center',
   },
+
   button: {
     height: 60,
     width: width - 60,
@@ -124,6 +186,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 20,
+    opacity: 1,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   buttonText: {
     color: '#fff',

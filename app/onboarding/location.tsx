@@ -1,3 +1,4 @@
+// app/onboarding/location.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -13,6 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { mergeOnboardingDraft } from '../../services/onboardingDraft';
 
 const backgroundImg = require('../../assets/images/background.png');
 const starsImg = require('../../assets/images/stars.png');
@@ -20,68 +22,84 @@ const starsImg = require('../../assets/images/stars.png');
 export default function LocationScreen() {
   const router = useRouter();
   const [location, setLocation] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Background */}
       <Image source={backgroundImg} style={styles.bg} resizeMode="cover" />
       <Image source={starsImg} style={styles.stars} resizeMode="cover" />
 
       <View style={styles.content}>
-        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            disabled={submitting}
+          >
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.title}>Birth Location</Text>
         </View>
 
-        {/* Progress Bar */}
         <View style={styles.progressWrapper}>
           <View style={styles.progressRow}>
             <View style={styles.progressBar}>
               {Array.from({ length: 5 }).map((_, i) => (
-                <View
-                  key={i}
-                  style={[styles.step, i <= 3 && styles.activeStep]} // 4th step
-                />
+                <View key={i} style={[styles.step, i <= 3 && styles.activeStep]} />
               ))}
             </View>
             <Text style={styles.progressText}>80%</Text>
           </View>
         </View>
 
-        {/* Description */}
         <Text style={styles.description}>
           Location is important for calculating time zones and precise coordinates.
         </Text>
 
-        {/* Input */}
         <TextInput
           value={location}
           onChangeText={setLocation}
           placeholder="Enter your birth location"
           placeholderTextColor="rgba(255, 255, 255, 0.4)"
           style={styles.input}
+          editable={!submitting}
         />
 
-        {/* Info */}
         <Text style={styles.info}>
           We use this to generate your AstroInsights wheel. We never share or sell your data.
         </Text>
 
-        {/* Next Button */}
-        <TouchableOpacity onPress={() => router.push('/onboarding/socials')}>
+        <TouchableOpacity
+          disabled={submitting || !location.trim()}
+          onPress={async () => {
+            try {
+              setSubmitting(true);
+
+              await mergeOnboardingDraft({
+                birth_city: location.trim(),
+              });
+
+              router.push('/onboarding/socials');
+            } catch (error: any) {
+              console.log('❌ Error saving birth city:', error?.message ?? String(error));
+            } finally {
+              setSubmitting(false);
+            }
+          }}
+        >
           <LinearGradient
             colors={['rgba(178, 131, 237, 1)', 'rgba(87, 124, 251, 1)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.nextButton}
+            style={[
+              styles.nextButton,
+              (submitting || !location.trim()) && styles.nextButtonDisabled,
+            ]}
           >
-            <Text style={styles.nextText}>Next</Text>
+            <Text style={styles.nextText}>{submitting ? 'Saving...' : 'Next'}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -192,6 +210,10 @@ const styles = StyleSheet.create({
     height: 60,
     alignItems: 'center',
     justifyContent: 'center',
+    opacity: 1,
+  },
+  nextButtonDisabled: {
+    opacity: 0.7,
   },
   nextText: {
     color: '#fff',

@@ -1,3 +1,4 @@
+// app/onboarding/name.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -13,7 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import axios from 'axios';
+import { mergeOnboardingDraft } from '../../services/onboardingDraft';
 
 const backgroundImg = require('../../assets/images/background.png');
 const starsImg = require('../../assets/images/stars.png');
@@ -21,27 +22,28 @@ const starsImg = require('../../assets/images/stars.png');
 export default function NameScreen() {
   const router = useRouter();
   const [name, setName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Background Layers */}
       <Image source={backgroundImg} style={styles.bg} resizeMode="cover" />
       <Image source={starsImg} style={styles.stars} resizeMode="cover" />
 
-      {/* Main Content */}
       <View style={styles.content}>
-        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            disabled={submitting}
+          >
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.title}>Your Name</Text>
         </View>
 
-        {/* Progress Bar with Percentage */}
         <View style={styles.progressWrapper}>
           <View style={styles.progressRow}>
             <View style={styles.progressBar}>
@@ -53,52 +55,39 @@ export default function NameScreen() {
           </View>
         </View>
 
-        {/* Description */}
         <Text style={styles.description}>
           Tell us about yourself so that we can make a more personalised prediction.
         </Text>
 
-        {/* Input */}
         <TextInput
           value={name}
           onChangeText={setName}
           placeholder="Enter your name"
           placeholderTextColor="rgba(255, 255, 255, 0.4)"
           style={styles.input}
+          editable={!submitting}
+          autoCorrect={false}
+          autoCapitalize="words"
+          returnKeyType="done"
         />
 
-        {/* Info */}
         <Text style={styles.info}>
           We use this to generate your AstroInsights wheel. We never share or sell your data.
         </Text>
 
-        {/* Next Button */}
         <TouchableOpacity
+          disabled={submitting || !name.trim()}
           onPress={async () => {
             try {
-              // ✅ Hardcoded token: single line, plain string, no line breaks
-              const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ2NTU3NDM0LCJpYXQiOjE3NDY1NTM4MzQsImp0aSI6Ijc2MDMwZDcxZjNhYTQ0ZThiYWE1NDczZTQ4YmJiYjk1IiwidXNlcl9pZCI6MjZ9.G_poBh0Ia5Rcn2xILxNFE5n781xli1jGsKGDgtKLXDY';
+              setSubmitting(true);
 
-              const response = await fetch('https://0806-78-83-190-19.ngrok-free.app/authentication/on_boarding/', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({ name }),
-              });
+              await mergeOnboardingDraft({ name: name.trim() });
 
-              const data = await response.json();
-
-              if (!response.ok) {
-                console.log('Server error:', data);
-                throw new Error(data?.message || 'Failed to submit name');
-              }
-
-              console.log('✅ Name submitted successfully:', data);
               router.push('/onboarding/birthday');
-            } catch (error) {
-              console.log('❌ Error submitting name:', error.message);
+            } catch (error: any) {
+              console.log('❌ Error saving name:', error?.message ?? String(error));
+            } finally {
+              setSubmitting(false);
             }
           }}
         >
@@ -106,14 +95,14 @@ export default function NameScreen() {
             colors={['rgba(178, 131, 237, 1)', 'rgba(87, 124, 251, 1)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.nextButton}
+            style={[
+              styles.nextButton,
+              (submitting || !name.trim()) && styles.nextButtonDisabled,
+            ]}
           >
-            <Text style={styles.nextText}>Next</Text>
+            <Text style={styles.nextText}>{submitting ? 'Saving...' : 'Next'}</Text>
           </LinearGradient>
         </TouchableOpacity>
-
-
-
       </View>
     </KeyboardAvoidingView>
   );
@@ -122,9 +111,7 @@ export default function NameScreen() {
 const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   bg: {
     position: 'absolute',
     width,
@@ -165,9 +152,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'CooperLtBT-Bold',
   },
-  progressWrapper: {
-    marginBottom: 30,
-  },
+  progressWrapper: { marginBottom: 30 },
   progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -185,13 +170,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#333',
     marginRight: 6,
   },
-  activeStep: {
-    backgroundColor: 'rgba(87, 124, 251, 1)',
-  },
-  progressText: {
-    fontSize: 12,
-    color: '#aaa',
-  },
+  activeStep: { backgroundColor: 'rgba(87, 124, 251, 1)' },
+  progressText: { fontSize: 12, color: '#aaa' },
   description: {
     textAlign: 'center',
     color: 'rgba(200, 200, 200, 1)',
@@ -209,8 +189,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     fontFamily: 'SFProDisplay-Regular',
     backgroundColor: 'rgba(57, 102, 255, 0.05)',
-    fontSize: 20, // ✅ updated font size
-  },  
+    fontSize: 20,
+  },
   info: {
     fontSize: 12,
     color: '#888',
@@ -223,6 +203,10 @@ const styles = StyleSheet.create({
     height: 60,
     alignItems: 'center',
     justifyContent: 'center',
+    opacity: 1,
+  },
+  nextButtonDisabled: {
+    opacity: 0.6,
   },
   nextText: {
     color: '#fff',

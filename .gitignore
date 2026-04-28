@@ -17,6 +17,20 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# iOS build artifacts
+ios/Pods/
+ios/build/
+ios/DerivedData/
+ios/.xcode.env.local
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Built app bundles / archives
+*.app/
+*.ipa
+*.tar.gz
+
 # Metro
 .metro-health-check*
 

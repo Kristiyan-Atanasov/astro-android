@@ -1,3 +1,4 @@
+// app/onboarding/socials.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -11,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { mergeOnboardingDraft } from '../../services/onboardingDraft';
 
 const bgSocials = require('../../assets/images/bg-socials.png');
 
@@ -18,70 +20,103 @@ export default function SocialScreen() {
   const router = useRouter();
   const [facebook, setFacebook] = useState('');
   const [instagram, setInstagram] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const saveAndNext = async () => {
+    try {
+      setSubmitting(true);
+
+      const fb = facebook.trim();
+      const ig = instagram.trim();
+
+      // Save even if empty -> store empty strings, or store nulls if you prefer.
+      // Keeping empty strings avoids "undefined" in your final payload.
+      await mergeOnboardingDraft({
+        social_acc_facebook: fb || '',
+        social_acc_instagram: ig || '',
+      });
+
+      router.push('/onboarding/vibe');
+    } catch (error: any) {
+      console.log('❌ Error saving socials:', error?.message ?? String(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* Background */}
       <Image source={bgSocials} style={styles.bg} resizeMode="cover" />
 
-      {/* Back button + Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+          disabled={submitting}
+        >
           <Ionicons name="arrow-back" size={20} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.title}>Add Social Accounts</Text>
       </View>
 
-      {/* Subtitle */}
       <Text style={styles.subtitle}>
         Connect with friends and make new contacts through the app.
       </Text>
 
-      {/* Input Fields */}
       <View style={styles.inputWrapper}>
         <View style={styles.inputRow}>
-          <Image source={require('../../assets/images/signin-graphic.png')} style={styles.icon} />
+          <Image
+            source={require('../../assets/images/signin-graphic.png')}
+            style={styles.icon}
+          />
           <TextInput
             style={styles.input}
-            placeholder="monika.stoyanova1993"
+            placeholder="facebook.username"
             placeholderTextColor="rgba(255, 255, 255, 0.4)"
             value={facebook}
             onChangeText={setFacebook}
+            editable={!submitting}
+            autoCapitalize="none"
+            autoCorrect={false}
           />
         </View>
 
         <View style={styles.inputRow}>
-          <Image source={require('../../assets/images/signin-graphic.png')} style={styles.icon} />
+          <Image
+            source={require('../../assets/images/signin-graphic.png')}
+            style={styles.icon}
+          />
           <TextInput
             style={styles.input}
-            placeholder="souljourney.1993"
+            placeholder="instagram.username"
             placeholderTextColor="rgba(255, 255, 255, 0.4)"
             value={instagram}
             onChangeText={setInstagram}
+            editable={!submitting}
+            autoCapitalize="none"
+            autoCorrect={false}
           />
         </View>
       </View>
 
-      {/* Info Text */}
       <Text style={styles.infoText}>
-        Adding your social accounts will make people on the app connect with you through them if you allow public.
+        Adding your social accounts will make people on the app connect with you
+        through them if you allow public.
       </Text>
 
-      {/* Bottom Buttons */}
       <View style={styles.bottomButtons}>
-        <TouchableOpacity onPress={() => router.push('/onboarding/vibe')}>
+        <TouchableOpacity disabled={submitting} onPress={saveAndNext}>
           <Text style={styles.skip}>Skip</Text>
         </TouchableOpacity>
 
-
-        <TouchableOpacity onPress={() => router.push('/home')}>
+        <TouchableOpacity disabled={submitting} onPress={saveAndNext}>
           <LinearGradient
             colors={['rgba(87, 102, 255, 1)', 'rgba(178, 131, 237, 1)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.nextButton}
+            style={[styles.nextButton, submitting && styles.nextButtonDisabled]}
           >
-            <Text style={styles.nextText}>Next</Text>
+            <Text style={styles.nextText}>{submitting ? 'Saving...' : 'Next'}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -179,6 +214,10 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
+    opacity: 1,
+  },
+  nextButtonDisabled: {
+    opacity: 0.7,
   },
   nextText: {
     color: '#fff',
