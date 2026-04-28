@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mergeOnboardingDraft } from '../../services/onboardingDraft';
+import { patchUserProfile } from '../../services/api';
 import OnboardingHeader from '../../components/OnboardingHeader';
 
 const bgSocials = require('../../assets/images/bg-socials.png');
@@ -29,12 +30,22 @@ export default function SocialScreen() {
       const fb = facebook.trim();
       const ig = instagram.trim();
 
-      // Save even if empty -> store empty strings, or store nulls if you prefer.
-      // Keeping empty strings avoids "undefined" in your final payload.
       await mergeOnboardingDraft({
         social_acc_facebook: fb || '',
         social_acc_instagram: ig || '',
       });
+
+      try {
+        await patchUserProfile({
+          social_acc_facebook: fb || '',
+          social_acc_instagram: ig || '',
+        });
+      } catch (patchError: any) {
+        console.log(
+          'ℹ️ Socials patch skipped (profile may not exist yet):',
+          patchError?.message ?? String(patchError)
+        );
+      }
 
       router.push('/onboarding/vibe');
     } catch (error: any) {

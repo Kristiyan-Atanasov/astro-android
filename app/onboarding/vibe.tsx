@@ -1,5 +1,5 @@
 // app/onboarding/vibe.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { postOnboarding } from '../../services/api';
+import { postOnboarding, getDailyVibe } from '../../services/api';
 import { getOnboardingDraft, clearOnboardingDraft } from '../../services/onboardingDraft';
 
 const vibeBg = require('../../assets/images/vibe-bg.png');
@@ -21,6 +21,26 @@ const vibeIcon = require('../../assets/images/vibe-icon.png');
 export default function VibeScreen() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [dailyVibe, setDailyVibe] = useState<string>('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const vibe = await getDailyVibe();
+        if (cancelled) return;
+        const text = (vibe as any)?.text;
+        if (typeof text === 'string' && text.trim().length > 0) {
+          setDailyVibe(text.trim());
+        }
+      } catch (e) {
+        console.log('Vibe load failed:', (e as any)?.message ?? String(e));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onContinue = async () => {
     try {
@@ -81,9 +101,9 @@ export default function VibeScreen() {
           </View>
 
           <Text style={styles.cardQuote}>
-            “Real liberation comes not from glossing{'\n'}
-            over or repressing painful states of feeling,{'\n'}
-            but only from experiencing them to the full.”
+            {dailyVibe
+              ? `“${dailyVibe}”`
+              : '“Loading your daily vibe…”'}
           </Text>
 
           <View style={styles.cardBar} />

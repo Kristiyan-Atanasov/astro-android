@@ -236,7 +236,7 @@ export default function HomeScreen() {
                 { label: 'Home', icon: icons.home, route: '/home' as const, replace: true },
                 { label: 'Community', icon: icons.community },
                 { label: 'My profile', icon: icons.profile },
-                { label: 'Edit Profile', icon: icons.edit },
+                { label: 'Edit Profile', icon: icons.edit, route: '/edit-profile' as const },
                 { label: 'Notifications', icon: icons.notifications },
                 { label: 'Subscriptions', icon: icons.subscriptions },
                 { label: 'Language', icon: icons.language },

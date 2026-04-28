@@ -64,6 +64,46 @@ export async function getUserProfile() {
   return data || null;
 }
 
+export async function patchUserProfile(patch) {
+  const token = await getAccessToken();
+  if (!token) throw new Error('Missing access token. Please sign in again.');
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/authentication/user_profile/`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(patch ?? {}),
+    });
+  } catch (e) {
+    console.log('🌐 user_profile patch network error:', e?.message ?? String(e));
+    throw new Error('Network request failed');
+  }
+
+  console.log('🌐 user_profile patch status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await clearAccessToken();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  const { raw, data } = await readResponse(res);
+
+  if (!res.ok) {
+    throw new Error(
+      data?.message ||
+        data?.detail ||
+        raw ||
+        `Profile update failed (${res.status})`
+    );
+  }
+
+  return data;
+}
+
 export async function getDailyVibe() {
   const token = await getAccessToken();
   if (!token) return null;
