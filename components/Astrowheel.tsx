@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
-  View,
+  Animated,
+  Easing,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -36,6 +37,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
 ];
 
 const ASPECT = SVG_VIEWBOX_H / SVG_VIEWBOX_W;
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 const SIGN_RELATIVE_POSITIONS: Record<string, { x: number; y: number }> = {
   ARIES: { x: 284.44 / SVG_VIEWBOX_W, y: 141.37 / SVG_VIEWBOX_H },
@@ -59,6 +61,9 @@ interface AstrowheelProps {
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const ROLL_DURATION = 2400;
+const FADE_DURATION = 700;
+const FADE_DELAY = 2000;
 
 export default function Astrowheel({
   size = SCREEN_WIDTH - 48,
@@ -69,8 +74,53 @@ export default function Astrowheel({
   const height = size * ASPECT;
   const tapSize = Math.round(size * 0.13);
 
+  const rollProgress = useRef(new Animated.Value(0)).current;
+  const signsOpacity = useRef(new Animated.Value(0)).current;
+  const initialPlayed = useRef(false);
+
+  // Roll the wheel in on mount.
+  useEffect(() => {
+    rollProgress.setValue(0);
+    Animated.timing(rollProgress, {
+      toValue: 1,
+      duration: ROLL_DURATION,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [rollProgress]);
+
+  // Fade the active signs to gradient on mount and whenever active set changes.
+  const activeKey = useMemo(
+    () => Array.from(activeSet).sort().join(','),
+    [activeSet],
+  );
+
+  useEffect(() => {
+    signsOpacity.setValue(0);
+    const delay = initialPlayed.current ? 0 : FADE_DELAY;
+    Animated.timing(signsOpacity, {
+      toValue: 1,
+      duration: FADE_DURATION,
+      delay,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start(() => {
+      initialPlayed.current = true;
+    });
+  }, [activeKey, signsOpacity]);
+
+  const wheelRotate = rollProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['-360deg', '0deg'],
+  });
+
   return (
-    <View style={[styles.container, { width, height }]}>
+    <Animated.View
+      style={[
+        styles.container,
+        { width, height, transform: [{ rotate: wheelRotate }] },
+      ]}
+    >
       <WheelSvg width={width} height={height} />
 
       <Svg
@@ -90,12 +140,21 @@ export default function Astrowheel({
         {ZODIAC_SIGNS.map((sign) => {
           const paths = ZODIAC_SIGN_PATHS[sign.code];
           if (!paths) return null;
-          const fill = activeSet.has(sign.code) ? 'url(#signActive)' : '#FFFFFF';
+          const active = activeSet.has(sign.code);
           return (
             <React.Fragment key={`sym-${sign.code}`}>
               {paths.map((d, i) => (
-                <Path key={i} d={d} fill={fill} />
+                <Path key={`w-${i}`} d={d} fill="#FFFFFF" />
               ))}
+              {active &&
+                paths.map((d, i) => (
+                  <AnimatedPath
+                    key={`g-${i}`}
+                    d={d}
+                    fill="url(#signActive)"
+                    opacity={signsOpacity}
+                  />
+                ))}
             </React.Fragment>
           );
         })}
@@ -127,7 +186,7 @@ export default function Astrowheel({
           />
         );
       })}
-    </View>
+    </Animated.View>
   );
 }
 
