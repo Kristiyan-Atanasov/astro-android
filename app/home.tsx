@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Image,
+  ImageBackground,
   Dimensions,
   TouchableOpacity,
   Animated,
@@ -12,6 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -25,10 +27,29 @@ import { clearOnboardingDraft } from '../services/onboardingDraft';
 import { setBiometricEnabled } from '../services/biometric';
 import Astrowheel, { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
 
+const KEYS_GRID_ORDER = [
+  'ARIES', 'TAURUS', 'GEMINI',
+  'LEO', 'VIRGO', 'LIBRA',
+  'SAGITTARIUS', 'CAPRICORN', 'AQUARIUS',
+  'CANCER', 'SCORPIO', 'PISCES',
+] as const;
+
+const ZODIAC_BY_CODE: Record<string, ZodiacSign> = ZODIAC_SIGNS.reduce(
+  (acc, sign) => {
+    acc[sign.code] = sign;
+    return acc;
+  },
+  {} as Record<string, ZodiacSign>,
+);
+
+const KEYS_GRID_SIGNS: ZodiacSign[] = KEYS_GRID_ORDER
+  .map((code) => ZODIAC_BY_CODE[code])
+  .filter((s): s is ZodiacSign => !!s);
+
 const homeBg = require('../assets/images/home-bg.png');
 const vibeIcon = require('../assets/images/vibe-icon.png');
 const menuIcon = require('../assets/images/burger.png');
-const upgradeBg = require('../assets/images/subscription-card.png');
+const subBg = require('../assets/images/sub-background.png');
 
 // Icons
 const icons = {
@@ -42,7 +63,6 @@ const icons = {
   terms: require('../assets/icons/terms.png'),
   faq: require('../assets/icons/faq.png'),
   logout: require('../assets/icons/logout.png'),
-  arrow: require('../assets/icons/arrow-right.png'),
 };
 
 export default function HomeScreen() {
@@ -50,6 +70,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [menuVisible, setMenuVisible] = useState(false);
   const [userName, setUserName] = useState<string>('');
+  const [language, setLanguage] = useState<string>('English');
   const [dailyVibe, setDailyVibe] = useState<string>('');
   const [activeArchetypes, setActiveArchetypes] = useState<Set<string>>(new Set());
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').width)).current;
@@ -71,6 +92,9 @@ export default function HomeScreen() {
         if (typeof name === 'string' && name.trim().length > 0) {
           setUserName(name.trim().split(/\s+/)[0]);
         }
+        const langCode = (profile as any)?.user_settings?.language;
+        if (langCode === 'ENGLISH') setLanguage('English');
+        else if (langCode === 'BULGARIAN') setLanguage('Bulgarian');
       } catch (e) {
         console.log('Profile load failed:', (e as any)?.message ?? String(e));
       }
@@ -221,20 +245,21 @@ export default function HomeScreen() {
           Each person has 12 archetypes in their birth chart, but some are weak and others are well positioned.
         </Text>
         <View style={styles.symbolGrid}>
-          {ZODIAC_SIGNS.map((sign) => {
+          {KEYS_GRID_SIGNS.map((sign) => {
             const active = activeArchetypes.has(sign.code);
             if (active) {
               return (
                 <TouchableOpacity
                   key={sign.code}
-                  style={styles.symbolBox}
-                  activeOpacity={0.8}
+                  style={styles.symbolBoxActiveWrap}
+                  activeOpacity={0.85}
                   onPress={() => goToArchetype(sign)}
                 >
                   <LinearGradient
-                    colors={['rgba(178, 131, 237, 1)', 'rgba(87, 124, 251, 1)']}
+                    colors={['#577CFB', '#B283ED']}
+                    locations={[0, 0.9451]}
                     start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
+                    end={{ x: 1, y: 0 }}
                     style={styles.symbolBoxActive}
                   >
                     <Image source={sign.icon} style={styles.symbolImageActive} />
@@ -244,7 +269,7 @@ export default function HomeScreen() {
             }
             return (
               <View key={sign.code} style={styles.symbolBox}>
-                <Image source={sign.icon} style={[styles.symbolImage, styles.symbolImageInactive]} />
+                <Image source={sign.icon} style={styles.symbolImage} />
               </View>
             );
           })}
@@ -281,12 +306,23 @@ export default function HomeScreen() {
         <>
           <Pressable style={styles.menuOverlay} onPress={closeMenu} />
           <Animated.View style={[styles.menuDrawer, { transform: [{ translateX: slideAnim }] }]}>
-            <ScrollView contentContainerStyle={styles.menuContent} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              contentContainerStyle={[
+                styles.menuContent,
+                { paddingBottom: insets.bottom + 24 },
+              ]}
+              showsVerticalScrollIndicator={false}
+            >
               {/* Header */}
               <View style={styles.menuHeader}>
                 <Text style={styles.menuTitle}>Menu</Text>
-                <TouchableOpacity onPress={closeMenu}>
-                  <Text style={styles.menuClose}>×</Text>
+                <TouchableOpacity
+                  onPress={closeMenu}
+                  style={styles.menuCloseButton}
+                  hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={22} color="#fff" />
                 </TouchableOpacity>
               </View>
 
@@ -297,8 +333,29 @@ export default function HomeScreen() {
                   router.push('/subscription');
                 }}
                 style={styles.subscriptionCard}
+                activeOpacity={0.9}
               >
-                <Image source={upgradeBg} style={styles.subscriptionImage} resizeMode="cover" />
+                <ImageBackground
+                  source={subBg}
+                  style={styles.subscriptionBg}
+                  imageStyle={styles.subscriptionBgImage}
+                >
+                  <View style={styles.subscriptionContent}>
+                    <View>
+                      <Text style={styles.subscriptionLabel}>Subscription</Text>
+                      <Text style={styles.subscriptionPlan}>Free</Text>
+                    </View>
+                    <LinearGradient
+                      colors={['rgba(87, 124, 251, 1)', 'rgba(178, 131, 237, 1)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.upgradeButton}
+                    >
+                      <Ionicons name="diamond-outline" size={14} color="#fff" />
+                      <Text style={styles.upgradeText}>Upgrade</Text>
+                    </LinearGradient>
+                  </View>
+                </ImageBackground>
               </TouchableOpacity>
 
               {/* Menu Items */}
@@ -307,8 +364,18 @@ export default function HomeScreen() {
                 { label: 'My profile', icon: icons.profile, route: '/profile' as const },
                 { label: 'Edit Profile', icon: icons.edit, route: '/edit-profile' as const },
                 { label: 'Notifications', icon: icons.notifications },
-                { label: 'Subscriptions', icon: icons.subscriptions, route: '/subscription' as const },
-                { label: 'Language', icon: icons.language, route: '/language' as const },
+                {
+                  label: 'Subscriptions',
+                  icon: icons.subscriptions,
+                  route: '/subscription' as const,
+                  status: 'Free Plan',
+                },
+                {
+                  label: 'Language',
+                  icon: icons.language,
+                  route: '/language' as const,
+                  status: language,
+                },
                 { label: 'Privacy policy', icon: icons.privacy, route: '/privacy' as const },
                 { label: 'Terms of Service', icon: icons.terms, route: '/terms' as const },
                 { label: 'FAQ', icon: icons.faq, route: '/faq' as const },
@@ -317,6 +384,7 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   key={index}
                   style={styles.menuItem}
+                  activeOpacity={0.7}
                   onPress={() => {
                     if ((item as any).action === 'logout') {
                       handleLogout();
@@ -334,7 +402,17 @@ export default function HomeScreen() {
                 >
                   <Image source={item.icon} style={styles.menuItemIcon} />
                   <Text style={styles.menuItemText}>{item.label}</Text>
-                  <Image source={icons.arrow} style={styles.arrowIcon} />
+                  {(item as any).status ? (
+                    <View style={styles.statusPill}>
+                      <Text style={styles.statusPillText}>{(item as any).status}</Text>
+                    </View>
+                  ) : null}
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color="rgba(255,255,255,0.5)"
+                    style={styles.chevronIcon}
+                  />
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -420,16 +498,18 @@ const styles = StyleSheet.create({
     fontFamily: 'SFProDisplay-Regular',
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 22,
     color: '#fff',
     fontFamily: 'CooperLtBT-Bold',
-    marginBottom: 4,
+    marginBottom: 10,
+    lineHeight: 28,
   },
   sectionSub: {
-    fontSize: 13,
-    color: '#aaa',
+    fontSize: 14,
+    color: '#9C9CA6',
     fontFamily: 'SFProDisplay-Regular',
-    marginBottom: 16,
+    lineHeight: 20,
+    marginBottom: 24,
   },
   wheelWrap: {
     alignSelf: 'center',
@@ -438,17 +518,25 @@ const styles = StyleSheet.create({
   symbolGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 14,
     justifyContent: 'space-between',
     marginBottom: 40,
   },
   symbolBox: {
-    width: (width - 96) / 3,
-    height: (width - 96) / 3,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
+    width: (width - 76) / 3,
+    height: (width - 76) / 3,
+    backgroundColor: '#1A1818',
+    borderRadius: 18,
+    borderWidth: 0.5,
+    borderColor: '#AA9AC0',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  symbolBoxActiveWrap: {
+    width: (width - 76) / 3,
+    height: (width - 76) / 3,
+    borderRadius: 18,
     overflow: 'hidden',
   },
   symbolBoxActive: {
@@ -456,22 +544,19 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 18,
   },
   symbolImage: {
-    width: 32,
-    height: 32,
+    width: 48,
+    height: 48,
     resizeMode: 'contain',
-    tintColor: 'rgba(212, 213, 251, 0.85)',
-  },
-  symbolImageInactive: {
-    opacity: 0.45,
+    tintColor: '#D3D5FB',
   },
   symbolImageActive: {
-    width: 36,
-    height: 36,
+    width: 52,
+    height: 52,
     resizeMode: 'contain',
-    tintColor: '#fff',
+    tintColor: '#D3D5FB',
   },
   footer: {
     flexDirection: 'row',
@@ -508,75 +593,89 @@ const styles = StyleSheet.create({
     width,
     height: '100%',
     backgroundColor: '#141519',
-    padding: 32,
+    paddingHorizontal: 24,
+    paddingTop: 32,
     zIndex: 6,
+  },
+  menuContent: {
+    paddingBottom: 24,
   },
   menuHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 22,
   },
   menuTitle: {
-    fontSize: 20,
+    fontSize: 22,
     color: '#fff',
     fontFamily: 'CooperLtBT-Bold',
   },
-  menuClose: {
-    fontSize: 28,
-    color: '#fff',
+  menuCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(57, 60, 71, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   subscriptionCard: {
-    marginBottom: 20,
-    borderRadius: 12,
+    marginBottom: 24,
+    borderRadius: 16,
     overflow: 'hidden',
     width: '100%',
   },
-  subscriptionImage: {
-    width: '100%',
-    height: 100,
-    borderRadius: 12,
-    resizeMode: 'cover',
-  },
   subscriptionBg: {
-    position: 'absolute',
     width: '100%',
-    height: 80,
+    height: 96,
+    justifyContent: 'center',
+  },
+  subscriptionBgImage: {
+    borderRadius: 16,
   },
   subscriptionContent: {
-    height: 80,
-    paddingHorizontal: 20,
+    flex: 1,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  subscriptionText: {
-    color: '#fff',
-    fontSize: 14,
+  subscriptionLabel: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
     fontFamily: 'SFProDisplay-Regular',
+    marginBottom: 2,
+  },
+  subscriptionPlan: {
+    color: '#fff',
+    fontSize: 22,
+    fontFamily: 'CooperLtBT-Bold',
   },
   upgradeButton: {
-    backgroundColor: '#8E8DFF',
-    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 20,
+    borderRadius: 22,
   },
   upgradeText: {
     color: '#fff',
-    fontSize: 12,
-    fontFamily: 'SFProDisplay-Regular',
+    fontSize: 14,
+    fontFamily: 'Nunito-Bold',
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.12)',
   },
   menuItemIcon: {
-    width: 28,
-    height: 28,
-    marginRight: 14,
+    width: 26,
+    height: 26,
+    marginRight: 16,
+    resizeMode: 'contain',
   },
   menuItemText: {
     flex: 1,
@@ -584,8 +683,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'SFProDisplay-Regular',
   },
-  arrowIcon: {
-    width: 24,
-    height: 24,
+  statusPill: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginRight: 10,
+  },
+  statusPillText: {
+    color: '#ddd',
+    fontSize: 12,
+    fontFamily: 'SFProDisplay-Regular',
+  },
+  chevronIcon: {
+    marginLeft: 0,
   },
 });
