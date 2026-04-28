@@ -12,19 +12,24 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getUserProfile, getDailyVibe, clearAccessToken } from '../services/api';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  getUserProfile,
+  getDailyVibe,
+  clearAccessToken,
+  getUserArchetypes,
+} from '../services/api';
 import { clearOnboardingDraft } from '../services/onboardingDraft';
+import Astrowheel, { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
 
 const homeBg = require('../assets/images/home-bg.png');
 const vibeIcon = require('../assets/images/vibe-icon.png');
 const menuIcon = require('../assets/images/burger.png');
-const astroWheel = require('../assets/images/astro-wheel.png');
 const upgradeBg = require('../assets/images/subscription-card.png');
 
 // Icons
 const icons = {
   home: require('../assets/icons/home.png'),
-  community: require('../assets/icons/community.png'),
   profile: require('../assets/icons/profile.png'),
   edit: require('../assets/icons/edit.png'),
   notifications: require('../assets/icons/notification.png'),
@@ -37,35 +42,22 @@ const icons = {
   arrow: require('../assets/icons/arrow-right.png'),
 };
 
-const symbols = [
-  require('../assets/images/zodiac/aries.png'),
-  require('../assets/images/zodiac/taurus.png'),
-  require('../assets/images/zodiac/gemini.png'),
-  require('../assets/images/zodiac/leo-active.png'),
-  require('../assets/images/zodiac/virgo.png'),
-  require('../assets/images/zodiac/libra.png'),
-  require('../assets/images/zodiac/sagittarius.png'),
-  require('../assets/images/zodiac/capricorn-active.png'),
-  require('../assets/images/zodiac/aquarius-active.png'),
-  require('../assets/images/zodiac/cancer.png'),
-  require('../assets/images/zodiac/scorpio.png'),
-  require('../assets/images/zodiac/pisces-active.png'),
-];
-
 export default function HomeScreen() {
   const router = useRouter();
   const [menuVisible, setMenuVisible] = useState(false);
   const [userName, setUserName] = useState<string>('');
   const [dailyVibe, setDailyVibe] = useState<string>('');
+  const [activeArchetypes, setActiveArchetypes] = useState<Set<string>>(new Set());
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').width)).current;
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [profile, vibe] = await Promise.all([
+        const [profile, vibe, archetypes] = await Promise.all([
           getUserProfile(),
           getDailyVibe(),
+          getUserArchetypes(),
         ]);
         if (cancelled) return;
 
@@ -79,6 +71,14 @@ export default function HomeScreen() {
         if (typeof text === 'string' && text.trim().length > 0) {
           setDailyVibe(text.trim());
         }
+
+        const list = (archetypes as any)?.archetypes;
+        if (Array.isArray(list)) {
+          const codes = list
+            .map((a: any) => (typeof a?.archetype === 'string' ? a.archetype.toUpperCase() : null))
+            .filter((c: any): c is string => !!c);
+          setActiveArchetypes(new Set(codes));
+        }
       } catch (e) {
         console.log('Home load failed:', (e as any)?.message ?? String(e));
       }
@@ -87,6 +87,10 @@ export default function HomeScreen() {
       cancelled = true;
     };
   }, []);
+
+  const goToArchetype = (sign: ZodiacSign) => {
+    router.push(`/archetype/${sign.code}` as any);
+  };
 
   const openMenu = () => {
     setMenuVisible(true);
@@ -177,7 +181,9 @@ export default function HomeScreen() {
         <Text style={styles.sectionSub}>
           Each person has 12 archetypes in their birth chart, but some are weak and others are well positioned.
         </Text>
-        <Image source={astroWheel} style={styles.wheel} />
+        <View style={styles.wheelWrap}>
+          <Astrowheel activeSet={activeArchetypes} onPressSign={goToArchetype} />
+        </View>
 
         {/* Zodiac Grid */}
         <Text style={styles.sectionTitle}>The keys to your chart</Text>
@@ -185,11 +191,33 @@ export default function HomeScreen() {
           Each person has 12 archetypes in their birth chart, but some are weak and others are well positioned.
         </Text>
         <View style={styles.symbolGrid}>
-          {symbols.map((icon, index) => (
-            <View key={index} style={styles.symbolBox}>
-              <Image source={icon} style={styles.symbolImage} />
-            </View>
-          ))}
+          {ZODIAC_SIGNS.map((sign) => {
+            const active = activeArchetypes.has(sign.code);
+            if (active) {
+              return (
+                <TouchableOpacity
+                  key={sign.code}
+                  style={styles.symbolBox}
+                  activeOpacity={0.8}
+                  onPress={() => goToArchetype(sign)}
+                >
+                  <LinearGradient
+                    colors={['rgba(178, 131, 237, 1)', 'rgba(87, 124, 251, 1)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.symbolBoxActive}
+                  >
+                    <Image source={sign.icon} style={styles.symbolImageActive} />
+                  </LinearGradient>
+                </TouchableOpacity>
+              );
+            }
+            return (
+              <View key={sign.code} style={styles.symbolBox}>
+                <Image source={sign.icon} style={[styles.symbolImage, styles.symbolImageInactive]} />
+              </View>
+            );
+          })}
         </View>
 
         {/* Footer */}
@@ -234,7 +262,6 @@ export default function HomeScreen() {
               {/* Menu Items */}
               {[
                 { label: 'Home', icon: icons.home, route: '/home' as const, replace: true },
-                { label: 'Community', icon: icons.community },
                 { label: 'My profile', icon: icons.profile },
                 { label: 'Edit Profile', icon: icons.edit, route: '/edit-profile' as const },
                 { label: 'Notifications', icon: icons.notifications },
@@ -362,11 +389,8 @@ const styles = StyleSheet.create({
     fontFamily: 'SFProDisplay-Regular',
     marginBottom: 16,
   },
-  wheel: {
-    width: width - 48,
-    height: width - 48,
+  wheelWrap: {
     alignSelf: 'center',
-    resizeMode: 'contain',
     marginBottom: 24,
   },
   symbolGrid: {
@@ -383,11 +407,29 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  symbolBoxActive: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
   },
   symbolImage: {
     width: 32,
     height: 32,
     resizeMode: 'contain',
+    tintColor: 'rgba(212, 213, 251, 0.85)',
+  },
+  symbolImageInactive: {
+    opacity: 0.45,
+  },
+  symbolImageActive: {
+    width: 36,
+    height: 36,
+    resizeMode: 'contain',
+    tintColor: '#fff',
   },
   footer: {
     flexDirection: 'row',

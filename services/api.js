@@ -104,6 +104,103 @@ export async function patchUserProfile(patch) {
   return data;
 }
 
+export async function getUserArchetypes() {
+  const token = await getAccessToken();
+  if (!token) return null;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/archetypes/user_archetypes/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch (e) {
+    console.log('🌐 user_archetypes network error:', e?.message ?? String(e));
+    return null;
+  }
+
+  console.log('🌐 user_archetypes status:', res.status);
+  if (!res.ok) return null;
+
+  const { data } = await readResponse(res);
+  return data || null;
+}
+
+export async function getUserQualities() {
+  const token = await getAccessToken();
+  if (!token) return null;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/archetypes/user_qualities/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch (e) {
+    console.log('🌐 user_qualities network error:', e?.message ?? String(e));
+    return null;
+  }
+
+  console.log('🌐 user_qualities status:', res.status);
+  if (!res.ok) return null;
+
+  const { data } = await readResponse(res);
+  return Array.isArray(data) ? data : null;
+}
+
+export async function updateUserQualityStatus(qualityId, action) {
+  const token = await getAccessToken();
+  if (!token) throw new Error('Missing access token. Please sign in again.');
+
+  if (typeof qualityId !== 'number') {
+    throw new Error('Invalid quality id');
+  }
+  if (action !== 'activate' && action !== 'deactivate') {
+    throw new Error('Invalid action');
+  }
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/archetypes/user_qualities/update_status/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ quality_id: qualityId, action }),
+    });
+  } catch (e) {
+    console.log('🌐 user_qualities update network error:', e?.message ?? String(e));
+    throw new Error('Network request failed');
+  }
+
+  console.log('🌐 user_qualities update status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await clearAccessToken();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  const { raw, data } = await readResponse(res);
+
+  if (!res.ok) {
+    throw new Error(
+      data?.message ||
+        data?.detail ||
+        raw ||
+        `Quality update failed (${res.status})`
+    );
+  }
+
+  return data;
+}
+
 export async function getDailyVibe() {
   const token = await getAccessToken();
   if (!token) return null;
