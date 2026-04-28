@@ -242,7 +242,7 @@ export default function HomeScreen() {
                 { label: 'Language', icon: icons.language, route: '/language' as const },
                 { label: 'Privacy policy', icon: icons.privacy, route: '/privacy' as const },
                 { label: 'Terms of Service', icon: icons.terms, route: '/terms' as const },
-                { label: 'FAQ', icon: icons.faq },
+                { label: 'FAQ', icon: icons.faq, route: '/faq' as const },
                 { label: 'Log out', icon: icons.logout, action: 'logout' as const },
               ].map((item, index) => (
                 <TouchableOpacity
