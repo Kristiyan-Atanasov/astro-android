@@ -11,19 +11,33 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const homeBg = require('../assets/images/home-bg.png');
 const moonImg = require('../assets/images/moon-banner.png');
 
 export default function SubscriptionScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <Image source={homeBg} style={styles.bg} resizeMode="cover" />
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Top bar */}
         <View style={styles.topBar}>
           <Text style={styles.subtitle}>Let’s get started</Text>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
         </View>
@@ -40,9 +54,9 @@ export default function SubscriptionScreen() {
             <Text style={styles.planLabel}>Monthly Subscription</Text>
 
             <LinearGradient
-              colors={['rgba(212, 56, 226, 1)', 'rgba(44, 213, 255, 1)', 'rgba(36, 151, 253, 1)']}
+              colors={['rgba(178, 131, 237, 1)', 'rgba(87, 124, 251, 1)']}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.discountBadge}
             >
               <Text style={styles.discountText}>38% off</Text>
@@ -50,21 +64,28 @@ export default function SubscriptionScreen() {
           </View>
 
           <Text style={styles.trialText}>with 7 days free trial</Text>
-          <Text style={styles.price}>$ 7.99</Text>
+          <Text style={styles.price}>
+            <Text style={styles.priceCurrency}>€ </Text>7.99
+          </Text>
         </View>
+
+        {/* Spacer pushes the CTA section toward the bottom on tall devices */}
+        <View style={styles.spacer} />
 
         {/* Info */}
         <Text style={styles.secureText}>Secured with App Store. Cancel Anytime.</Text>
 
         {/* CTA Button */}
-        <TouchableOpacity style={styles.ctaButton}>
+        <TouchableOpacity style={styles.ctaButton} activeOpacity={0.9}>
           <LinearGradient
-            colors={['rgba(87, 102, 255, 1)', 'rgba(178, 131, 237, 1)']}
+            colors={['rgba(87, 124, 251, 1)', 'rgba(178, 131, 237, 1)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.gradient}
           >
-            <Text style={styles.ctaText}>Start your 7-days free trial, then $7.99 / per month</Text>
+            <Text style={styles.ctaText} numberOfLines={2}>
+              Start your 7-days free trial, then €7.99 / per month
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -75,13 +96,25 @@ export default function SubscriptionScreen() {
 
         {/* Footer Links */}
         <View style={styles.footerLinks}>
-          <TouchableOpacity onPress={() => router.push('/terms')}>
+          <TouchableOpacity
+            style={styles.linkHit}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => router.push('/terms')}
+          >
             <Text style={styles.link}>Terms of Service</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/privacy')}>
+          <TouchableOpacity
+            style={styles.linkHit}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => router.push('/privacy')}
+          >
             <Text style={styles.link}>Privacy Policy</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/subscription')}>
+          <TouchableOpacity
+            style={styles.linkHit}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => router.push('/subscription')}
+          >
             <Text style={styles.link}>Subscription terms</Text>
           </TouchableOpacity>
         </View>
@@ -95,12 +128,18 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#141519',
-    paddingTop: 60,
+  },
+  bg: {
+    position: 'absolute',
+    width,
+    height: '100%',
+    top: 0,
+    left: 0,
+    zIndex: -1,
   },
   scroll: {
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    flexGrow: 1,
   },
   topBar: {
     flexDirection: 'row',
@@ -113,26 +152,25 @@ const styles = StyleSheet.create({
     fontFamily: 'SFProDisplay-Regular',
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     color: '#fff',
     fontFamily: 'CooperLtBT-Bold',
-    marginTop: 12,
-    marginBottom: 16,
-    lineHeight: 30,
+    marginTop: 8,
+    marginBottom: 24,
+    lineHeight: 34,
   },
   moonImage: {
-    width: width - 100,
-    height: 180,
+    width: width - 140,
+    height: 70,
     alignSelf: 'center',
-    marginBottom: 30,
+    marginBottom: 28,
   },
   subscriptionCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(100,100,255,0.3)',
+    borderColor: 'rgba(140,140,200,0.18)',
   },
   subscriptionRow: {
     flexDirection: 'row',
@@ -141,67 +179,82 @@ const styles = StyleSheet.create({
   },
   planLabel: {
     color: '#fff',
-    fontSize: 14,
-    fontFamily: 'SFProDisplay-Regular',
+    fontSize: 16,
+    fontFamily: 'CooperLtBT-Bold',
   },
   discountBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 14,
   },
   discountText: {
     color: '#fff',
     fontSize: 12,
-    fontFamily: 'SFProDisplay-Regular',
+    fontFamily: 'Nunito-Bold',
   },
   trialText: {
     color: '#aaa',
-    fontSize: 12,
+    fontSize: 13,
     marginTop: 6,
     fontFamily: 'SFProDisplay-Regular',
   },
   price: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 28,
     fontFamily: 'CooperLtBT-Bold',
-    marginTop: 8,
+    marginTop: 10,
+  },
+  priceCurrency: {
+    fontSize: 18,
+    fontFamily: 'CooperLtBT-Bold',
+  },
+  spacer: {
+    flex: 1,
+    minHeight: 24,
   },
   secureText: {
     textAlign: 'center',
     fontSize: 12,
     color: '#aaa',
-    marginVertical: 12,
+    marginBottom: 12,
     fontFamily: 'SFProDisplay-Regular',
   },
   ctaButton: {
     width: '100%',
-    borderRadius: 30,
+    borderRadius: 32,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   gradient: {
     paddingVertical: 18,
-    paddingHorizontal: 20,
-    borderRadius: 30,
+    paddingHorizontal: 24,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   ctaText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 15,
     textAlign: 'center',
     fontFamily: 'Nunito-Bold',
+    lineHeight: 20,
   },
   note: {
     fontSize: 12,
     color: '#aaa',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 18,
     fontFamily: 'SFProDisplay-Regular',
   },
   footerLinks: {
     flexDirection: 'row',
     justifyContent: 'center',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 14,
+  },
+  linkHit: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
   link: {
     fontSize: 12,

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   getUserProfile,
   getDailyVibe,
@@ -46,6 +47,7 @@ const icons = {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [menuVisible, setMenuVisible] = useState(false);
   const [userName, setUserName] = useState<string>('');
   const [dailyVibe, setDailyVibe] = useState<string>('');
@@ -172,7 +174,12 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <Image source={homeBg} style={styles.bg} resizeMode="cover" />
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: 60 + insets.bottom + 24 },
+        ]}
+      >
         {/* Top Section */}
         <View style={styles.topRow}>
           <View>
@@ -245,13 +252,25 @@ export default function HomeScreen() {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <TouchableOpacity onPress={() => router.push('/terms')}>
+          <TouchableOpacity
+            style={styles.linkHit}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => router.push('/terms')}
+          >
             <Text style={styles.link}>Terms of Service</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/privacy')}>
+          <TouchableOpacity
+            style={styles.linkHit}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => router.push('/privacy')}
+          >
             <Text style={styles.link}>Privacy Policy</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/subscription')}>
+          <TouchableOpacity
+            style={styles.linkHit}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => router.push('/subscription')}
+          >
             <Text style={styles.link}>Subscription terms</Text>
           </TouchableOpacity>
         </View>
@@ -285,10 +304,10 @@ export default function HomeScreen() {
               {/* Menu Items */}
               {[
                 { label: 'Home', icon: icons.home, route: '/home' as const, replace: true },
-                { label: 'My profile', icon: icons.profile },
+                { label: 'My profile', icon: icons.profile, route: '/profile' as const },
                 { label: 'Edit Profile', icon: icons.edit, route: '/edit-profile' as const },
                 { label: 'Notifications', icon: icons.notifications },
-                { label: 'Subscriptions', icon: icons.subscriptions },
+                { label: 'Subscriptions', icon: icons.subscriptions, route: '/subscription' as const },
                 { label: 'Language', icon: icons.language, route: '/language' as const },
                 { label: 'Privacy policy', icon: icons.privacy, route: '/privacy' as const },
                 { label: 'Terms of Service', icon: icons.terms, route: '/terms' as const },
@@ -459,7 +478,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
     flexWrap: 'wrap',
-    marginBottom: 40,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  linkHit: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
   link: {
     fontSize: 12,

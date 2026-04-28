@@ -265,6 +265,49 @@ export async function getDailyVibe() {
   return data || null;
 }
 
+export async function deleteAccount() {
+  const token = await getAccessToken();
+  if (!token) throw new Error('Missing access token. Please sign in again.');
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/authentication/user_profile/`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch (e) {
+    console.log('🌐 user_profile delete network error:', e?.message ?? String(e));
+    throw new Error('Network request failed');
+  }
+
+  console.log('🌐 user_profile delete status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await clearAccessToken();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  // Treat 404/410 as "already gone" — still a successful end state for the user.
+  if (res.status === 404 || res.status === 410) {
+    await clearAccessToken();
+    return { status: 'gone' };
+  }
+
+  const { raw, data } = await readResponse(res);
+
+  if (!res.ok) {
+    throw new Error(
+      data?.message || data?.detail || raw || `Account deletion failed (${res.status})`
+    );
+  }
+
+  await clearAccessToken();
+  return data || { status: 'success' };
+}
+
 export function isOnboardingComplete(profile) {
   if (!profile || typeof profile !== 'object') return false;
   const hasName =

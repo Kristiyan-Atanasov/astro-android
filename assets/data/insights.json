@@ -285,11 +285,11 @@
   "subscription": {
     "title": "How your free trial works",
     "subtitle": "Let\u2019s get started",
-    "price": "$7.99",
+    "price": "€7.99",
     "offer": "38% off",
     "trial": "with 7 days free trial",
     "secure": "Secured with App Store. Cancel Anytime.",
-    "button": "Start your 7-days free trial, then $7.99 / per month",
+    "button": "Start your 7-days free trial, then €7.99 / per month",
     "cancel_info": "Cancel anytime during your trial and you won\u2019t be charged."
   },
   "home": {
