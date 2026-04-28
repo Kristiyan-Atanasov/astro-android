@@ -11,7 +11,8 @@ import {
   Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getUserProfile, getDailyVibe } from '../services/api';
+import { getUserProfile, getDailyVibe, clearAccessToken } from '../services/api';
+import { clearOnboardingDraft } from '../services/onboardingDraft';
 
 const homeBg = require('../assets/images/home-bg.png');
 const vibeIcon = require('../assets/images/vibe-icon.png');
@@ -101,6 +102,18 @@ export default function HomeScreen() {
       duration: 300,
       useNativeDriver: true,
     }).start(() => setMenuVisible(false));
+  };
+
+  const handleLogout = async () => {
+    try {
+      await clearAccessToken();
+      await clearOnboardingDraft();
+    } catch (e) {
+      console.log('Logout cleanup failed:', (e as any)?.message ?? String(e));
+    } finally {
+      closeMenu();
+      router.replace('/');
+    }
   };
 
   return (
@@ -202,18 +215,22 @@ export default function HomeScreen() {
                 { label: 'Notifications', icon: icons.notifications },
                 { label: 'Subscriptions', icon: icons.subscriptions },
                 { label: 'Language', icon: icons.language },
-                { label: 'Privacy policy', icon: icons.privacy, route: '/privacy' },
-                { label: 'Terms of Service', icon: icons.terms, route: '/terms' },
+                { label: 'Privacy policy', icon: icons.privacy, route: '/privacy' as const },
+                { label: 'Terms of Service', icon: icons.terms, route: '/terms' as const },
                 { label: 'FAQ', icon: icons.faq },
-                { label: 'Log out', icon: icons.logout },
+                { label: 'Log out', icon: icons.logout, action: 'logout' as const },
               ].map((item, index) => (
                 <TouchableOpacity
                   key={index}
                   style={styles.menuItem}
                   onPress={() => {
-                    if (item.route) {
+                    if ((item as any).action === 'logout') {
+                      handleLogout();
+                      return;
+                    }
+                    if ((item as any).route) {
                       closeMenu();
-                      router.push(item.route);
+                      router.push((item as any).route);
                     }
                   }}
                 >
