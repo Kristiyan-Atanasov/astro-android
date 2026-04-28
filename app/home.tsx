@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { getUserProfile, getDailyVibe } from '../services/api';
 
 const homeBg = require('../assets/images/home-bg.png');
 const vibeIcon = require('../assets/images/vibe-icon.png');
@@ -52,7 +53,38 @@ const symbols = [
 export default function HomeScreen() {
   const router = useRouter();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [userName, setUserName] = useState<string>('');
+  const [dailyVibe, setDailyVibe] = useState<string>('');
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').width)).current;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [profile, vibe] = await Promise.all([
+          getUserProfile(),
+          getDailyVibe(),
+        ]);
+        if (cancelled) return;
+
+        const name = (profile as any)?.name;
+        if (typeof name === 'string' && name.trim().length > 0) {
+          const firstName = name.trim().split(/\s+/)[0];
+          setUserName(firstName);
+        }
+
+        const text = (vibe as any)?.text;
+        if (typeof text === 'string' && text.trim().length > 0) {
+          setDailyVibe(text.trim());
+        }
+      } catch (e) {
+        console.log('Home load failed:', (e as any)?.message ?? String(e));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const openMenu = () => {
     setMenuVisible(true);
@@ -80,7 +112,9 @@ export default function HomeScreen() {
         <View style={styles.topRow}>
           <View>
             <Text style={styles.date}>WED, 13 AUGUST</Text>
-            <Text style={styles.greeting}>Hello, Isabel!</Text>
+            <Text style={styles.greeting}>
+              {userName ? `Hello, ${userName}!` : 'Hello!'}
+            </Text>
           </View>
           <TouchableOpacity onPress={openMenu} style={styles.menuButton}>
             <Image source={menuIcon} style={styles.menuIcon} />
@@ -94,7 +128,9 @@ export default function HomeScreen() {
             <Text style={styles.vibeTitle}>Your daily vibe</Text>
           </View>
           <Text style={styles.vibeQuote}>
-            “Real liberation comes not from glossing over or repressing painful states of feeling, but only from experiencing them to the full.”
+            {dailyVibe
+              ? `“${dailyVibe}”`
+              : '“Loading your daily vibe…”'}
           </Text>
         </View>
 

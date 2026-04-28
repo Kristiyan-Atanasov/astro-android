@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useRouter, type ErrorBoundaryProps } from 'expo-router';
 import data from '../assets/data/insights.json';
+import { getAccessToken, getUserProfile, isOnboardingComplete } from '../services/api';
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
@@ -23,6 +24,7 @@ type LinkItem = {
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const [checking, setChecking] = React.useState(true);
   const { title, subtitle, button, links } = data.welcome as {
     title: string;
     subtitle: string;
@@ -30,13 +32,46 @@ export default function WelcomeScreen() {
     links: LinkItem[];
   };
 
-  // Expo Router navigates via string paths like "/about" or "/signin". [page:1]
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getAccessToken();
+        if (!token) return;
+
+        const profile = await getUserProfile();
+        if (cancelled) return;
+
+        if (isOnboardingComplete(profile)) {
+          router.replace('/home');
+        } else if (profile) {
+          router.replace('/onboarding/name');
+        }
+      } catch (e) {
+        console.log('Auto-route check failed:', (e as any)?.message ?? String(e));
+      } finally {
+        if (!cancelled) setChecking(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
   const safePush = (route?: string) => {
     if (!route || typeof route !== 'string') return;
     const trimmed = route.trim();
     if (!trimmed.startsWith('/')) return;
     router.push(trimmed as any);
   };
+
+  if (checking) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center' }]}>
+        <ActivityIndicator color="#fff" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

@@ -7,7 +7,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
 import { makeRedirectUri } from "expo-auth-session";
 
-import { API_BASE, setAccessToken } from "../services/api";
+import { API_BASE, setAccessToken, getUserProfile, isOnboardingComplete } from "../services/api";
 
 WebBrowser.maybeCompleteAuthSession(); // required for auth-session redirects [web:334]
 
@@ -67,7 +67,13 @@ export default function SignInScreen() {
       if (!jwt) throw new Error("Backend returned no JWT.");
 
       await setAccessToken(jwt);
-      router.replace("/onboarding/name");
+
+      const profile = await getUserProfile();
+      if (isOnboardingComplete(profile)) {
+        router.replace("/home");
+      } else {
+        router.replace("/onboarding/name");
+      }
     },
     [router]
   );

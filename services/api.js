@@ -33,6 +33,72 @@ async function readResponse(res) {
   return { raw, data };
 }
 
+export async function getUserProfile() {
+  const token = await getAccessToken();
+  if (!token) return null;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/authentication/user_profile/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch (e) {
+    console.log('🌐 user_profile network error:', e?.message ?? String(e));
+    return null;
+  }
+
+  console.log('🌐 user_profile status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await clearAccessToken();
+    return null;
+  }
+
+  if (!res.ok) return null;
+
+  const { data } = await readResponse(res);
+  return data || null;
+}
+
+export async function getDailyVibe() {
+  const token = await getAccessToken();
+  if (!token) return null;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/archetypes/daily_vibe/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch (e) {
+    console.log('🌐 daily_vibe network error:', e?.message ?? String(e));
+    return null;
+  }
+
+  console.log('🌐 daily_vibe status:', res.status);
+
+  if (!res.ok) return null;
+
+  const { data } = await readResponse(res);
+  return data || null;
+}
+
+export function isOnboardingComplete(profile) {
+  if (!profile || typeof profile !== 'object') return false;
+  const hasName =
+    typeof profile.name === 'string' && profile.name.trim().length > 0;
+  const hasBirthDate =
+    typeof profile.birth_date === 'string' && profile.birth_date.length > 0;
+  return hasName && hasBirthDate;
+}
+
 export async function postOnboarding(payload) {
   const token = await getAccessToken();
   if (!token) throw new Error('Missing access token. Please sign in again.');
