@@ -239,7 +239,7 @@ export default function HomeScreen() {
                 { label: 'Edit Profile', icon: icons.edit, route: '/edit-profile' as const },
                 { label: 'Notifications', icon: icons.notifications },
                 { label: 'Subscriptions', icon: icons.subscriptions },
-                { label: 'Language', icon: icons.language },
+                { label: 'Language', icon: icons.language, route: '/language' as const },
                 { label: 'Privacy policy', icon: icons.privacy, route: '/privacy' as const },
                 { label: 'Terms of Service', icon: icons.terms, route: '/terms' as const },
                 { label: 'FAQ', icon: icons.faq },
