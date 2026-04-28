@@ -12,6 +12,7 @@
       "buildNumber": "1",
       "supportsTablet": true,
       "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID to sign in to AstroInsights faster and more securely.",
         "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
         "SKAdNetworkItems": [
           {
@@ -58,7 +59,13 @@
           "iosUrlScheme": "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Use Face ID to sign in to AstroInsights faster and more securely."
+        }
+      ]
     ]
   }
 }

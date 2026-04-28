@@ -8,6 +8,12 @@ import * as Google from "expo-auth-session/providers/google";
 import { makeRedirectUri } from "expo-auth-session";
 
 import { API_BASE, setAccessToken, getUserProfile, isOnboardingComplete } from "../services/api";
+import {
+  getBiometricLabel,
+  isBiometricEnabled,
+  isBiometricSupported,
+  setBiometricEnabled,
+} from "../services/biometric";
 
 WebBrowser.maybeCompleteAuthSession(); // required for auth-session redirects [web:334]
 
@@ -68,11 +74,41 @@ export default function SignInScreen() {
       await setAccessToken(jwt);
 
       const profile = await getUserProfile();
-      if (isOnboardingComplete(profile)) {
-        router.replace("/home");
-      } else {
-        router.replace("/onboarding/name");
+      const next: Href = isOnboardingComplete(profile)
+        ? "/home"
+        : "/onboarding/name";
+
+      try {
+        const supported = await isBiometricSupported();
+        const alreadyEnabled = await isBiometricEnabled();
+        if (supported && !alreadyEnabled) {
+          const label = await getBiometricLabel();
+          Alert.alert(
+            `Enable ${label}?`,
+            `Use ${label} to sign in to AstroInsights faster next time.`,
+            [
+              {
+                text: "Not now",
+                style: "cancel",
+                onPress: () => router.replace(next),
+              },
+              {
+                text: "Enable",
+                onPress: async () => {
+                  await setBiometricEnabled(true);
+                  router.replace(next);
+                },
+              },
+            ],
+            { cancelable: false }
+          );
+          return;
+        }
+      } catch (e) {
+        console.log("Biometric prompt failed:", (e as any)?.message ?? String(e));
       }
+
+      router.replace(next);
     },
     [router]
   );

@@ -5,17 +5,38 @@ export const API_BASE = 'https://yrfz6x9dl1.execute-api.eu-central-1.amazonaws.c
 
 const ACCESS_TOKEN_KEY = 'accessToken';
 
+let cachedAccessToken = null;
+let cachedAccessTokenPromise = null;
+
 export async function setAccessToken(token) {
   if (!token || typeof token !== 'string') return;
+  cachedAccessToken = token;
+  cachedAccessTokenPromise = null;
   await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
 }
 
 export async function getAccessToken() {
-  const token = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
-  return token || null;
+  if (cachedAccessToken) return cachedAccessToken;
+  if (cachedAccessTokenPromise) return cachedAccessTokenPromise;
+  cachedAccessTokenPromise = (async () => {
+    try {
+      const token = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+      cachedAccessToken = token || null;
+      return cachedAccessToken;
+    } finally {
+      cachedAccessTokenPromise = null;
+    }
+  })();
+  return cachedAccessTokenPromise;
+}
+
+export function getCachedAccessToken() {
+  return cachedAccessToken;
 }
 
 export async function clearAccessToken() {
+  cachedAccessToken = null;
+  cachedAccessTokenPromise = null;
   await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
 }
 
@@ -123,6 +144,12 @@ export async function getUserArchetypes() {
   }
 
   console.log('🌐 user_archetypes status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await clearAccessToken();
+    return null;
+  }
+
   if (!res.ok) return null;
 
   const { data } = await readResponse(res);
@@ -148,6 +175,12 @@ export async function getUserQualities() {
   }
 
   console.log('🌐 user_qualities status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await clearAccessToken();
+    return null;
+  }
+
   if (!res.ok) return null;
 
   const { data } = await readResponse(res);
@@ -220,6 +253,11 @@ export async function getDailyVibe() {
   }
 
   console.log('🌐 daily_vibe status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await clearAccessToken();
+    return null;
+  }
 
   if (!res.ok) return null;
 

@@ -61,9 +61,9 @@ interface AstrowheelProps {
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const ROLL_DURATION = 2400;
-const FADE_DURATION = 700;
-const FADE_DELAY = 2000;
+const ROLL_DURATION = 3400;
+const FADE_DURATION = 800;
+const FADE_DELAY = 2900;
 
 export default function Astrowheel({
   size = SCREEN_WIDTH - 48,
@@ -84,7 +84,7 @@ export default function Astrowheel({
     Animated.timing(rollProgress, {
       toValue: 1,
       duration: ROLL_DURATION,
-      easing: Easing.out(Easing.cubic),
+      easing: Easing.inOut(Easing.cubic),
       useNativeDriver: true,
     }).start();
   }, [rollProgress]);

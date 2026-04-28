@@ -17,9 +17,11 @@ import {
   getUserProfile,
   getDailyVibe,
   clearAccessToken,
+  getCachedAccessToken,
   getUserArchetypes,
 } from '../services/api';
 import { clearOnboardingDraft } from '../services/onboardingDraft';
+import { setBiometricEnabled } from '../services/biometric';
 import Astrowheel, { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
 
 const homeBg = require('../assets/images/home-bg.png');
@@ -52,41 +54,61 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
       try {
-        const [profile, vibe, archetypes] = await Promise.all([
-          getUserProfile(),
-          getDailyVibe(),
-          getUserArchetypes(),
-        ]);
+        const profile = await getUserProfile();
         if (cancelled) return;
-
+        if (!profile) {
+          if (!getCachedAccessToken()) {
+            router.replace('/');
+          }
+          return;
+        }
         const name = (profile as any)?.name;
         if (typeof name === 'string' && name.trim().length > 0) {
-          const firstName = name.trim().split(/\s+/)[0];
-          setUserName(firstName);
+          setUserName(name.trim().split(/\s+/)[0]);
         }
+      } catch (e) {
+        console.log('Profile load failed:', (e as any)?.message ?? String(e));
+      }
+    })();
 
+    (async () => {
+      try {
+        const vibe = await getDailyVibe();
+        if (cancelled || !vibe) return;
         const text = (vibe as any)?.text;
         if (typeof text === 'string' && text.trim().length > 0) {
           setDailyVibe(text.trim());
         }
+      } catch (e) {
+        console.log('Vibe load failed:', (e as any)?.message ?? String(e));
+      }
+    })();
 
+    (async () => {
+      try {
+        const archetypes = await getUserArchetypes();
+        if (cancelled || !archetypes) return;
         const list = (archetypes as any)?.archetypes;
         if (Array.isArray(list)) {
           const codes = list
-            .map((a: any) => (typeof a?.archetype === 'string' ? a.archetype.toUpperCase() : null))
+            .map((a: any) =>
+              typeof a?.archetype === 'string' ? a.archetype.toUpperCase() : null,
+            )
             .filter((c: any): c is string => !!c);
           setActiveArchetypes(new Set(codes));
         }
       } catch (e) {
-        console.log('Home load failed:', (e as any)?.message ?? String(e));
+        console.log('Archetypes load failed:', (e as any)?.message ?? String(e));
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [router]);
 
   const goToArchetype = (sign: ZodiacSign) => {
     router.push(`/archetype/${sign.code}` as any);
@@ -113,6 +135,7 @@ export default function HomeScreen() {
     try {
       await clearAccessToken();
       await clearOnboardingDraft();
+      await setBiometricEnabled(false);
     } catch (e) {
       console.log('Logout cleanup failed:', (e as any)?.message ?? String(e));
     } finally {

@@ -2,7 +2,17 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useRouter, type ErrorBoundaryProps } from 'expo-router';
 import data from '../assets/data/insights.json';
-import { getAccessToken, getUserProfile, isOnboardingComplete } from '../services/api';
+import {
+  clearAccessToken,
+  getAccessToken,
+  getUserProfile,
+  isOnboardingComplete,
+} from '../services/api';
+import {
+  authenticateWithBiometric,
+  isBiometricEnabled,
+  isBiometricSupported,
+} from '../services/biometric';
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
@@ -39,6 +49,20 @@ export default function WelcomeScreen() {
         const token = await getAccessToken();
         if (!token) return;
 
+        const biometricsEnabled = await isBiometricEnabled();
+        if (biometricsEnabled) {
+          const supported = await isBiometricSupported();
+          if (supported) {
+            const { success } = await authenticateWithBiometric(
+              'Sign in to AstroInsights',
+            );
+            if (cancelled) return;
+            if (!success) {
+              return;
+            }
+          }
+        }
+
         const profile = await getUserProfile();
         if (cancelled) return;
 
@@ -46,6 +70,8 @@ export default function WelcomeScreen() {
           router.replace('/home');
         } else if (profile) {
           router.replace('/onboarding/name');
+        } else {
+          await clearAccessToken();
         }
       } catch (e) {
         console.log('Auto-route check failed:', (e as any)?.message ?? String(e));
