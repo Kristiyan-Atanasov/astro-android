@@ -233,7 +233,7 @@ export default function HomeScreen() {
 
               {/* Menu Items */}
               {[
-                { label: 'Home', icon: icons.home },
+                { label: 'Home', icon: icons.home, route: '/home' as const, replace: true },
                 { label: 'Community', icon: icons.community },
                 { label: 'My profile', icon: icons.profile },
                 { label: 'Edit Profile', icon: icons.edit },
@@ -255,7 +255,11 @@ export default function HomeScreen() {
                     }
                     if ((item as any).route) {
                       closeMenu();
-                      router.push((item as any).route);
+                      if ((item as any).replace) {
+                        router.replace((item as any).route);
+                      } else {
+                        router.push((item as any).route);
+                      }
                     }
                   }}
                 >
