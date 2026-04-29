@@ -78,7 +78,7 @@ export default function VibeScreen() {
       console.log('✅ onboarding success response:', res);
 
       await clearOnboardingDraft();
-      router.replace('/home');
+      router.replace('/onboarding/notifications');
     } catch (e: any) {
       console.log('❌ onboarding submit error:', e?.message ?? String(e));
       Alert.alert('Onboarding failed', e?.message ?? String(e));

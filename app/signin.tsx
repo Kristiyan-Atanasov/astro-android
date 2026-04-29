@@ -14,6 +14,7 @@ import {
   isBiometricSupported,
   setBiometricEnabled,
 } from "../services/biometric";
+import { syncDeviceTokenIfChanged } from "../services/notifications";
 
 WebBrowser.maybeCompleteAuthSession(); // required for auth-session redirects [web:334]
 
@@ -72,6 +73,10 @@ export default function SignInScreen() {
       if (!jwt) throw new Error("Backend returned no JWT.");
 
       await setAccessToken(jwt);
+
+      syncDeviceTokenIfChanged().catch((e) =>
+        console.log("Post-login device token sync failed:", e?.message ?? String(e)),
+      );
 
       const profile = await getUserProfile();
       const next: Href = isOnboardingComplete(profile)

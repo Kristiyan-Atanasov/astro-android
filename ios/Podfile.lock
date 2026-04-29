@@ -16,6 +16,8 @@ PODS:
   - EXJSONUtils (0.13.1)
   - EXManifests (0.14.3):
     - ExpoModulesCore
+  - EXNotifications (0.28.19):
+    - ExpoModulesCore
   - Expo (51.0.39):
     - ExpoModulesCore
   - expo-dev-client (4.0.29):
@@ -236,6 +238,8 @@ PODS:
   - ExpoBlur (13.0.3):
     - ExpoModulesCore
   - ExpoCrypto (13.0.2):
+    - ExpoModulesCore
+  - ExpoDevice (6.0.2):
     - ExpoModulesCore
   - ExpoFileSystem (17.0.1):
     - ExpoModulesCore
@@ -1617,6 +1621,7 @@ DEPENDENCIES:
   - EXConstants (from `../node_modules/expo-constants/ios`)
   - EXJSONUtils (from `../node_modules/expo-json-utils/ios`)
   - EXManifests (from `../node_modules/expo-manifests/ios`)
+  - EXNotifications (from `../node_modules/expo-notifications/ios`)
   - Expo (from `../node_modules/expo`)
   - expo-dev-client (from `../node_modules/expo-dev-client/ios`)
   - expo-dev-launcher (from `../node_modules/expo-dev-launcher`)
@@ -1627,6 +1632,7 @@ DEPENDENCIES:
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
   - ExpoBlur (from `../node_modules/expo-blur/ios`)
   - ExpoCrypto (from `../node_modules/expo-crypto/ios`)
+  - ExpoDevice (from `../node_modules/expo-device/ios`)
   - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
   - ExpoFont (from `../node_modules/expo-font/ios`)
   - ExpoHaptics (from `../node_modules/expo-haptics/ios`)
@@ -1732,6 +1738,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-json-utils/ios"
   EXManifests:
     :path: "../node_modules/expo-manifests/ios"
+  EXNotifications:
+    :path: "../node_modules/expo-notifications/ios"
   Expo:
     :path: "../node_modules/expo"
   expo-dev-client:
@@ -1752,6 +1760,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-blur/ios"
   ExpoCrypto:
     :path: "../node_modules/expo-crypto/ios"
+  ExpoDevice:
+    :path: "../node_modules/expo-device/ios"
   ExpoFileSystem:
     :path: "../node_modules/expo-file-system/ios"
   ExpoFont:
@@ -1917,6 +1927,7 @@ SPEC CHECKSUMS:
   EXConstants: 89d35611505a8ce02550e64e43cd05565da35f9a
   EXJSONUtils: 30c17fd9cc364d722c0946a550dfbf1be92ef6a4
   EXManifests: ebb7f551c340c0d06f3ecd9ae662e418bf68417c
+  EXNotifications: 6ce128c0d3d3d161cd68bfd07d593db40e140396
   Expo: ed0a748eb6be0efd2c3df7f6de3f3158a14464c9
   expo-dev-client: 67bfa449de8ee3e3cd88a6945a8058819fffb0f0
   expo-dev-launcher: 5db274c8fdf72ca2f98b189d62924b014f7b90b5
@@ -1927,6 +1938,7 @@ SPEC CHECKSUMS:
   ExpoAsset: 286fee7ba711ce66bf20b315e68106b13b8629fc
   ExpoBlur: 99901a4531f5d3ac4a19b362907b8f75da4ed9c8
   ExpoCrypto: c5c052d5f9f668c21975cb4caf072cec23c823fa
+  ExpoDevice: 84b3ed79df1234c17edfbf335f6ecf3c636f74de
   ExpoFileSystem: 2988caaf68b7cb706e36d382829d99811d9d76a5
   ExpoFont: 38dddf823e32740c2a9f37c926a33aeca736b5c4
   ExpoHaptics: 9f47be324f691b6291c17c216189ab832d1a4d69

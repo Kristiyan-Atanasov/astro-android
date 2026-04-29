@@ -265,47 +265,134 @@ export async function getDailyVibe() {
   return data || null;
 }
 
+// Backends differ on what the "delete my account" endpoint is called.
+// Try the most common patterns in order. The first 2xx wins; the first
+// non-not-implemented error (i.e. anything that isn't a 404 / 405) is
+// surfaced as the real failure.
+const DELETE_ACCOUNT_CANDIDATES = [
+  { method: 'DELETE', path: '/authentication/user_profile/' },
+  { method: 'DELETE', path: '/authentication/me/' },
+  { method: 'DELETE', path: '/authentication/user/' },
+  { method: 'POST', path: '/authentication/delete_account/' },
+  { method: 'POST', path: '/authentication/user_profile/delete/' },
+];
+
 export async function deleteAccount() {
   const token = await getAccessToken();
   if (!token) throw new Error('Missing access token. Please sign in again.');
 
-  let res;
-  try {
-    res = await fetch(`${API_BASE}/authentication/user_profile/`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    });
-  } catch (e) {
-    console.log('🌐 user_profile delete network error:', e?.message ?? String(e));
-    throw new Error('Network request failed');
+  let firstRealError = null;
+  let lastNotFoundDetail = null;
+
+  for (const candidate of DELETE_ACCOUNT_CANDIDATES) {
+    let res;
+    try {
+      res = await fetch(`${API_BASE}${candidate.path}`, {
+        method: candidate.method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: candidate.method === 'POST' ? JSON.stringify({}) : undefined,
+      });
+    } catch (e) {
+      console.log(
+        `🌐 delete account network error (${candidate.method} ${candidate.path}):`,
+        e?.message ?? String(e),
+      );
+      if (!firstRealError) firstRealError = new Error('Network request failed');
+      continue;
+    }
+
+    console.log(
+      `🌐 delete account ${candidate.method} ${candidate.path} status:`,
+      res.status,
+    );
+
+    if (res.status === 401 || res.status === 403) {
+      await clearAccessToken();
+      throw new Error('Session expired. Please sign in again.');
+    }
+
+    // 410 Gone = already deleted on this backend, treat as success.
+    if (res.status === 410) {
+      await clearAccessToken();
+      return { status: 'gone' };
+    }
+
+    // 404 / 405 mean "this backend doesn't expose this URL/verb",
+    // not "the user is gone" — try the next candidate.
+    if (res.status === 404 || res.status === 405) {
+      try {
+        const { raw } = await readResponse(res);
+        lastNotFoundDetail = raw || `HTTP ${res.status}`;
+      } catch {
+        lastNotFoundDetail = `HTTP ${res.status}`;
+      }
+      continue;
+    }
+
+    const { raw, data } = await readResponse(res);
+
+    if (!res.ok) {
+      const message =
+        data?.message ||
+        data?.detail ||
+        raw ||
+        `Account deletion failed (${res.status})`;
+      console.log('❌ delete account server error body:', raw);
+      if (!firstRealError) firstRealError = new Error(message);
+      // Real backend error (not "endpoint missing") — stop trying further URLs.
+      break;
+    }
+
+    await clearAccessToken();
+    return data || { status: 'success' };
   }
 
-  console.log('🌐 user_profile delete status:', res.status);
+  if (firstRealError) throw firstRealError;
+  throw new Error(
+    lastNotFoundDetail
+      ? `Account deletion is not available on the server (${lastNotFoundDetail}).`
+      : 'Account deletion endpoint is not available on the server.',
+  );
+}
+
+export async function registerDeviceToken(token, platform) {
+  if (!token || typeof token !== 'string') return null;
+  if (platform !== 'ios' && platform !== 'android') return null;
+
+  const accessToken = await getAccessToken();
+  if (!accessToken) return null;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/notifications/register/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ token, platform }),
+    });
+  } catch (e) {
+    console.log('🌐 register device network error:', e?.message ?? String(e));
+    return null;
+  }
+
+  console.log('🌐 register device status:', res.status);
 
   if (res.status === 401 || res.status === 403) {
     await clearAccessToken();
-    throw new Error('Session expired. Please sign in again.');
+    return null;
   }
-
-  // Treat 404/410 as "already gone" — still a successful end state for the user.
-  if (res.status === 404 || res.status === 410) {
-    await clearAccessToken();
-    return { status: 'gone' };
-  }
-
-  const { raw, data } = await readResponse(res);
 
   if (!res.ok) {
-    throw new Error(
-      data?.message || data?.detail || raw || `Account deletion failed (${res.status})`
-    );
+    return null;
   }
 
-  await clearAccessToken();
-  return data || { status: 'success' };
+  const { data } = await readResponse(res);
+  return data || { status: 'ok' };
 }
 
 export function isOnboardingComplete(profile) {

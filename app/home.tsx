@@ -25,6 +25,11 @@ import {
 } from '../services/api';
 import { clearOnboardingDraft } from '../services/onboardingDraft';
 import { setBiometricEnabled } from '../services/biometric';
+import {
+  clearRegisteredToken,
+  subscribeToNotificationTaps,
+  syncDeviceTokenIfChanged,
+} from '../services/notifications';
 import Astrowheel, { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
 
 const KEYS_GRID_ORDER = [
@@ -131,8 +136,21 @@ export default function HomeScreen() {
       }
     })();
 
+    syncDeviceTokenIfChanged().catch((e) =>
+      console.log('Device token sync failed:', e?.message ?? String(e)),
+    );
+
+    const unsubscribe = subscribeToNotificationTaps((route) => {
+      try {
+        router.push(route as any);
+      } catch (e) {
+        console.log('Notif route push failed:', (e as any)?.message ?? String(e));
+      }
+    });
+
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [router]);
 
@@ -162,6 +180,7 @@ export default function HomeScreen() {
       await clearAccessToken();
       await clearOnboardingDraft();
       await setBiometricEnabled(false);
+      await clearRegisteredToken();
     } catch (e) {
       console.log('Logout cleanup failed:', (e as any)?.message ?? String(e));
     } finally {
@@ -363,7 +382,7 @@ export default function HomeScreen() {
                 { label: 'Home', icon: icons.home, route: '/home' as const, replace: true },
                 { label: 'My profile', icon: icons.profile, route: '/profile' as const },
                 { label: 'Edit Profile', icon: icons.edit, route: '/edit-profile' as const },
-                { label: 'Notifications', icon: icons.notifications },
+                { label: 'Notifications', icon: icons.notifications, route: '/notifications' as const },
                 {
                   label: 'Subscriptions',
                   icon: icons.subscriptions,

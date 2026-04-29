@@ -11,6 +11,10 @@
       "bundleIdentifier": "io.astroinsights.app",
       "buildNumber": "1",
       "supportsTablet": true,
+      "usesAppleSignIn": false,
+      "entitlements": {
+        "aps-environment": "production"
+      },
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to sign in to AstroInsights faster and more securely.",
         "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
@@ -64,6 +68,13 @@
         "expo-local-authentication",
         {
           "faceIDPermission": "Use Face ID to sign in to AstroInsights faster and more securely."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icons/notification.png",
+          "color": "#577CFB"
         }
       ]
     ]
