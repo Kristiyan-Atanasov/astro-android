@@ -7,7 +7,7 @@ import {
   Dimensions,
   ImageSourcePropType,
 } from 'react-native';
-import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Stop, Path, Text as SvgText } from 'react-native-svg';
 import WheelSvg from '../assets/images/astro-wheel.svg';
 import {
   ZODIAC_SIGN_PATHS,
@@ -40,24 +40,29 @@ const ASPECT = SVG_VIEWBOX_H / SVG_VIEWBOX_W;
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 const SIGN_RELATIVE_POSITIONS: Record<string, { x: number; y: number }> = {
-  ARIES: { x: 284.44 / SVG_VIEWBOX_W, y: 141.37 / SVG_VIEWBOX_H },
-  TAURUS: { x: 312.17 / SVG_VIEWBOX_W, y: 197.29 / SVG_VIEWBOX_H },
-  GEMINI: { x: 310.83 / SVG_VIEWBOX_W, y: 258.81 / SVG_VIEWBOX_H },
-  CANCER: { x: 278.46 / SVG_VIEWBOX_W, y: 311.21 / SVG_VIEWBOX_H },
-  LEO: { x: 225.98 / SVG_VIEWBOX_W, y: 342.19 / SVG_VIEWBOX_H },
-  VIRGO: { x: 168.01 / SVG_VIEWBOX_W, y: 340.67 / SVG_VIEWBOX_H },
-  LIBRA: { x: 115.17 / SVG_VIEWBOX_W, y: 309.89 / SVG_VIEWBOX_H },
-  SCORPIO: { x: 82.64 / SVG_VIEWBOX_W, y: 256.44 / SVG_VIEWBOX_H },
-  SAGITTARIUS: { x: 81.45 / SVG_VIEWBOX_W, y: 198.35 / SVG_VIEWBOX_H },
-  CAPRICORN: { x: 113.9 / SVG_VIEWBOX_W, y: 146.38 / SVG_VIEWBOX_H },
-  AQUARIUS: { x: 164.67 / SVG_VIEWBOX_W, y: 114.65 / SVG_VIEWBOX_H },
-  PISCES: { x: 227.15 / SVG_VIEWBOX_W, y: 112.42 / SVG_VIEWBOX_H },
+  ARIES: { x: 227.15 / SVG_VIEWBOX_W, y: 112.42 / SVG_VIEWBOX_H },
+  TAURUS: { x: 284.44 / SVG_VIEWBOX_W, y: 141.37 / SVG_VIEWBOX_H },
+  GEMINI: { x: 312.17 / SVG_VIEWBOX_W, y: 197.29 / SVG_VIEWBOX_H },
+  CANCER: { x: 310.83 / SVG_VIEWBOX_W, y: 258.81 / SVG_VIEWBOX_H },
+  LEO: { x: 278.46 / SVG_VIEWBOX_W, y: 311.21 / SVG_VIEWBOX_H },
+  VIRGO: { x: 225.98 / SVG_VIEWBOX_W, y: 342.19 / SVG_VIEWBOX_H },
+  LIBRA: { x: 168.01 / SVG_VIEWBOX_W, y: 340.67 / SVG_VIEWBOX_H },
+  SCORPIO: { x: 115.17 / SVG_VIEWBOX_W, y: 309.89 / SVG_VIEWBOX_H },
+  SAGITTARIUS: { x: 82.64 / SVG_VIEWBOX_W, y: 256.44 / SVG_VIEWBOX_H },
+  CAPRICORN: { x: 81.45 / SVG_VIEWBOX_W, y: 198.35 / SVG_VIEWBOX_H },
+  AQUARIUS: { x: 113.9 / SVG_VIEWBOX_W, y: 146.38 / SVG_VIEWBOX_H },
+  PISCES: { x: 164.67 / SVG_VIEWBOX_W, y: 114.65 / SVG_VIEWBOX_H },
 };
 
 interface AstrowheelProps {
   size?: number;
   activeSet: Set<string>;
   onPressSign: (sign: ZodiacSign) => void;
+  /**
+   * When true, renders the sign code (e.g. ARIES) next to each glyph.
+   * Useful for verifying / debugging the wheel mapping.
+   */
+  debugLabels?: boolean;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -69,6 +74,7 @@ export default function Astrowheel({
   size = SCREEN_WIDTH - 48,
   activeSet,
   onPressSign,
+  debugLabels = false,
 }: AstrowheelProps) {
   const width = size;
   const height = size * ASPECT;
@@ -141,6 +147,7 @@ export default function Astrowheel({
           const paths = ZODIAC_SIGN_PATHS[sign.code];
           if (!paths) return null;
           const active = activeSet.has(sign.code);
+          const pos = SIGN_RELATIVE_POSITIONS[sign.code];
           return (
             <React.Fragment key={`sym-${sign.code}`}>
               {paths.map((d, i) => (
@@ -155,6 +162,18 @@ export default function Astrowheel({
                     opacity={signsOpacity}
                   />
                 ))}
+              {debugLabels && pos && (
+                <SvgText
+                  x={pos.x * SVG_VIEWBOX_W}
+                  y={pos.y * SVG_VIEWBOX_H + 22}
+                  fill="#FF4D88"
+                  fontSize={10}
+                  fontWeight="bold"
+                  textAnchor="middle"
+                >
+                  {sign.code}
+                </SvgText>
+              )}
             </React.Fragment>
           );
         })}
