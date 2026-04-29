@@ -12,6 +12,7 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mergeOnboardingDraft } from '../../services/onboardingDraft';
 import OnboardingHeader from '../../components/OnboardingHeader';
@@ -21,6 +22,7 @@ const starsImg = require('../../assets/images/stars.png');
 
 export default function NameScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -34,20 +36,18 @@ export default function NameScreen() {
 
       <View style={styles.content}>
         <OnboardingHeader
-          title="Your Name"
+          title={t('onboarding.name.title')}
           step={1}
           onBack={() => router.back()}
           disabled={submitting}
         />
 
-        <Text style={styles.description}>
-          Tell us about yourself so that we can make a more personalised prediction.
-        </Text>
+        <Text style={styles.description}>{t('onboarding.name.description')}</Text>
 
         <TextInput
           value={name}
           onChangeText={setName}
-          placeholder="Enter your name"
+          placeholder={t('onboarding.name.placeholder')}
           placeholderTextColor="rgba(255, 255, 255, 0.4)"
           style={styles.input}
           editable={!submitting}
@@ -56,9 +56,7 @@ export default function NameScreen() {
           returnKeyType="done"
         />
 
-        <Text style={styles.info}>
-          We use this to generate your AstroInsights wheel. We never share or sell your data.
-        </Text>
+        <Text style={styles.info}>{t('onboarding.name.info')}</Text>
 
         <TouchableOpacity
           disabled={submitting || !name.trim()}
@@ -85,7 +83,9 @@ export default function NameScreen() {
               (submitting || !name.trim()) && styles.nextButtonDisabled,
             ]}
           >
-            <Text style={styles.nextText}>{submitting ? 'Saving...' : 'Next'}</Text>
+            <Text style={styles.nextText}>
+              {submitting ? t('common.saving') : t('common.next')}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>

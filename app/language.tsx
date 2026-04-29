@@ -10,24 +10,29 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
 import { getUserProfile, patchUserProfile } from '../services/api';
+import {
+  backendCodeToLocale,
+  setAppLocale,
+} from '../services/i18n';
 
 type LanguageCode = 'ENGLISH' | 'BULGARIAN';
 
-const LANGUAGES: { code: LanguageCode; label: string }[] = [
-  { code: 'ENGLISH', label: 'English' },
-  { code: 'BULGARIAN', label: 'Bulgarian' },
-];
-
-function labelFor(code: LanguageCode): string {
-  return LANGUAGES.find((l) => l.code === code)?.label ?? 'English';
-}
-
 export default function LanguageScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+
+  const LANGUAGES: { code: LanguageCode; label: string }[] = [
+    { code: 'ENGLISH', label: t('language.english') },
+    { code: 'BULGARIAN', label: t('language.bulgarian') },
+  ];
+
+  const labelFor = (code: LanguageCode): string =>
+    LANGUAGES.find((l) => l.code === code)?.label ?? t('language.english');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -72,10 +77,21 @@ export default function LanguageScreen() {
         user_settings: { ...baseSettings, language },
       });
 
-      Alert.alert('Saved', 'Your language has been updated.');
+      // Apply the language to the running app immediately so the rest
+      // of the screens re-render in the new language without a reload.
+      try {
+        await setAppLocale(backendCodeToLocale(language));
+      } catch (langErr) {
+        console.log(
+          'Local language change failed:',
+          (langErr as any)?.message ?? String(langErr),
+        );
+      }
+
+      Alert.alert(t('common.save'), t('language.saved'));
       router.back();
     } catch (e: any) {
-      Alert.alert('Update failed', e?.message ?? String(e));
+      Alert.alert(t('language.updateFailed'), e?.message ?? String(e));
     } finally {
       setSaving(false);
     }
@@ -103,11 +119,11 @@ export default function LanguageScreen() {
           >
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Language</Text>
+          <Text style={styles.headerTitle}>{t('language.title')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
-        <Text style={styles.fieldLabel}>Language</Text>
+        <Text style={styles.fieldLabel}>{t('language.title')}</Text>
         <TouchableOpacity
           style={styles.field}
           onPress={() => setShowPicker((v) => !v)}
@@ -142,19 +158,21 @@ export default function LanguageScreen() {
             end={{ x: 1, y: 0 }}
             style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           >
-            <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save'}</Text>
+            <Text style={styles.saveText}>
+              {saving ? t('common.saving') : t('common.save')}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
 
         <View style={styles.footerLinks}>
           <TouchableOpacity onPress={() => router.push('/terms')}>
-            <Text style={styles.footerLink}>Terms of Service</Text>
+            <Text style={styles.footerLink}>{t('legalLinks.terms')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/privacy')}>
-            <Text style={styles.footerLink}>Privacy Policy</Text>
+            <Text style={styles.footerLink}>{t('legalLinks.privacy')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/subscription')}>
-            <Text style={styles.footerLink}>Subscription terms</Text>
+            <Text style={styles.footerLink}>{t('legalLinks.subscription')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

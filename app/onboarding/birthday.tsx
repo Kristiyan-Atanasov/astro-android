@@ -10,6 +10,7 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mergeOnboardingDraft } from '../../services/onboardingDraft';
@@ -20,12 +21,13 @@ const starsImg = require('../../assets/images/stars.png');
 
 export default function BirthdayScreen() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const [date, setDate] = useState(new Date());
   const [submitting, setSubmitting] = useState(false);
   const [showAndroidPicker, setShowAndroidPicker] = useState(false);
 
   const formatDate = (d: Date) =>
-    d.toLocaleDateString(undefined, {
+    d.toLocaleDateString(i18n.language === 'bg' ? 'bg-BG' : undefined, {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -38,15 +40,13 @@ export default function BirthdayScreen() {
 
       <View style={styles.content}>
         <OnboardingHeader
-          title="Date of Birth"
+          title={t('onboarding.birthday.title')}
           step={2}
           onBack={() => router.back()}
           disabled={submitting}
         />
 
-        <Text style={styles.description}>
-          Date is important for determining your astrology profile
-        </Text>
+        <Text style={styles.description}>{t('onboarding.birthday.description')}</Text>
 
         <View style={styles.pickerWrapper}>
           {Platform.OS === 'ios' ? (
@@ -89,10 +89,7 @@ export default function BirthdayScreen() {
           )}
         </View>
 
-        <Text style={styles.info}>
-          We use this to generate your AstroInsights wheel. We never share or
-          sell your data.
-        </Text>
+        <Text style={styles.info}>{t('onboarding.birthday.info')}</Text>
 
         <TouchableOpacity
           disabled={submitting}
@@ -121,7 +118,7 @@ export default function BirthdayScreen() {
             style={[styles.nextButton, submitting && styles.nextButtonDisabled]}
           >
             <Text style={styles.nextText}>
-              {submitting ? 'Saving...' : 'Next'}
+              {submitting ? t('common.saving') : t('common.next')}
             </Text>
           </LinearGradient>
         </TouchableOpacity>

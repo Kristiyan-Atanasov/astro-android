@@ -13,6 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,6 +33,11 @@ import {
   syncDeviceTokenIfChanged,
 } from '../services/notifications';
 import Astrowheel, { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
+import {
+  backendCodeToLocale,
+  getAppLanguageCode,
+  setAppLocale,
+} from '../services/i18n';
 
 const KEYS_GRID_ORDER = [
   'ARIES', 'TAURUS', 'GEMINI',
@@ -73,13 +79,15 @@ const icons = {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const [menuVisible, setMenuVisible] = useState(false);
   const [userName, setUserName] = useState<string>('');
-  const [language, setLanguage] = useState<string>('English');
   const [dailyVibe, setDailyVibe] = useState<string>('');
   const [activeArchetypes, setActiveArchetypes] = useState<Set<string>>(new Set());
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').width)).current;
+
+  const language = i18n.language === 'bg' ? t('language.bulgarian') : t('language.english');
 
   useEffect(() => {
     let cancelled = false;
@@ -98,9 +106,22 @@ export default function HomeScreen() {
         if (typeof name === 'string' && name.trim().length > 0) {
           setUserName(name.trim().split(/\s+/)[0]);
         }
+        // If the backend has a language we haven't applied yet locally,
+        // adopt it so the rest of the app re-renders in the right language.
         const langCode = (profile as any)?.user_settings?.language;
-        if (langCode === 'ENGLISH') setLanguage('English');
-        else if (langCode === 'BULGARIAN') setLanguage('Bulgarian');
+        if (langCode === 'ENGLISH' || langCode === 'BULGARIAN') {
+          const targetLocale = backendCodeToLocale(langCode);
+          if (i18n.language !== targetLocale) {
+            try {
+              await setAppLocale(targetLocale);
+            } catch (langErr) {
+              console.log(
+                'Apply backend language failed:',
+                (langErr as any)?.message ?? String(langErr),
+              );
+            }
+          }
+        }
       } catch (e) {
         console.log('Profile load failed:', (e as any)?.message ?? String(e));
       }
@@ -163,11 +184,13 @@ export default function HomeScreen() {
             // Default off — the user makes an explicit choice on the
             // /onboarding/notifications screen.
             allow_notifications: false,
-            language: 'ENGLISH',
             reminder_count: 1,
             reminder_time_start: '09:00:00',
             reminder_time_end: '21:00:00',
             ...(draft.user_settings ?? {}),
+            // Always trust the active app language for the retry, even
+            // if a stale draft has a different one.
+            language: getAppLanguageCode(),
           },
         };
 
@@ -218,13 +241,16 @@ export default function HomeScreen() {
   }, [router]);
 
   const goToArchetype = (sign: ZodiacSign) => {
+    const localizedLabel = t(`archetypeMeta.${sign.code}.label`, {
+      defaultValue: sign.label,
+    });
     Alert.alert(
-      'Premium account required',
-      `${sign.label} details are only available on the premium plan. Upgrade to unlock all archetypes.`,
+      t('home.premiumRequiredTitle'),
+      t('home.premiumRequiredBody', { archetype: localizedLabel }),
       [
-        { text: 'Not now', style: 'cancel' },
+        { text: t('common.notNow'), style: 'cancel' },
         {
-          text: 'See plans',
+          text: t('common.seePlans'),
           onPress: () => router.push('/subscription' as any),
         },
       ],
@@ -264,27 +290,28 @@ export default function HomeScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Log out',
-      'Are you sure you want to log out?',
+      t('common.logOut'),
+      t('common.confirmLogout'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Log out', style: 'destructive', onPress: performLogout },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.logOut'), style: 'destructive', onPress: performLogout },
       ],
       { cancelable: true }
     );
   };
 
   const todayLabel = React.useMemo(() => {
+    const locale = i18n.language === 'bg' ? 'bg-BG' : undefined;
     const now = new Date();
     const weekday = now
-      .toLocaleDateString(undefined, { weekday: 'short' })
+      .toLocaleDateString(locale, { weekday: 'short' })
       .toUpperCase();
     const day = now.getDate();
     const month = now
-      .toLocaleDateString(undefined, { month: 'long' })
+      .toLocaleDateString(locale, { month: 'long' })
       .toUpperCase();
     return `${weekday}, ${day} ${month}`;
-  }, []);
+  }, [i18n.language]);
 
   return (
     <View style={styles.container}>
@@ -301,7 +328,7 @@ export default function HomeScreen() {
           <View>
             <Text style={styles.date}>{todayLabel}</Text>
             <Text style={styles.greeting}>
-              {userName ? `Hello, ${userName}!` : 'Hello!'}
+              {userName ? t('home.hello', { name: userName }) : t('home.helloFallback')}
             </Text>
           </View>
           <TouchableOpacity onPress={openMenu} style={styles.menuButton}>
@@ -313,29 +340,23 @@ export default function HomeScreen() {
         <View style={styles.vibeCard}>
           <View style={styles.vibeHeader}>
             <Image source={vibeIcon} style={styles.vibeIcon} />
-            <Text style={styles.vibeTitle}>Your daily vibe</Text>
+            <Text style={styles.vibeTitle}>{t('home.dailyVibeTitle')}</Text>
           </View>
           <Text style={styles.vibeQuote}>
-            {dailyVibe
-              ? `“${dailyVibe}”`
-              : '“Loading your daily vibe…”'}
+            {dailyVibe ? `“${dailyVibe}”` : t('home.dailyVibeLoading')}
           </Text>
         </View>
 
         {/* Astrowheel */}
-        <Text style={styles.sectionTitle}>Your Astrowheel</Text>
-        <Text style={styles.sectionSub}>
-          Each person has 12 archetypes in their birth chart, but some are weak and others are well positioned.
-        </Text>
+        <Text style={styles.sectionTitle}>{t('home.astrowheelTitle')}</Text>
+        <Text style={styles.sectionSub}>{t('home.astrowheelText')}</Text>
         <View style={styles.wheelWrap}>
           <Astrowheel activeSet={activeArchetypes} onPressSign={goToArchetype} />
         </View>
 
         {/* Zodiac Grid */}
-        <Text style={styles.sectionTitle}>The keys to your chart</Text>
-        <Text style={styles.sectionSub}>
-          Each person has 12 archetypes in their birth chart, but some are weak and others are well positioned.
-        </Text>
+        <Text style={styles.sectionTitle}>{t('home.chartKeysTitle')}</Text>
+        <Text style={styles.sectionSub}>{t('home.chartKeysText')}</Text>
         <View style={styles.symbolGrid}>
           {KEYS_GRID_SIGNS.map((sign) => {
             const active = activeArchetypes.has(sign.code);
@@ -374,21 +395,21 @@ export default function HomeScreen() {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => router.push('/terms')}
           >
-            <Text style={styles.link}>Terms of Service</Text>
+            <Text style={styles.link}>{t('legalLinks.terms')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.linkHit}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => router.push('/privacy')}
           >
-            <Text style={styles.link}>Privacy Policy</Text>
+            <Text style={styles.link}>{t('legalLinks.privacy')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.linkHit}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => router.push('/subscription')}
           >
-            <Text style={styles.link}>Subscription terms</Text>
+            <Text style={styles.link}>{t('legalLinks.subscription')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -407,7 +428,7 @@ export default function HomeScreen() {
             >
               {/* Header */}
               <View style={styles.menuHeader}>
-                <Text style={styles.menuTitle}>Menu</Text>
+                <Text style={styles.menuTitle}>{t('menu.title')}</Text>
                 <TouchableOpacity
                   onPress={closeMenu}
                   style={styles.menuCloseButton}
@@ -434,8 +455,8 @@ export default function HomeScreen() {
                 >
                   <View style={styles.subscriptionContent}>
                     <View>
-                      <Text style={styles.subscriptionLabel}>Subscription</Text>
-                      <Text style={styles.subscriptionPlan}>Free</Text>
+                      <Text style={styles.subscriptionLabel}>{t('menu.subscription')}</Text>
+                      <Text style={styles.subscriptionPlan}>{t('menu.plan.free')}</Text>
                     </View>
                     <LinearGradient
                       colors={['rgba(87, 124, 251, 1)', 'rgba(178, 131, 237, 1)']}
@@ -444,7 +465,7 @@ export default function HomeScreen() {
                       style={styles.upgradeButton}
                     >
                       <Ionicons name="diamond-outline" size={14} color="#fff" />
-                      <Text style={styles.upgradeText}>Upgrade</Text>
+                      <Text style={styles.upgradeText}>{t('menu.upgrade')}</Text>
                     </LinearGradient>
                   </View>
                 </ImageBackground>
@@ -452,26 +473,26 @@ export default function HomeScreen() {
 
               {/* Menu Items */}
               {[
-                { label: 'Home', icon: icons.home, route: '/home' as const, replace: true },
-                { label: 'My profile', icon: icons.profile, route: '/profile' as const },
-                { label: 'Edit Profile', icon: icons.edit, route: '/edit-profile' as const },
-                { label: 'Notifications', icon: icons.notifications, route: '/notifications' as const },
+                { label: t('menu.items.home'), icon: icons.home, route: '/home' as const, replace: true },
+                { label: t('menu.items.myProfile'), icon: icons.profile, route: '/profile' as const },
+                { label: t('menu.items.editProfile'), icon: icons.edit, route: '/edit-profile' as const },
+                { label: t('menu.items.notifications'), icon: icons.notifications, route: '/notifications' as const },
                 {
-                  label: 'Subscriptions',
+                  label: t('menu.items.subscriptions'),
                   icon: icons.subscriptions,
                   route: '/subscription' as const,
-                  status: 'Free Plan',
+                  status: t('menu.statuses.freePlan'),
                 },
                 {
-                  label: 'Language',
+                  label: t('menu.items.language'),
                   icon: icons.language,
                   route: '/language' as const,
                   status: language,
                 },
-                { label: 'Privacy policy', icon: icons.privacy, route: '/privacy' as const },
-                { label: 'Terms of Service', icon: icons.terms, route: '/terms' as const },
-                { label: 'FAQ', icon: icons.faq, route: '/faq' as const },
-                { label: 'Log out', icon: icons.logout, action: 'logout' as const },
+                { label: t('menu.items.privacy'), icon: icons.privacy, route: '/privacy' as const },
+                { label: t('menu.items.terms'), icon: icons.terms, route: '/terms' as const },
+                { label: t('menu.items.faq'), icon: icons.faq, route: '/faq' as const },
+                { label: t('menu.items.logout'), icon: icons.logout, action: 'logout' as const },
               ].map((item, index) => (
                 <TouchableOpacity
                   key={index}

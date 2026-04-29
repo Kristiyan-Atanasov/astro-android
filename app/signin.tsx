@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from "react-native";
 import { useRouter, type Href } from "expo-router";
-import data from "../assets/data/insights.json";
+import { useTranslation } from "react-i18next";
 
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
@@ -18,11 +18,6 @@ import { syncDeviceTokenIfChanged } from "../services/notifications";
 
 WebBrowser.maybeCompleteAuthSession(); // required for auth-session redirects [web:334]
 
-type WelcomeLink = {
-  label: string;
-  route: Href;
-};
-
 const WEB_CLIENT_ID =
   "154762470670-dma1hg357n6n48ishn1b4gjodo33v08r.apps.googleusercontent.com";
 
@@ -31,7 +26,7 @@ const IOS_CLIENT_ID =
 
 export default function SignInScreen() {
   const router = useRouter();
-  const links = (data.welcome.links as unknown as WelcomeLink[]) ?? [];
+  const { t } = useTranslation();
 
   const APP_SCHEME = "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e";
 
@@ -89,16 +84,16 @@ export default function SignInScreen() {
         if (supported && !alreadyEnabled) {
           const label = await getBiometricLabel();
           Alert.alert(
-            `Enable ${label}?`,
-            `Use ${label} to sign in to AstroInsights faster next time.`,
+            t("signin.enableBiometricTitle", { label }),
+            t("signin.enableBiometricBody", { label }),
             [
               {
-                text: "Not now",
+                text: t("common.notNow"),
                 style: "cancel",
                 onPress: () => router.replace(next),
               },
               {
-                text: "Enable",
+                text: t("common.enable"),
                 onPress: async () => {
                   await setBiometricEnabled(true);
                   router.replace(next);
@@ -115,7 +110,7 @@ export default function SignInScreen() {
 
       router.replace(next);
     },
-    [router]
+    [router, t]
   );
 
   React.useEffect(() => {
@@ -125,26 +120,26 @@ export default function SignInScreen() {
       const idToken = (response.params as any)?.id_token;
 
       if (!idToken) {
-        Alert.alert("Google Sign-In failed", "No id_token returned from Google.");
+        Alert.alert(t("signin.googleFailed"), "No id_token returned from Google.");
         return;
       }
 
       exchangeIdTokenWithBackend(idToken).catch((e: any) => {
-        Alert.alert("Login failed", e?.message ?? String(e));
+        Alert.alert(t("signin.loginFailed"), e?.message ?? String(e));
       });
     }
 
     if (response.type === "error") {
-      Alert.alert("Google Sign-In failed", response.error?.message ?? "Unknown error");
+      Alert.alert(t("signin.googleFailed"), response.error?.message ?? "Unknown error");
     }
-  }, [response, exchangeIdTokenWithBackend]);
+  }, [response, exchangeIdTokenWithBackend, t]);
 
   const onPressGoogle = async () => {
     try {
       if (!request) return;
       await promptAsync({ useProxy: false });
     } catch (e: any) {
-      Alert.alert("Google Sign-In failed", e?.message ?? String(e));
+      Alert.alert(t("signin.googleFailed"), e?.message ?? String(e));
     }
   };
 
@@ -157,27 +152,25 @@ export default function SignInScreen() {
           resizeMode="contain"
         />
 
-        <Text style={styles.title}>
-          Welcome to{"\n"}AstroInsights
-        </Text>
-        <Text style={styles.subtitle}>Begin your journey of personal transformation</Text>
+        <Text style={styles.title}>{t("signin.title")}</Text>
+        <Text style={styles.subtitle}>{t("signin.subtitle")}</Text>
 
         <TouchableOpacity style={styles.googleButton} onPress={onPressGoogle} disabled={!request}>
-          <Text style={styles.googleText}>Sign in with Google</Text>
+          <Text style={styles.googleText}>{t("signin.google")}</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.linksContainer}>
-        <TouchableOpacity onPress={() => router.push(links[0]?.route)}>
-          <Text style={styles.link}>{links[0]?.label}</Text>
+        <TouchableOpacity onPress={() => router.push("/terms" as Href)}>
+          <Text style={styles.link}>{t("legalLinks.terms")}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push(links[1]?.route)}>
-          <Text style={styles.link}>{links[1]?.label}</Text>
+        <TouchableOpacity onPress={() => router.push("/privacy" as Href)}>
+          <Text style={styles.link}>{t("legalLinks.privacy")}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push(links[2]?.route)}>
-          <Text style={styles.link}>{links[2]?.label}</Text>
+        <TouchableOpacity onPress={() => router.push("/subscription" as Href)}>
+          <Text style={styles.link}>{t("legalLinks.subscription")}</Text>
         </TouchableOpacity>
       </View>
     </View>

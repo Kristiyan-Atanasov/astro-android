@@ -10,6 +10,7 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mergeOnboardingDraft } from '../../services/onboardingDraft';
 import { patchUserProfile } from '../../services/api';
@@ -19,6 +20,7 @@ const bgSocials = require('../../assets/images/bg-socials.png');
 
 export default function SocialScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [facebook, setFacebook] = useState('');
   const [instagram, setInstagram] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -60,14 +62,12 @@ export default function SocialScreen() {
       <Image source={bgSocials} style={styles.bg} resizeMode="cover" />
 
       <OnboardingHeader
-        title="Add Social Accounts"
+        title={t('onboarding.socials.title')}
         onBack={() => router.back()}
         disabled={submitting}
       />
 
-      <Text style={styles.subtitle}>
-        Connect with friends and make new contacts through the app.
-      </Text>
+      <Text style={styles.subtitle}>{t('onboarding.socials.subtitle')}</Text>
 
       <View style={styles.inputWrapper}>
         <View style={styles.inputRow}>
@@ -77,7 +77,7 @@ export default function SocialScreen() {
           />
           <TextInput
             style={styles.input}
-            placeholder="facebook.username"
+            placeholder={t('onboarding.socials.facebookPlaceholder')}
             placeholderTextColor="rgba(255, 255, 255, 0.4)"
             value={facebook}
             onChangeText={setFacebook}
@@ -94,7 +94,7 @@ export default function SocialScreen() {
           />
           <TextInput
             style={styles.input}
-            placeholder="instagram.username"
+            placeholder={t('onboarding.socials.instagramPlaceholder')}
             placeholderTextColor="rgba(255, 255, 255, 0.4)"
             value={instagram}
             onChangeText={setInstagram}
@@ -105,14 +105,11 @@ export default function SocialScreen() {
         </View>
       </View>
 
-      <Text style={styles.infoText}>
-        Adding your social accounts will make people on the app connect with you
-        through them if you allow public.
-      </Text>
+      <Text style={styles.infoText}>{t('onboarding.socials.info')}</Text>
 
       <View style={styles.bottomButtons}>
         <TouchableOpacity disabled={submitting} onPress={saveAndNext}>
-          <Text style={styles.skip}>Skip</Text>
+          <Text style={styles.skip}>{t('common.skip')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity disabled={submitting} onPress={saveAndNext}>
@@ -122,7 +119,9 @@ export default function SocialScreen() {
             end={{ x: 1, y: 0 }}
             style={[styles.nextButton, submitting && styles.nextButtonDisabled]}
           >
-            <Text style={styles.nextText}>{submitting ? 'Saving...' : 'Next'}</Text>
+            <Text style={styles.nextText}>
+              {submitting ? t('common.saving') : t('common.next')}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>

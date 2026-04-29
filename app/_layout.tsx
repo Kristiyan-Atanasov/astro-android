@@ -1,15 +1,19 @@
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Image, Text, Platform, Dimensions, Alert } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, Image, Platform, Dimensions, Alert } from 'react-native';
 import { Slot, useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
+import { useTranslation } from 'react-i18next';
 import { onSessionExpired } from '../services/sessionEvents';
+import { initI18n } from '../services/i18n';
 
 const backgroundImg = require('../assets/images/background.png');
 const starsImg = require('../assets/images/stars.png');
 
 export default function RootLayout() {
   const router = useRouter();
+  const { t } = useTranslation();
   const alertVisibleRef = useRef(false);
+  const [i18nReady, setI18nReady] = useState(false);
 
   const [fontsLoaded] = useFonts({
     'Nunito-Regular': require('../assets/fonts/Nunito-Regular.ttf'),
@@ -17,6 +21,21 @@ export default function RootLayout() {
     'CooperLtBT-Bold': require('../assets/fonts/CooperLtBTBold.ttf'),
     'SFProDisplay-Regular': require('../assets/fonts/sfprodisplay.otf'),
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    initI18n()
+      .then(() => {
+        if (!cancelled) setI18nReady(true);
+      })
+      .catch((e) => {
+        console.log('i18n init failed:', (e as any)?.message ?? String(e));
+        if (!cancelled) setI18nReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -33,11 +52,11 @@ export default function RootLayout() {
       alertVisibleRef.current = true;
 
       Alert.alert(
-        'Session expired',
-        'You have been signed out for your security. Please sign in again to continue.',
+        t('common.sessionExpiredTitle'),
+        t('common.sessionExpiredBody'),
         [
           {
-            text: 'OK',
+            text: t('common.ok'),
             onPress: () => {
               alertVisibleRef.current = false;
               try {
@@ -55,9 +74,9 @@ export default function RootLayout() {
     return () => {
       unsubscribe();
     };
-  }, [router]);
+  }, [router, t]);
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded || !i18nReady) return null;
 
   return (
     <View style={styles.root}>

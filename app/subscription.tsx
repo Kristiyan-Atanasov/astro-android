@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,6 +48,7 @@ type StoreProduct = {
 export default function SubscriptionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   const [product, setProduct] = useState<StoreProduct | null>(null);
   const [loadingProduct, setLoadingProduct] = useState(true);
@@ -106,19 +108,19 @@ export default function SubscriptionScreen() {
 
       if (isPremiumStatus(result?.status)) {
         Alert.alert(
-          'Welcome to premium',
-          'Your free trial has started. Enjoy your full archetype experience.',
+          t('subscription.welcomeTitle'),
+          t('subscription.welcomeBody'),
           [
             {
-              text: 'Continue',
+              text: t('subscription.continue'),
               onPress: () => router.replace('/home'),
             },
           ],
         );
       } else {
         Alert.alert(
-          'Subscription not active yet',
-          'We received your purchase but it isn’t active yet. Please try again in a moment.',
+          t('subscription.notActiveTitle'),
+          t('subscription.notActiveBody'),
         );
       }
     } catch (e: any) {
@@ -132,24 +134,36 @@ export default function SubscriptionScreen() {
       console.log('🛒 purchase failure raw:', JSON.stringify({ code, msg, e }));
 
       if (!userCancelled) {
-        let title = 'Purchase failed';
-        let body = msg || 'Something went wrong. Please try again.';
+        let title = t('subscription.purchaseFailedTitle');
+        let body = msg || t('subscription.purchaseFailedBody');
 
         if (code === 'verification-failed') {
-          title = 'Verification failed';
-          body = 'We couldn’t verify your subscription yet. Please try again.';
-        } else if (code === 'E_IAP_NOT_AVAILABLE' || msg.includes('not available on this device')) {
-          title = 'Not available here';
-          body = 'In-app purchases aren’t available on this device. Try on a real device with the App Store / Google Play.';
-        } else if (code === 'E_ITEM_UNAVAILABLE' || code === 'E_SKU_NOT_FOUND' || msg.toLowerCase().includes('not found')) {
-          title = 'Subscription not configured';
-          body = `The subscription product (${product?.productId ?? DEFAULT_SUBSCRIPTION_SKU}) isn’t available. Make sure it exists in App Store Connect / Play Console and is approved for testing.`;
+          title = t('subscription.verificationFailedTitle');
+          body = t('subscription.verificationFailedBody');
+        } else if (
+          code === 'E_IAP_NOT_AVAILABLE' ||
+          msg.includes('not available on this device')
+        ) {
+          title = t('subscription.notAvailableTitle');
+          body = t('subscription.notAvailableBody');
+        } else if (
+          code === 'E_ITEM_UNAVAILABLE' ||
+          code === 'E_SKU_NOT_FOUND' ||
+          msg.toLowerCase().includes('not found')
+        ) {
+          title = t('subscription.notConfiguredTitle');
+          body = t('subscription.notConfiguredBody', {
+            sku: product?.productId ?? DEFAULT_SUBSCRIPTION_SKU,
+          });
         } else if (code === 'E_NOT_PREPARED' || code === 'E_SERVICE_ERROR') {
-          title = 'Store not ready';
-          body = 'The store connection wasn’t ready. Please close and reopen the app, then try again.';
-        } else if (msg.includes('access token') || msg.includes('Session expired')) {
-          title = 'Sign in required';
-          body = 'Please sign in again before subscribing.';
+          title = t('subscription.notReadyTitle');
+          body = t('subscription.notReadyBody');
+        } else if (
+          msg.includes('access token') ||
+          msg.includes('Session expired')
+        ) {
+          title = t('subscription.signInRequiredTitle');
+          body = t('subscription.signInRequiredBody');
         }
 
         Alert.alert(`${title}${code ? ` (${code})` : ''}`, body);
@@ -157,7 +171,7 @@ export default function SubscriptionScreen() {
     } finally {
       if (isMounted.current) setPurchasing(false);
     }
-  }, [product?.productId, purchasing, restoring, router]);
+  }, [product?.productId, purchasing, restoring, router, t]);
 
   const handleRestore = useCallback(async () => {
     if (purchasing || restoring) return;
@@ -166,7 +180,10 @@ export default function SubscriptionScreen() {
       const result = await restoreSubscriptions();
 
       if (!result) {
-        Alert.alert('Nothing to restore', 'We couldn’t find any active subscription on this account.');
+        Alert.alert(
+          t('subscription.nothingToRestoreTitle'),
+          t('subscription.nothingToRestoreBody'),
+        );
         return;
       }
 
@@ -180,30 +197,30 @@ export default function SubscriptionScreen() {
 
       if (isPremiumStatus(result.status)) {
         Alert.alert(
-          'Subscription restored',
-          'Your premium access is active again.',
+          t('subscription.restoredTitle'),
+          t('subscription.restoredBody'),
           [
             {
-              text: 'Continue',
+              text: t('subscription.continue'),
               onPress: () => router.replace('/home'),
             },
           ],
         );
       } else {
         Alert.alert(
-          'No active subscription',
-          'We could not find an active subscription on this account.',
+          t('subscription.noActiveTitle'),
+          t('subscription.noActiveBody'),
         );
       }
     } catch (e: any) {
       Alert.alert(
-        'Restore failed',
-        e?.message || 'We couldn’t restore purchases. Please try again.',
+        t('subscription.restoreFailedTitle'),
+        e?.message || t('subscription.restoreFailedBody'),
       );
     } finally {
       if (isMounted.current) setRestoring(false);
     }
-  }, [purchasing, restoring, router]);
+  }, [purchasing, restoring, router, t]);
 
   return (
     <View style={styles.container}>
@@ -217,7 +234,9 @@ export default function SubscriptionScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topBar}>
-          <Text style={styles.subtitle}>Let’s get started</Text>
+          <Text style={styles.subtitle}>
+            {t('subscription.letsGetStarted')}
+          </Text>
           <TouchableOpacity
             onPress={() => router.back()}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -226,13 +245,13 @@ export default function SubscriptionScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.title}>How your free trial{"\n"}works</Text>
+        <Text style={styles.title}>{t('subscription.title')}</Text>
 
         <Image source={moonImg} style={styles.moonImage} resizeMode="contain" />
 
         <View style={styles.subscriptionCard}>
           <View style={styles.subscriptionRow}>
-            <Text style={styles.planLabel}>Monthly Subscription</Text>
+            <Text style={styles.planLabel}>{t('subscription.plan')}</Text>
 
             <LinearGradient
               colors={['rgba(178, 131, 237, 1)', 'rgba(87, 124, 251, 1)']}
@@ -240,11 +259,13 @@ export default function SubscriptionScreen() {
               end={{ x: 1, y: 1 }}
               style={styles.discountBadge}
             >
-              <Text style={styles.discountText}>38% off</Text>
+              <Text style={styles.discountText}>
+                {t('subscription.discount')}
+              </Text>
             </LinearGradient>
           </View>
 
-          <Text style={styles.trialText}>with 7 days free trial</Text>
+          <Text style={styles.trialText}>{t('subscription.trial')}</Text>
           {loadingProduct ? (
             <View style={styles.priceLoaderRow}>
               <ActivityIndicator color="#fff" />
@@ -257,7 +278,9 @@ export default function SubscriptionScreen() {
         <View style={styles.spacer} />
 
         <Text style={styles.secureText}>
-          Secured with {Platform.OS === 'ios' ? 'App Store' : 'Google Play'}. Cancel Anytime.
+          {Platform.OS === 'ios'
+            ? t('subscription.securedAppStore')
+            : t('subscription.securedPlayStore')}
         </Text>
 
         <TouchableOpacity
@@ -276,15 +299,13 @@ export default function SubscriptionScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.ctaText} numberOfLines={2}>
-                Start your 7-days free trial, then {ctaPriceLabel} / per month
+                {t('subscription.cta', { price: ctaPriceLabel })}
               </Text>
             )}
           </LinearGradient>
         </TouchableOpacity>
 
-        <Text style={styles.note}>
-          Cancel anytime during your trial and you won’t be charged.
-        </Text>
+        <Text style={styles.note}>{t('subscription.cancelInfo')}</Text>
 
         <TouchableOpacity
           style={styles.restoreLinkHit}
@@ -295,7 +316,9 @@ export default function SubscriptionScreen() {
           {restoring ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.restoreLink}>Restore purchases</Text>
+            <Text style={styles.restoreLink}>
+              {t('subscription.restore')}
+            </Text>
           )}
         </TouchableOpacity>
 
@@ -305,21 +328,21 @@ export default function SubscriptionScreen() {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => router.push('/terms')}
           >
-            <Text style={styles.link}>Terms of Service</Text>
+            <Text style={styles.link}>{t('legalLinks.terms')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.linkHit}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => router.push('/privacy')}
           >
-            <Text style={styles.link}>Privacy Policy</Text>
+            <Text style={styles.link}>{t('legalLinks.privacy')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.linkHit}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => router.push('/subscription')}
           >
-            <Text style={styles.link}>Subscription terms</Text>
+            <Text style={styles.link}>{t('legalLinks.subscription')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

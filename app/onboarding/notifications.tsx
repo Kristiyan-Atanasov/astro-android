@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +20,7 @@ import {
   ensureNotificationPermission,
   registerForPushNotifications,
 } from '../../services/notifications';
+import { getAppLanguageCode } from '../../services/i18n';
 
 const notificationImg = require('../../assets/images/notification-image.png');
 
@@ -27,7 +29,7 @@ const notificationImg = require('../../assets/images/notification-image.png');
 async function persistAllowNotifications(allow: boolean) {
   let baseSettings: Record<string, any> = {
     allow_notifications: allow,
-    language: 'ENGLISH',
+    language: getAppLanguageCode(),
     reminder_count: 1,
     reminder_time_start: '09:00:00',
     reminder_time_end: '21:00:00',
@@ -49,6 +51,7 @@ async function persistAllowNotifications(allow: boolean) {
     user_settings: {
       ...baseSettings,
       allow_notifications: allow,
+      language: getAppLanguageCode(),
     },
   });
 }
@@ -56,6 +59,7 @@ async function persistAllowNotifications(allow: boolean) {
 export default function OnboardingNotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [working, setWorking] = useState(false);
 
   const goHome = () => {
@@ -110,7 +114,7 @@ export default function OnboardingNotificationsScreen() {
     >
       <View style={styles.content}>
         <View style={styles.titleRow}>
-          <Text style={styles.title}>Accept push Notification</Text>
+          <Text style={styles.title}>{t('onboarding.notifications.title')}</Text>
           <Ionicons
             name="sparkles"
             size={16}
@@ -119,10 +123,7 @@ export default function OnboardingNotificationsScreen() {
           />
         </View>
 
-        <Text style={styles.subtitle}>
-          Find out when friends add you{'\n'}
-          and know exactly what you should expect each day
-        </Text>
+        <Text style={styles.subtitle}>{t('onboarding.notifications.subtitle')}</Text>
 
         <Image
           source={notificationImg}
@@ -147,7 +148,7 @@ export default function OnboardingNotificationsScreen() {
             {working ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.ctaText}>Turn on notifications</Text>
+              <Text style={styles.ctaText}>{t('onboarding.notifications.enable')}</Text>
             )}
           </LinearGradient>
         </TouchableOpacity>
@@ -158,7 +159,7 @@ export default function OnboardingNotificationsScreen() {
           hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
           style={styles.skipHit}
         >
-          <Text style={styles.skipText}>Skip</Text>
+          <Text style={styles.skipText}>{t('common.skip')}</Text>
         </TouchableOpacity>
       </View>
     </View>

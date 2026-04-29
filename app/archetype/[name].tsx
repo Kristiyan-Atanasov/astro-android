@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -61,12 +62,30 @@ function titleCase(s: string) {
 
 export default function ArchetypeDetailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { name } = useLocalSearchParams<{ name: string }>();
   const code = (typeof name === 'string' ? name : '').toUpperCase();
   const sign = findSign(code);
   const meta = getArchetypeMeta(code);
-  const title = sign?.label ?? meta?.label ?? titleCase(code);
+
+  // Localized override for the archetype name + ruler/element/description.
+  // Backend returns the dynamic content already in the chosen language; the
+  // static intro lives in the i18n bundle so we don't have to hard-code BG.
+  const localized = code
+    ? {
+        label: t(`archetypeMeta.${code}.label`, { defaultValue: '' }),
+        ruler: t(`archetypeMeta.${code}.ruler`, { defaultValue: '' }),
+        element: t(`archetypeMeta.${code}.element`, { defaultValue: '' }),
+        description: t(`archetypeMeta.${code}.description`, { defaultValue: '' }),
+      }
+    : { label: '', ruler: '', element: '', description: '' };
+
+  const title =
+    localized.label || sign?.label || meta?.label || titleCase(code);
+  const rulerLabel = localized.ruler || meta?.ruler || '';
+  const elementLabel = localized.element || meta?.elementLabel || '';
+  const description = localized.description || meta?.description || '';
 
   const [allQualities, setAllQualities] = useState<QualityItem[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -122,7 +141,8 @@ export default function ArchetypeDetailScreen() {
 
   const completedCount = tabQualities.filter((q) => q.is_completed).length;
   const totalCount = tabQualities.length;
-  const lessonsLabel = `${totalCount || archetypeQualities.length} lessons`;
+  const lessonsCount = totalCount || archetypeQualities.length;
+  const lessonsLabel = t('archetype.lessons', { count: lessonsCount });
   const completionPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const hasLockedAny = archetypeQualities.some((q) => q.status === 'LOCKED');
@@ -131,11 +151,11 @@ export default function ArchetypeDetailScreen() {
     async (quality: QualityItem) => {
       if (quality.status === 'LOCKED') {
         Alert.alert(
-          'Premium quality',
-          'This quality is part of the premium plan. Start your free trial to unlock it.',
+          t('archetype.premiumQualityTitle'),
+          t('archetype.premiumQualityBody'),
           [
-            { text: 'Not now', style: 'cancel' },
-            { text: 'See plan', onPress: () => router.push('/subscription') },
+            { text: t('common.notNow'), style: 'cancel' },
+            { text: t('common.seePlan'), onPress: () => router.push('/subscription') },
           ],
         );
         return;
@@ -179,14 +199,14 @@ export default function ArchetypeDetailScreen() {
           });
         }
         Alert.alert(
-          'Update failed',
-          (e as any)?.message || 'We couldn’t update this quality. Please try again.',
+          t('archetype.qualityUpdateFailed'),
+          (e as any)?.message || t('archetype.qualityUpdateFailedBody'),
         );
       } finally {
         if (isMounted.current) setUpdatingId(null);
       }
     },
-    [loadQualities, router, updatingId],
+    [loadQualities, router, updatingId, t],
   );
 
   const elementColors = meta ? ELEMENT_COLORS[meta.element] : ELEMENT_COLORS.fire;
@@ -220,16 +240,16 @@ export default function ArchetypeDetailScreen() {
             {meta ? (
               <>
                 <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>RULER</Text>
+                  <Text style={styles.metaLabel}>{t('archetype.rulerLabel')}</Text>
                   <View style={styles.metaValueRow}>
-                    <Text style={styles.metaValue}>{meta.ruler}</Text>
+                    <Text style={styles.metaValue}>{rulerLabel}</Text>
                     <Ionicons name="sunny" size={14} color="#F7CE45" style={styles.metaIcon} />
                   </View>
                 </View>
                 <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>ELEMENT</Text>
+                  <Text style={styles.metaLabel}>{t('archetype.elementLabel')}</Text>
                   <View style={styles.metaValueRow}>
-                    <Text style={styles.metaValue}>{meta.elementLabel}</Text>
+                    <Text style={styles.metaValue}>{elementLabel}</Text>
                     <Ionicons
                       name={
                         meta.element === 'fire'
@@ -251,14 +271,14 @@ export default function ArchetypeDetailScreen() {
           </View>
         </View>
 
-        {meta ? (
+        {description ? (
           <View style={styles.descriptionCard}>
-            <Text style={styles.descriptionText}>{meta.description}</Text>
+            <Text style={styles.descriptionText}>{description}</Text>
           </View>
         ) : null}
 
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>Developing qualities</Text>
+          <Text style={styles.sectionTitle}>{t('archetype.sectionTitle')}</Text>
         </View>
 
         <View style={styles.lessonsRow}>
@@ -273,20 +293,27 @@ export default function ArchetypeDetailScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.proPill}
             >
-              <Text style={styles.proPillText}>PRO</Text>
+              <Text style={styles.proPillText}>{t('archetype.pro')}</Text>
             </LinearGradient>
           ) : null}
         </View>
 
-        <Text style={styles.sectionSub}>
-          Read the guidance below in order to explore and understand Leo’s
-          unique qualities. Each one has a switch activated by swiping it left
-          or right. When a lesson is ON it means you’re actively learning or
-          practicing that trait. When a lesson is OFF it means you’ve mastered
-          it and it’s part of you now. Feel free to explore them at your own
-          pace, turning each one ‘on’ as you focus on it and ‘off’ once you
-          feel you’ve integrated it into your life.
+        <Text style={styles.sectionSub}>{t('archetype.intro')}</Text>
+
+        <Text style={styles.unlockBlock}>
+          <Text style={styles.unlockHeader}>{t('archetype.learningHeader')}</Text>
+          <Text> {t('archetype.learningDescription')}</Text>
         </Text>
+        <Text style={styles.unlockBlock}>
+          <Text style={styles.unlockHeader}>{t('archetype.owningHeader')}</Text>
+          <Text> {t('archetype.owningDescription')}</Text>
+        </Text>
+
+        <Text style={styles.unlockBlock}>{t('archetype.growthIntro')}</Text>
+        <Text style={styles.unlockBlock}>{t('archetype.learningWhy')}</Text>
+        <Text style={styles.unlockBlock}>{t('archetype.switchExplain')}</Text>
+        <Text style={styles.unlockBlockBold}>{t('archetype.explorePace')}</Text>
+        <Text style={styles.unlockBlock}>{t('archetype.glowingHint')}</Text>
 
         <View style={styles.tabsRow}>
           <TouchableOpacity
@@ -295,7 +322,7 @@ export default function ArchetypeDetailScreen() {
             activeOpacity={0.85}
           >
             <Text style={[styles.tabText, tab === 'mastering' && styles.tabTextActive]}>
-              Mastering
+              {t('archetype.tabMastering')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -304,14 +331,22 @@ export default function ArchetypeDetailScreen() {
             activeOpacity={0.85}
           >
             <Text style={[styles.tabText, tab === 'managing' && styles.tabTextActive]}>
-              Managing
+              {t('archetype.tabManaging')}
             </Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.progressBlock}>
-          <ProgressRow label="Physical" percent={completionPercent} />
-          <ProgressRow label="Emotional" percent={completionPercent} />
+          <ProgressRow
+            label={t('archetype.progressPhysical')}
+            percent={completionPercent}
+            percentLabel={t('archetype.progressPercent', { percent: completionPercent })}
+          />
+          <ProgressRow
+            label={t('archetype.progressEmotional')}
+            percent={completionPercent}
+            percentLabel={t('archetype.progressPercent', { percent: completionPercent })}
+          />
         </View>
 
         {loading ? (
@@ -320,9 +355,7 @@ export default function ArchetypeDetailScreen() {
           </View>
         ) : tabQualities.length === 0 ? (
           <View style={styles.emptyRow}>
-            <Text style={styles.emptyText}>
-              No qualities to show yet. Check back later.
-            </Text>
+            <Text style={styles.emptyText}>{t('archetype.emptyQualities')}</Text>
           </View>
         ) : (
           <View style={styles.qualityList}>
@@ -341,7 +374,15 @@ export default function ArchetypeDetailScreen() {
   );
 }
 
-function ProgressRow({ label, percent }: { label: string; percent: number }) {
+function ProgressRow({
+  label,
+  percent,
+  percentLabel,
+}: {
+  label: string;
+  percent: number;
+  percentLabel: string;
+}) {
   const clamped = Math.max(0, Math.min(100, percent));
   return (
     <View style={styles.progressRow}>
@@ -354,7 +395,7 @@ function ProgressRow({ label, percent }: { label: string; percent: number }) {
           style={[styles.progressBarFill, { width: `${clamped}%` }]}
         />
       </View>
-      <Text style={styles.progressPercent}>{clamped}% complete</Text>
+      <Text style={styles.progressPercent}>{percentLabel}</Text>
     </View>
   );
 }
@@ -546,6 +587,26 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontFamily: 'SFProDisplay-Regular',
     marginBottom: 18,
+  },
+  unlockBlock: {
+    color: '#9C9CA6',
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: 'SFProDisplay-Regular',
+    marginBottom: 14,
+  },
+  unlockBlockBold: {
+    color: '#fff',
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: 'Nunito-Bold',
+    marginBottom: 14,
+  },
+  unlockHeader: {
+    color: '#fff',
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: 'Nunito-Bold',
   },
   tabsRow: {
     flexDirection: 'row',

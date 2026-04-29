@@ -5,20 +5,23 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import data from '../assets/data/insights.json';
+
+type Section = { heading: string; body: string };
 
 export default function TermsScreen() {
   const router = useRouter();
-  const { title, sections } = data.legal.terms;
-  const links = data.welcome.links;
+  const { t } = useTranslation();
+
+  const title = t('legal.terms.title');
+  const sections = (t('legal.terms.sections', { returnObjects: true }) ||
+    []) as Section[];
 
   return (
     <View style={styles.wrapper}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -30,8 +33,10 @@ export default function TermsScreen() {
         <Text style={styles.headerTitle}>{title}</Text>
       </View>
 
-      {/* Scrollable Content */}
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {sections.map((section, index) => (
           <View key={index} style={{ marginBottom: 30 }}>
             <Text style={styles.sectionTitle}>{section.heading}</Text>
@@ -40,23 +45,20 @@ export default function TermsScreen() {
         ))}
       </ScrollView>
 
-      {/* Fixed Footer Links */}
       <View style={styles.linksContainer}>
-        <TouchableOpacity onPress={() => router.push(links[0].route as any)}>
-          <Text style={styles.link}>{links[0].label}</Text>
+        <TouchableOpacity onPress={() => router.push('/terms')}>
+          <Text style={styles.link}>{t('legalLinks.terms')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push(links[1].route as any)}>
-          <Text style={styles.link}>{links[1].label}</Text>
+        <TouchableOpacity onPress={() => router.push('/privacy')}>
+          <Text style={styles.link}>{t('legalLinks.privacy')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push(links[2].route as any)}>
-          <Text style={styles.link}>{links[2].label}</Text>
+        <TouchableOpacity onPress={() => router.push('/subscription')}>
+          <Text style={styles.link}>{t('legalLinks.subscription')}</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
-
-const { height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -100,7 +102,7 @@ const styles = StyleSheet.create({
   },
   linksContainer: {
     position: 'absolute',
-    bottom: 20, // ⬅️ was 10, now it's 20px
+    bottom: 20,
     left: 0,
     right: 0,
     paddingHorizontal: 25,

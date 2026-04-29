@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -21,11 +22,11 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-function formatDate(iso: string | null): string {
+function formatDate(iso: string | null, locale?: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(locale, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -34,6 +35,8 @@ function formatDate(iso: string | null): string {
 
 export default function EditProfileScreen() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'bg' ? 'bg-BG' : undefined;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -98,10 +101,10 @@ export default function EditProfileScreen() {
 
       await postOnboarding(payload);
 
-      Alert.alert('Saved', 'Your profile has been updated.');
+      Alert.alert(t('common.save'), t('editProfile.saved'));
       router.back();
     } catch (e: any) {
-      Alert.alert('Update failed', e?.message ?? String(e));
+      Alert.alert(t('editProfile.updateFailed'), e?.message ?? String(e));
     } finally {
       setSaving(false);
     }
@@ -130,32 +133,34 @@ export default function EditProfileScreen() {
           >
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Profile</Text>
+          <Text style={styles.headerTitle}>{t('editProfile.title')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
-        <Text style={styles.fieldLabel}>Name</Text>
+        <Text style={styles.fieldLabel}>{t('editProfile.name')}</Text>
         <TextInput
           style={styles.input}
           value={name}
           onChangeText={setName}
-          placeholder="Your name"
+          placeholder={t('editProfile.namePlaceholder')}
           placeholderTextColor="rgba(255,255,255,0.4)"
           editable={!saving}
         />
 
         <View style={styles.divider} />
 
-        <Text style={styles.sectionTitle}>Birth Chart</Text>
+        <Text style={styles.sectionTitle}>{t('editProfile.birthChart')}</Text>
 
-        <Text style={styles.fieldLabel}>Birthday</Text>
+        <Text style={styles.fieldLabel}>{t('editProfile.birthday')}</Text>
         <TouchableOpacity
           style={styles.field}
           onPress={() => setShowDatePicker(true)}
           disabled={saving}
         >
           <Text style={styles.fieldValue}>
-            {birthDate ? formatDate(birthDate.toISOString()) : 'Select your birthday'}
+            {birthDate
+              ? formatDate(birthDate.toISOString(), dateLocale)
+              : t('editProfile.birthdayPlaceholder')}
           </Text>
           <Ionicons name="calendar-outline" size={18} color="#aaa" />
         </TouchableOpacity>
@@ -177,18 +182,20 @@ export default function EditProfileScreen() {
                 style={styles.iosPickerDone}
                 onPress={() => setShowDatePicker(false)}
               >
-                <Text style={styles.iosPickerDoneText}>Done</Text>
+                <Text style={styles.iosPickerDoneText}>
+                  {t('editProfile.done')}
+                </Text>
               </TouchableOpacity>
             )}
           </View>
         )}
 
-        <Text style={styles.fieldLabel}>Birth City</Text>
+        <Text style={styles.fieldLabel}>{t('editProfile.birthCity')}</Text>
         <TextInput
           style={styles.input}
           value={birthCity}
           onChangeText={setBirthCity}
-          placeholder="Enter your birth city"
+          placeholder={t('editProfile.birthCityPlaceholder')}
           placeholderTextColor="rgba(255,255,255,0.4)"
           editable={!saving}
           autoCorrect={false}
@@ -196,7 +203,7 @@ export default function EditProfileScreen() {
 
         <View style={styles.timeRow}>
           <View style={styles.timeColumn}>
-            <Text style={styles.fieldLabel}>Birth Hour</Text>
+            <Text style={styles.fieldLabel}>{t('editProfile.birthHour')}</Text>
             <Stepper
               value={birthHour}
               min={0}
@@ -206,7 +213,7 @@ export default function EditProfileScreen() {
             />
           </View>
           <View style={styles.timeColumn}>
-            <Text style={styles.fieldLabel}>Minute</Text>
+            <Text style={styles.fieldLabel}>{t('editProfile.minute')}</Text>
             <Stepper
               value={birthMinute}
               min={0}
@@ -231,19 +238,21 @@ export default function EditProfileScreen() {
               (saving || !name.trim()) && styles.saveButtonDisabled,
             ]}
           >
-            <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save'}</Text>
+            <Text style={styles.saveText}>
+              {saving ? t('common.saving') : t('common.save')}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
 
         <View style={styles.footerLinks}>
           <TouchableOpacity onPress={() => router.push('/terms')}>
-            <Text style={styles.footerLink}>Terms of Service</Text>
+            <Text style={styles.footerLink}>{t('legalLinks.terms')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/privacy')}>
-            <Text style={styles.footerLink}>Privacy Policy</Text>
+            <Text style={styles.footerLink}>{t('legalLinks.privacy')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/subscription')}>
-            <Text style={styles.footerLink}>Subscription terms</Text>
+            <Text style={styles.footerLink}>{t('legalLinks.subscription')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

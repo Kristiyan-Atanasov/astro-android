@@ -9,6 +9,7 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mergeOnboardingDraft } from '../../services/onboardingDraft';
@@ -30,6 +31,7 @@ function to24Hour(hour12Str: string, minuteStr: string, period: 'AM' | 'PM') {
 
 export default function TimeScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [hour, setHour] = useState('8');
   const [minute, setMinute] = useState('00');
   const [period, setPeriod] = useState<'AM' | 'PM'>('PM');
@@ -84,16 +86,13 @@ export default function TimeScreen() {
 
       <View style={styles.content}>
         <OnboardingHeader
-          title="Birth of Time"
+          title={t('onboarding.time.title')}
           step={3}
           onBack={() => router.back()}
           disabled={submitting}
         />
 
-        <Text style={styles.description}>
-          Time is important for determining your houses,{'\n'}
-          rising sign, and exact moon position.
-        </Text>
+        <Text style={styles.description}>{t('onboarding.time.description')}</Text>
 
         <View style={styles.pickerRow}>
           <Picker
@@ -134,14 +133,11 @@ export default function TimeScreen() {
           </Picker>
         </View>
 
-        <Text style={styles.info}>
-          We use this to generate your AstroInsights{'\n'}
-          wheel. We never share or sell your data.
-        </Text>
+        <Text style={styles.info}>{t('onboarding.time.info')}</Text>
 
         <View style={styles.buttonRow}>
           <TouchableOpacity disabled={submitting} onPress={handleSkip}>
-            <Text style={styles.skipText}>I don’t know</Text>
+            <Text style={styles.skipText}>{t('onboarding.time.dontKnow')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity disabled={submitting} onPress={handleNext}>
@@ -151,7 +147,9 @@ export default function TimeScreen() {
               end={{ x: 1, y: 0 }}
               style={[styles.nextButton, submitting && styles.nextButtonDisabled]}
             >
-              <Text style={styles.nextText}>{submitting ? 'Saving...' : 'Next'}</Text>
+              <Text style={styles.nextText}>
+                {submitting ? t('common.saving') : t('common.next')}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>

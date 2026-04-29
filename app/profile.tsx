@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +25,7 @@ import { setBiometricEnabled } from '../services/biometric';
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
@@ -69,12 +71,12 @@ export default function ProfileScreen() {
 
   const handleSignOut = () => {
     Alert.alert(
-      'Sign out',
-      'Are you sure you want to sign out?',
+      t('profile.signOutConfirmTitle'),
+      t('profile.signOutConfirmBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sign out',
+          text: t('profile.signOut'),
           style: 'destructive',
           onPress: cleanupAndGoHome,
         },
@@ -85,12 +87,12 @@ export default function ProfileScreen() {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      'Delete account',
-      'This will permanently delete your account and all associated data. This action cannot be undone.',
+      t('profile.deleteConfirmTitle'),
+      t('profile.deleteConfirmBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('profile.deleteAction'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -99,8 +101,8 @@ export default function ProfileScreen() {
               await cleanupAndGoHome();
             } catch (e: any) {
               Alert.alert(
-                'Could not delete account',
-                e?.message ?? 'Please try again later.',
+                t('profile.deleteFailedTitle'),
+                e?.message ?? t('profile.deleteFailedBody'),
               );
             } finally {
               setWorking(false);
@@ -137,18 +139,18 @@ export default function ProfileScreen() {
           >
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>My profile</Text>
+          <Text style={styles.headerTitle}>{t('profile.title')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
-        <Text style={styles.fieldLabel}>Email</Text>
+        <Text style={styles.fieldLabel}>{t('profile.email')}</Text>
         <View style={styles.field}>
           <Text style={styles.fieldValue} numberOfLines={1}>
             {email || '—'}
           </Text>
         </View>
 
-        <Text style={styles.fieldLabel}>User ID</Text>
+        <Text style={styles.fieldLabel}>{t('profile.userId')}</Text>
         <View style={styles.field}>
           <Text style={styles.fieldValue} numberOfLines={1}>
             {userId || '—'}
@@ -171,7 +173,7 @@ export default function ProfileScreen() {
             end={{ x: 1, y: 0 }}
             style={[styles.signOutButton, working && styles.disabled]}
           >
-            <Text style={styles.signOutText}>Sign Out</Text>
+            <Text style={styles.signOutText}>{t('profile.signOut')}</Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -184,7 +186,7 @@ export default function ProfileScreen() {
           {working ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.deleteText}>Delete Account</Text>
+            <Text style={styles.deleteText}>{t('profile.deleteAccount')}</Text>
           )}
         </TouchableOpacity>
 
@@ -194,21 +196,21 @@ export default function ProfileScreen() {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => router.push('/terms')}
           >
-            <Text style={styles.footerLink}>Terms of Service</Text>
+            <Text style={styles.footerLink}>{t('legalLinks.terms')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.linkHit}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => router.push('/privacy')}
           >
-            <Text style={styles.footerLink}>Privacy Policy</Text>
+            <Text style={styles.footerLink}>{t('legalLinks.privacy')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.linkHit}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => router.push('/subscription')}
           >
-            <Text style={styles.footerLink}>Subscription terms</Text>
+            <Text style={styles.footerLink}>{t('legalLinks.subscription')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

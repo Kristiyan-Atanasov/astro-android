@@ -11,8 +11,8 @@ import {
   UIManager,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import data from '../assets/data/insights.json';
 
 if (
   Platform.OS === 'android' &&
@@ -28,10 +28,10 @@ interface FaqItem {
 
 export default function FaqScreen() {
   const router = useRouter();
-  const { title, items } = (data as any).legal.faq as {
-    title: string;
-    items: FaqItem[];
-  };
+  const { t } = useTranslation();
+
+  const title = t('legal.faq.title');
+  const items = (t('legal.faq.items', { returnObjects: true }) || []) as FaqItem[];
 
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
@@ -82,13 +82,13 @@ export default function FaqScreen() {
 
       <View style={styles.footerLinks}>
         <TouchableOpacity onPress={() => router.push('/terms')}>
-          <Text style={styles.footerLink}>Terms of Service</Text>
+          <Text style={styles.footerLink}>{t('legalLinks.terms')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push('/privacy')}>
-          <Text style={styles.footerLink}>Privacy Policy</Text>
+          <Text style={styles.footerLink}>{t('legalLinks.privacy')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push('/subscription')}>
-          <Text style={styles.footerLink}>Subscription terms</Text>
+          <Text style={styles.footerLink}>{t('legalLinks.subscription')}</Text>
         </TouchableOpacity>
       </View>
     </View>

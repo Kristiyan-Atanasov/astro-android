@@ -12,16 +12,19 @@ import {
   Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { postOnboarding, getDailyVibe } from '../../services/api';
 import { getOnboardingDraft, clearOnboardingDraft } from '../../services/onboardingDraft';
+import { getAppLanguageCode } from '../../services/i18n';
 
 const vibeBg = require('../../assets/images/vibe-bg.png');
 const vibeIcon = require('../../assets/images/vibe-icon.png');
 
 export default function VibeScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   const [dailyVibe, setDailyVibe] = useState<string>('');
 
@@ -69,11 +72,13 @@ export default function VibeScreen() {
         : '',
       user_settings: {
         allow_notifications: false,
-        language: 'ENGLISH',
         reminder_count: 1,
         reminder_time_start: '09:00:00',
         reminder_time_end: '21:00:00',
         ...(draft.user_settings ?? {}),
+        // Always trust the active app language; ignore any older value
+        // that may have been written into the draft.
+        language: getAppLanguageCode(),
       },
     };
 
@@ -130,11 +135,17 @@ export default function VibeScreen() {
       console.log('🧾 onboarding draft:', draft);
 
       if (!draft?.name) {
-        Alert.alert('Missing info', 'Please enter your name first.');
+        Alert.alert(
+          t('onboarding.location.missingInfoTitle'),
+          t('onboarding.location.missingName'),
+        );
         return;
       }
       if (!draft?.birth_date) {
-        Alert.alert('Missing info', 'Please enter your date of birth first.');
+        Alert.alert(
+          t('onboarding.location.missingInfoTitle'),
+          t('onboarding.location.missingBirthDate'),
+        );
         return;
       }
 
@@ -190,19 +201,19 @@ export default function VibeScreen() {
       const isTransient = e?.code === 'transient-error';
 
       const title = isTransient
-        ? 'Couldn’t look up your birth location'
-        : 'Onboarding failed';
+        ? t('onboarding.location.lookupFailedTitle')
+        : t('onboarding.location.onboardingFailedTitle');
 
       const message = isTransient
-        ? 'Our location lookup service is having trouble right now.\n\nYou can try again in a moment, or continue and we’ll retry in the background.'
+        ? t('onboarding.location.lookupFailedBody')
         : e?.message
-          ? `${e.message}\n\nYou can continue and we’ll retry in the background, or try again now.`
-          : 'Something went wrong.';
+          ? `${e.message}`
+          : t('common.somethingWentWrong');
 
       Alert.alert(title, message, [
-        { text: 'Try again', style: 'cancel' },
+        { text: t('common.tryAgain'), style: 'cancel' },
         {
-          text: 'Continue anyway',
+          text: t('common.continueAnyway'),
           onPress: () => finishAndGoNext(),
         },
       ]);
@@ -225,13 +236,11 @@ export default function VibeScreen() {
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
             <Image source={vibeIcon} style={styles.vibeIcon} />
-            <Text style={styles.cardTitle}>Your daily vibe</Text>
+            <Text style={styles.cardTitle}>{t('onboarding.vibe.title')}</Text>
           </View>
 
           <Text style={styles.cardQuote}>
-            {dailyVibe
-              ? `“${dailyVibe}”`
-              : '“Loading your daily vibe…”'}
+            {dailyVibe ? `“${dailyVibe}”` : t('onboarding.vibe.loading')}
           </Text>
 
           <View style={styles.cardBar} />
@@ -250,7 +259,7 @@ export default function VibeScreen() {
           {submitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Continue</Text>
+            <Text style={styles.buttonText}>{t('onboarding.vibe.continue')}</Text>
           )}
         </LinearGradient>
       </TouchableOpacity>
@@ -259,10 +268,9 @@ export default function VibeScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <ActivityIndicator color="#B283ED" size="large" />
-            <Text style={styles.modalTitle}>Calculating your chart…</Text>
+            <Text style={styles.modalTitle}>{t('onboarding.vibe.calculatingTitle')}</Text>
             <Text style={styles.modalSubtitle}>
-              We’re asking the stars a few questions. This can take up to a
-              minute the first time.
+              {t('onboarding.vibe.calculatingSubtitle')}
             </Text>
           </View>
         </View>

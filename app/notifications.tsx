@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
@@ -25,23 +26,24 @@ import {
 
 type DayOfWeek = 'EVERYDAY' | 'WEEKDAYS' | 'WEEKENDS';
 
-const DAY_OPTIONS: { code: DayOfWeek; label: string }[] = [
-  { code: 'EVERYDAY', label: 'Everyday' },
-  { code: 'WEEKDAYS', label: 'Weekdays' },
-  { code: 'WEEKENDS', label: 'Weekends' },
-];
-
-const COUNT_OPTIONS: { value: number; label: string }[] = [
-  { value: 1, label: 'Once' },
-  { value: 2, label: 'Twice' },
-  { value: 3, label: 'Three times' },
-];
-
 const LOCAL_PREFS_KEY = 'notificationLocalPrefs';
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+
+  const DAY_OPTIONS: { code: DayOfWeek; label: string }[] = [
+    { code: 'EVERYDAY', label: t('notificationsSettings.days.everyday') },
+    { code: 'WEEKDAYS', label: t('notificationsSettings.days.weekdays') },
+    { code: 'WEEKENDS', label: t('notificationsSettings.days.weekends') },
+  ];
+
+  const COUNT_OPTIONS: { value: number; label: string }[] = [
+    { value: 1, label: t('notificationsSettings.counts.once') },
+    { value: 2, label: t('notificationsSettings.counts.twice') },
+    { value: 3, label: t('notificationsSettings.counts.threeTimes') },
+  ];
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -143,10 +145,10 @@ export default function NotificationsScreen() {
         }
       }
 
-      Alert.alert('Saved', 'Your notification preferences have been updated.');
+      Alert.alert(t('common.save'), t('notificationsSettings.saved'));
       router.back();
     } catch (e: any) {
-      Alert.alert('Update failed', e?.message ?? String(e));
+      Alert.alert(t('notificationsSettings.updateFailed'), e?.message ?? String(e));
     } finally {
       setSaving(false);
     }
@@ -161,9 +163,11 @@ export default function NotificationsScreen() {
   }
 
   const countLabel =
-    COUNT_OPTIONS.find((o) => o.value === reminderCount)?.label ?? 'Once';
+    COUNT_OPTIONS.find((o) => o.value === reminderCount)?.label ??
+    t('notificationsSettings.counts.once');
   const dayLabel =
-    DAY_OPTIONS.find((o) => o.code === dayOfWeek)?.label ?? 'Everyday';
+    DAY_OPTIONS.find((o) => o.code === dayOfWeek)?.label ??
+    t('notificationsSettings.days.everyday');
 
   return (
     <View style={styles.wrapper}>
@@ -183,32 +187,38 @@ export default function NotificationsScreen() {
           >
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={styles.headerTitle}>
+            {t('notificationsSettings.title')}
+          </Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <ToggleRow
-          label="Notifications"
+          label={t('notificationsSettings.notifications')}
           value={allowNotifications}
           onChange={setAllowNotifications}
           disabled={saving}
         />
         <ToggleRow
-          label="Updates"
+          label={t('notificationsSettings.updates')}
           value={allowUpdates}
           onChange={setAllowUpdates}
           disabled={saving || !allowNotifications}
         />
         <ToggleRow
-          label="Affirmations"
+          label={t('notificationsSettings.affirmations')}
           value={allowAffirmations}
           onChange={setAllowAffirmations}
           disabled={saving || !allowNotifications}
         />
 
-        <Text style={styles.sectionTitle}>Receive daily notifications</Text>
+        <Text style={styles.sectionTitle}>
+          {t('notificationsSettings.receiveDaily')}
+        </Text>
 
-        <Text style={styles.fieldLabel}>Day of the week</Text>
+        <Text style={styles.fieldLabel}>
+          {t('notificationsSettings.dayOfWeek')}
+        </Text>
         <TouchableOpacity
           style={styles.field}
           onPress={() => setShowDayPicker((v) => !v)}
@@ -235,7 +245,9 @@ export default function NotificationsScreen() {
           </PickerWrap>
         )}
 
-        <Text style={styles.fieldLabel}>How many per day</Text>
+        <Text style={styles.fieldLabel}>
+          {t('notificationsSettings.perDay')}
+        </Text>
         <TouchableOpacity
           style={styles.field}
           onPress={() => setShowCountPicker((v) => !v)}
@@ -276,7 +288,9 @@ export default function NotificationsScreen() {
             end={{ x: 1, y: 0 }}
             style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           >
-            <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save'}</Text>
+            <Text style={styles.saveText}>
+              {saving ? t('common.saving') : t('common.save')}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -286,21 +300,21 @@ export default function NotificationsScreen() {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => router.push('/terms')}
           >
-            <Text style={styles.footerLink}>Terms of Service</Text>
+            <Text style={styles.footerLink}>{t('legalLinks.terms')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.linkHit}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => router.push('/privacy')}
           >
-            <Text style={styles.footerLink}>Privacy Policy</Text>
+            <Text style={styles.footerLink}>{t('legalLinks.privacy')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.linkHit}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => router.push('/subscription')}
           >
-            <Text style={styles.footerLink}>Subscription terms</Text>
+            <Text style={styles.footerLink}>{t('legalLinks.subscription')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -336,9 +350,10 @@ function PickerWrap({ children }: { children: React.ReactNode }) {
 }
 
 function DonePickerButton({ onPress }: { onPress: () => void }) {
+  const { t } = useTranslation();
   return (
     <TouchableOpacity style={styles.pickerDone} onPress={onPress}>
-      <Text style={styles.pickerDoneText}>Done</Text>
+      <Text style={styles.pickerDoneText}>{t('notificationsSettings.done')}</Text>
     </TouchableOpacity>
   );
 }

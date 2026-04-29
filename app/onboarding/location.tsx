@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { mergeOnboardingDraft } from '../../services/onboardingDraft';
@@ -115,6 +116,7 @@ async function fetchCitySuggestions(
 
 export default function LocationScreen() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const [query, setQuery] = useState('');
   // What's shown in the input + dropdown ("Sofia, ..., Bulgaria") once a
   // suggestion is locked in. Reset to null whenever the user keeps typing.
@@ -210,22 +212,20 @@ export default function LocationScreen() {
 
       <View style={styles.content}>
         <OnboardingHeader
-          title="Birth Location"
+          title={t('onboarding.location.title')}
           step={4}
           onBack={() => router.back()}
           disabled={submitting}
         />
 
-        <Text style={styles.description}>
-          Location is important for calculating time zones and precise coordinates.
-        </Text>
+        <Text style={styles.description}>{t('onboarding.location.description')}</Text>
 
         <View style={styles.inputWrapper}>
           <View style={styles.inputRow}>
             <TextInput
               value={query}
               onChangeText={handleChangeText}
-              placeholder="Start typing your birth city"
+              placeholder={t('onboarding.location.placeholder')}
               placeholderTextColor="rgba(255, 255, 255, 0.4)"
               style={[
                 styles.input,
@@ -285,7 +285,7 @@ export default function LocationScreen() {
             suggestions.length === 0 &&
             query.trim().length >= 2 && (
               <Text style={styles.hint}>
-                No matching cities yet — keep typing.
+                {t('onboarding.location.keepTyping')}
               </Text>
             )}
 
@@ -294,9 +294,7 @@ export default function LocationScreen() {
           )}
         </View>
 
-        <Text style={styles.info}>
-          We use this to generate your AstroInsights wheel. We never share or sell your data.
-        </Text>
+        <Text style={styles.info}>{t('onboarding.location.info')}</Text>
 
         <TouchableOpacity
           disabled={!canSubmit}
@@ -331,7 +329,9 @@ export default function LocationScreen() {
             end={{ x: 1, y: 0 }}
             style={[styles.nextButton, !canSubmit && styles.nextButtonDisabled]}
           >
-            <Text style={styles.nextText}>{submitting ? 'Saving...' : 'Next'}</Text>
+            <Text style={styles.nextText}>
+              {submitting ? t('common.saving') : t('common.next')}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
