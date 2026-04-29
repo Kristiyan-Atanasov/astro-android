@@ -37,7 +37,14 @@
         ]
       }
     },
-    "android": {},
+    "android": {
+      "permissions": [
+        "com.android.vending.BILLING",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
+      "package": "io.astroinsights.app"
+    },
     "web": {
       "bundler": "metro",
       "output": "static"

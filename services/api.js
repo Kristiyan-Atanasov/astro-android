@@ -358,6 +358,74 @@ export async function deleteAccount() {
   );
 }
 
+// Tells the backend "the user has subscription purchase data, please
+// verify it with Apple/Google and update its state accordingly".
+//
+// `provider` must be 'apple' or 'google'.
+// `receiptData` is the raw payload received from the native store SDK;
+// the backend decides how to interpret it.
+//
+// Resolves with { status, end_date } on success.
+// Throws Error('verification-failed', ...) on 400 (bad receipt).
+// Throws Error('Session expired ...') on 401/403.
+// Throws Error('Network request failed') on connection errors.
+export async function verifySubscription(provider, receiptData) {
+  if (provider !== 'apple' && provider !== 'google') {
+    throw new Error('Invalid subscription provider');
+  }
+  if (!receiptData || typeof receiptData !== 'object') {
+    throw new Error('Missing subscription receipt data');
+  }
+
+  const accessToken = await getAccessToken();
+  if (!accessToken) throw new Error('Missing access token. Please sign in again.');
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/subscriptions/verify/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ provider, receipt_data: receiptData }),
+    });
+  } catch (e) {
+    console.log('🌐 verify subscription network error:', e?.message ?? String(e));
+    throw new Error('Network request failed');
+  }
+
+  console.log('🌐 verify subscription status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await clearAccessToken();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  const { raw, data } = await readResponse(res);
+
+  if (res.status === 400) {
+    console.log('❌ verify subscription 400 body:', raw);
+    const err = new Error(
+      data?.message || data?.detail || 'We couldn’t verify your subscription. Please try again.'
+    );
+    err.code = 'verification-failed';
+    throw err;
+  }
+
+  if (!res.ok) {
+    console.log('❌ verify subscription server body:', raw);
+    throw new Error(
+      data?.message ||
+        data?.detail ||
+        raw ||
+        `Subscription verification failed (${res.status})`
+    );
+  }
+
+  return data || { status: 'unknown' };
+}
+
 export async function registerDeviceToken(token, platform) {
   if (!token || typeof token !== 'string') return null;
   if (platform !== 'ios' && platform !== 'android') return null;
