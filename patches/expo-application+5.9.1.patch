@@ -1,0 +1,20 @@
+diff --git a/node_modules/expo-application/ios/EXApplication/EXProvisioningProfile.m b/node_modules/expo-application/ios/EXApplication/EXProvisioningProfile.m
+index 5c06b26..19edcbd 100644
+--- a/node_modules/expo-application/ios/EXApplication/EXProvisioningProfile.m
++++ b/node_modules/expo-application/ios/EXApplication/EXProvisioningProfile.m
+@@ -1,5 +1,6 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
++#import <TargetConditionals.h>
+ #import "EXProvisioningProfile.h"
+ 
+ @implementation EXProvisioningProfile {
+@@ -40,7 +41,7 @@ - (EXAppReleaseType)appReleaseType {
+   NSString *provisioningPath = [[NSBundle mainBundle] pathForResource:@"embedded" ofType:@"mobileprovision"];
+   if (!provisioningPath) {
+     // provisioning profile does not exist
+-#if TARGET_IPHONE_SIMULATOR
++#if TARGET_OS_SIMULATOR
+     return EXAppReleaseSimulator;
+ #else
+     return EXAppReleaseAppStore;

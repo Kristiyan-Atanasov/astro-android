@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "io.astroinsights.app",
       "buildNumber": "1",

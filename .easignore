@@ -1,0 +1,55 @@
+# Inherit useful defaults from .gitignore (EAS does not auto-include these when .easignore exists)
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native build artifacts
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# iOS build outputs
+ios/Pods/
+ios/build/
+ios/DerivedData/
+ios/.xcode.env.local
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Built app bundles / archives that must NOT be uploaded
+# (these contain .bundle directories which break Metro)
+*.app/
+*.ipa
+*.tar.gz
+build-*.tar.gz
+
+# Stale duplicate Expo template scaffold sitting inside the project
+# (anchored to project root only — DO NOT match ios/astroinsights/)
+/astroinsights/
+/astroinsights.app/
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+app-example
