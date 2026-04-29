@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "astroinsights",
+    "name": "Astroinsights",
     "slug": "astroinsights",
     "version": "1.0.0",
+    "icon": "./assets/images/icon.png",
     "orientation": "portrait",
     "scheme": "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e",
     "userInterfaceStyle": "automatic",
@@ -42,7 +43,12 @@
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
       ],
-      "package": "io.astroinsights.app"
+      "package": "io.astroinsights.app",
+      "icon": "./assets/images/icon.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#19224B"
+      }
     },
     "web": {
       "bundler": "metro",
