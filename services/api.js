@@ -529,25 +529,57 @@ function summarizeHtmlError(raw) {
   return null;
 }
 
+// HTTP statuses we treat as transient — usually the backend's upstream
+// (geocoder / timezone API / DB) blipped and a quick retry will succeed.
+const TRANSIENT_STATUSES = new Set([502, 503, 504]);
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function postOnboardingOnce(payload, token) {
+  const res = await fetch(`${API_BASE}/authentication/on_boarding/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload ?? {}),
+  });
+  return res;
+}
+
 export async function postOnboarding(payload) {
   const token = await getAccessToken();
   if (!token) throw new Error('Missing access token. Please sign in again.');
 
   let res;
-  try {
-    res = await fetch(`${API_BASE}/authentication/on_boarding/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload ?? {}),
-    });
-  } catch (e) {
-    console.log('🌐 on_boarding network error:', e?.message ?? String(e));
-    throw new Error(
-      'We couldn’t reach the server. Please check your connection and try again.',
-    );
+  let attempts = 0;
+  const MAX_ATTEMPTS = 3;
+
+  // Retry transient gateway errors with a small backoff before giving up.
+  for (;;) {
+    attempts += 1;
+    try {
+      res = await postOnboardingOnce(payload, token);
+    } catch (e) {
+      console.log('🌐 on_boarding network error:', e?.message ?? String(e));
+      if (attempts < MAX_ATTEMPTS) {
+        await sleep(800 * attempts);
+        continue;
+      }
+      throw new Error(
+        'We couldn’t reach the server. Please check your connection and try again.',
+      );
+    }
+
+    if (TRANSIENT_STATUSES.has(res.status) && attempts < MAX_ATTEMPTS) {
+      console.log(
+        `🌐 on_boarding ${res.status} — retrying (attempt ${attempts + 1}/${MAX_ATTEMPTS})`,
+      );
+      await sleep(800 * attempts);
+      continue;
+    }
+
+    break;
   }
 
   const { raw, data } = await readResponse(res);
@@ -566,8 +598,21 @@ export async function postOnboarding(payload) {
       summarizeHtmlError(raw) ||
       `Onboarding submit failed (${res.status})`;
 
-    // 5xx with a Django HTML traceback = backend bug, not a frontend
-    // validation failure. Surface that fact so the user can report it.
+    // 502 / 503 / 504 → backend's upstream is sick (geocoder, timezone
+    // service, etc.). Tell the user it's transient instead of "report a
+    // bug", since a few seconds later it usually works.
+    if (TRANSIENT_STATUSES.has(res.status)) {
+      const err = new Error(
+        'Our servers are having trouble looking up your birth location ' +
+          'right now. Please wait a few seconds and try again.',
+      );
+      err.code = 'transient-error';
+      throw err;
+    }
+
+    // Other 5xx with a Django HTML traceback = backend bug, not a
+    // frontend validation failure. Surface that fact so the user can
+    // report it.
     if (res.status >= 500) {
       const err = new Error(
         `Server error (${res.status}): ${friendly}\n\n` +

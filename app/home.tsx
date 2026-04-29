@@ -147,7 +147,7 @@ export default function HomeScreen() {
         if (!draft || !draft.name || !draft.birth_date) return;
         const birthHour = typeof draft.birth_hour === 'number' ? draft.birth_hour : 12;
         const birthMinute = typeof draft.birth_minute === 'number' ? draft.birth_minute : 0;
-        const payload = {
+        const payload: Record<string, any> = {
           name: String(draft.name),
           birth_date: String(draft.birth_date),
           birth_hour: birthHour,
@@ -160,7 +160,9 @@ export default function HomeScreen() {
             ? String(draft.social_acc_facebook)
             : '',
           user_settings: {
-            allow_notifications: true,
+            // Default off — the user makes an explicit choice on the
+            // /onboarding/notifications screen.
+            allow_notifications: false,
             language: 'ENGLISH',
             reminder_count: 1,
             reminder_time_start: '09:00:00',
@@ -168,6 +170,30 @@ export default function HomeScreen() {
             ...(draft.user_settings ?? {}),
           },
         };
+
+        const lat =
+          typeof draft.birth_city_latitude === 'number'
+            ? draft.birth_city_latitude
+            : null;
+        const lng =
+          typeof draft.birth_city_longitude === 'number'
+            ? draft.birth_city_longitude
+            : null;
+        if (lat !== null && lng !== null) {
+          payload.birth_city_latitude = lat;
+          payload.birth_city_longitude = lng;
+          payload.birth_latitude = lat;
+          payload.birth_longitude = lng;
+          payload.latitude = lat;
+          payload.longitude = lng;
+        }
+        if (draft.birth_city_country) {
+          payload.birth_city_country = String(draft.birth_city_country);
+          payload.birth_country = String(draft.birth_city_country);
+        }
+        if (draft.birth_city_country_code) {
+          payload.birth_city_country_code = String(draft.birth_city_country_code);
+        }
         console.log('🔁 retrying pending onboarding submit');
         await postOnboarding(payload);
         await clearOnboardingDraft();

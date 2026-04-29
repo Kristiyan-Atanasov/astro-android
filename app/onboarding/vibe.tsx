@@ -44,10 +44,88 @@ export default function VibeScreen() {
     };
   }, []);
 
-  const onContinue = async () => {
-    try {
-      setSubmitting(true);
+  const buildPayload = (
+    draft: Record<string, any>,
+    overrideCity?: string,
+  ): Record<string, any> => {
+    const birthHour =
+      typeof draft.birth_hour === 'number' ? draft.birth_hour : 12;
+    const birthMinute =
+      typeof draft.birth_minute === 'number' ? draft.birth_minute : 0;
 
+    const cityValue = overrideCity ?? (draft.birth_city ? String(draft.birth_city) : 'Unknown');
+
+    const payload: Record<string, any> = {
+      name: String(draft.name),
+      birth_date: String(draft.birth_date),
+      birth_hour: birthHour,
+      birth_minute: birthMinute,
+      birth_city: cityValue,
+      social_acc_instagram: draft.social_acc_instagram
+        ? String(draft.social_acc_instagram)
+        : '',
+      social_acc_facebook: draft.social_acc_facebook
+        ? String(draft.social_acc_facebook)
+        : '',
+      user_settings: {
+        allow_notifications: false,
+        language: 'ENGLISH',
+        reminder_count: 1,
+        reminder_time_start: '09:00:00',
+        reminder_time_end: '21:00:00',
+        ...(draft.user_settings ?? {}),
+      },
+    };
+
+    // If the city picker captured coordinates, forward them under the
+    // most common backend field names. The backend will use whichever
+    // it knows about and silently ignore the rest. We only do this when
+    // we're submitting the originally selected city — if the user falls
+    // back to "Bulgaria" the lat/lng would be misleading, so we drop them.
+    if (!overrideCity) {
+      const lat =
+        typeof draft.birth_city_latitude === 'number'
+          ? draft.birth_city_latitude
+          : null;
+      const lng =
+        typeof draft.birth_city_longitude === 'number'
+          ? draft.birth_city_longitude
+          : null;
+      if (lat !== null && lng !== null) {
+        payload.birth_city_latitude = lat;
+        payload.birth_city_longitude = lng;
+        payload.birth_latitude = lat;
+        payload.birth_longitude = lng;
+        payload.latitude = lat;
+        payload.longitude = lng;
+      }
+      if (draft.birth_city_country) {
+        payload.birth_city_country = String(draft.birth_city_country);
+        payload.birth_country = String(draft.birth_city_country);
+      }
+      if (draft.birth_city_country_code) {
+        payload.birth_city_country_code = String(draft.birth_city_country_code);
+      }
+    }
+
+    return payload;
+  };
+
+  const finishAndGoNext = async () => {
+    try {
+      await clearOnboardingDraft();
+    } catch (e) {
+      console.log(
+        'Clear onboarding draft failed:',
+        (e as any)?.message ?? String(e),
+      );
+    }
+    router.replace('/onboarding/notifications');
+  };
+
+  const submitOnboarding = async (overrideCity?: string) => {
+    setSubmitting(true);
+    try {
       const draft = await getOnboardingDraft();
       console.log('🧾 onboarding draft:', draft);
 
@@ -60,60 +138,81 @@ export default function VibeScreen() {
         return;
       }
 
-      // Backend's TimeField needs HH:MM:SS, IntegerField needs a real
-      // integer (not null), so we always provide valid defaults.
-      const birthHour =
-        typeof draft.birth_hour === 'number' ? draft.birth_hour : 12;
-      const birthMinute =
-        typeof draft.birth_minute === 'number' ? draft.birth_minute : 0;
-
-      const payload: Record<string, any> = {
-        name: String(draft.name),
-        birth_date: String(draft.birth_date),
-        birth_hour: birthHour,
-        birth_minute: birthMinute,
-        birth_city: draft.birth_city ? String(draft.birth_city) : 'Unknown',
-        social_acc_instagram: draft.social_acc_instagram
-          ? String(draft.social_acc_instagram)
-          : '',
-        social_acc_facebook: draft.social_acc_facebook
-          ? String(draft.social_acc_facebook)
-          : '',
-        user_settings: {
-          allow_notifications: true,
-          language: 'ENGLISH',
-          reminder_count: 1,
-          reminder_time_start: '09:00:00',
-          reminder_time_end: '21:00:00',
-          ...(draft.user_settings ?? {}),
-        },
-      };
-
+      const payload = buildPayload(draft, overrideCity);
       console.log('📤 onboarding payload:', payload);
 
-      const res = await postOnboarding(payload);
-      console.log('✅ onboarding success response:', res);
+      try {
+        const res = await postOnboarding(payload);
+        console.log('✅ onboarding success response:', res);
+        await finishAndGoNext();
+        return;
+      } catch (innerErr: any) {
+        const isTransient = innerErr?.code === 'transient-error';
+        const country: string | undefined =
+          typeof draft?.birth_city_country === 'string'
+            ? draft.birth_city_country
+            : undefined;
 
-      await clearOnboardingDraft();
-      router.replace('/onboarding/notifications');
+        // Backend's geocoder failed for the picked city — silently fall
+        // back to the country (which always geocodes cleanly) before
+        // bothering the user with an alert. We only do this once, and
+        // only if we haven't already tried the country.
+        if (
+          isTransient &&
+          country &&
+          country !== overrideCity &&
+          country !== draft?.birth_city
+        ) {
+          console.log(
+            `🔁 Geocoder failed for "${draft?.birth_city}", retrying with country "${country}"…`,
+          );
+          const fallbackPayload = buildPayload(draft, country);
+          try {
+            const res = await postOnboarding(fallbackPayload);
+            console.log('✅ onboarding success (country fallback):', res);
+            await finishAndGoNext();
+            return;
+          } catch (fallbackErr: any) {
+            // Country also failed — fall through to the user-facing alert
+            // below.
+            console.log(
+              '❌ country fallback also failed:',
+              fallbackErr?.message ?? String(fallbackErr),
+            );
+          }
+        }
+
+        throw innerErr;
+      }
     } catch (e: any) {
       console.log('❌ onboarding submit error:', e?.message ?? String(e));
-      Alert.alert(
-        'Onboarding failed',
-        e?.message
+
+      const isTransient = e?.code === 'transient-error';
+
+      const title = isTransient
+        ? 'Couldn’t look up your birth location'
+        : 'Onboarding failed';
+
+      const message = isTransient
+        ? 'Our location lookup service is having trouble right now.\n\nYou can try again in a moment, or continue and we’ll retry in the background.'
+        : e?.message
           ? `${e.message}\n\nYou can continue and we’ll retry in the background, or try again now.`
-          : 'Something went wrong.',
-        [
-          { text: 'Try again', style: 'cancel' },
-          {
-            text: 'Continue anyway',
-            onPress: () => router.replace('/onboarding/notifications'),
-          },
-        ],
-      );
+          : 'Something went wrong.';
+
+      Alert.alert(title, message, [
+        { text: 'Try again', style: 'cancel' },
+        {
+          text: 'Continue anyway',
+          onPress: () => finishAndGoNext(),
+        },
+      ]);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const onContinue = () => {
+    submitOnboarding();
   };
 
   return (

@@ -13,19 +13,52 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getUserProfile, patchUserProfile } from '../../services/api';
 import {
+  clearRegisteredToken,
   ensureNotificationPermission,
   registerForPushNotifications,
 } from '../../services/notifications';
 
 const notificationImg = require('../../assets/images/notification-image.png');
 
+// Persists `allow_notifications` to the backend without overwriting any
+// other settings the user already has.
+async function persistAllowNotifications(allow: boolean) {
+  let baseSettings: Record<string, any> = {
+    allow_notifications: allow,
+    language: 'ENGLISH',
+    reminder_count: 1,
+    reminder_time_start: '09:00:00',
+    reminder_time_end: '21:00:00',
+  };
+
+  try {
+    const profile: any = await getUserProfile();
+    if (profile?.user_settings && typeof profile.user_settings === 'object') {
+      baseSettings = { ...baseSettings, ...profile.user_settings };
+    }
+  } catch (e) {
+    console.log(
+      'Notif preflight profile fetch failed:',
+      (e as any)?.message ?? String(e),
+    );
+  }
+
+  await patchUserProfile({
+    user_settings: {
+      ...baseSettings,
+      allow_notifications: allow,
+    },
+  });
+}
+
 export default function OnboardingNotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [working, setWorking] = useState(false);
 
-  const finish = () => {
+  const goHome = () => {
     router.replace('/home');
   };
 
@@ -35,12 +68,36 @@ export default function OnboardingNotificationsScreen() {
       const perm = await ensureNotificationPermission();
       if (perm.granted) {
         await registerForPushNotifications();
+        await persistAllowNotifications(true);
+      } else {
+        // OS denied → there's no way to actually deliver notifications,
+        // so reflect that on the backend instead of leaving stale state.
+        await persistAllowNotifications(false);
       }
     } catch (e) {
-      console.log('Onboarding notif enable failed:', (e as any)?.message ?? String(e));
+      console.log(
+        'Onboarding notif enable failed:',
+        (e as any)?.message ?? String(e),
+      );
     } finally {
       setWorking(false);
-      finish();
+      goHome();
+    }
+  };
+
+  const handleSkip = async () => {
+    try {
+      setWorking(true);
+      await persistAllowNotifications(false);
+      await clearRegisteredToken();
+    } catch (e) {
+      console.log(
+        'Onboarding notif skip failed:',
+        (e as any)?.message ?? String(e),
+      );
+    } finally {
+      setWorking(false);
+      goHome();
     }
   };
 
@@ -96,7 +153,7 @@ export default function OnboardingNotificationsScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={finish}
+          onPress={handleSkip}
           disabled={working}
           hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
           style={styles.skipHit}
