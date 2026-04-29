@@ -1,5 +1,6 @@
 // services/api.js
 import * as SecureStore from 'expo-secure-store';
+import { notifySessionExpired } from './sessionEvents';
 
 export const API_BASE = 'https://yrfz6x9dl1.execute-api.eu-central-1.amazonaws.com/dev';
 
@@ -7,6 +8,15 @@ const ACCESS_TOKEN_KEY = 'accessToken';
 
 let cachedAccessToken = null;
 let cachedAccessTokenPromise = null;
+
+// Called by every 401/403 path. Clears the stored token and pings the
+// global session-expiry listener (registered in app/_layout.tsx) so we
+// surface a single user-facing message instead of silently bouncing
+// the user back to the welcome screen.
+async function handleSessionExpired() {
+  await clearAccessToken();
+  notifySessionExpired();
+}
 
 export async function setAccessToken(token) {
   if (!token || typeof token !== 'string') return;
@@ -75,7 +85,7 @@ export async function getUserProfile() {
   console.log('🌐 user_profile status:', res.status);
 
   if (res.status === 401 || res.status === 403) {
-    await clearAccessToken();
+    await handleSessionExpired();
     return null;
   }
 
@@ -107,7 +117,7 @@ export async function patchUserProfile(patch) {
   console.log('🌐 user_profile patch status:', res.status);
 
   if (res.status === 401 || res.status === 403) {
-    await clearAccessToken();
+    await handleSessionExpired();
     throw new Error('Session expired. Please sign in again.');
   }
 
@@ -146,7 +156,7 @@ export async function getUserArchetypes() {
   console.log('🌐 user_archetypes status:', res.status);
 
   if (res.status === 401 || res.status === 403) {
-    await clearAccessToken();
+    await handleSessionExpired();
     return null;
   }
 
@@ -177,7 +187,7 @@ export async function getUserQualities() {
   console.log('🌐 user_qualities status:', res.status);
 
   if (res.status === 401 || res.status === 403) {
-    await clearAccessToken();
+    await handleSessionExpired();
     return null;
   }
 
@@ -223,7 +233,7 @@ export async function updateUserQualityStatus(qualityId, status) {
   console.log('🌐 user_qualities update status:', res.status);
 
   if (res.status === 401 || res.status === 403) {
-    await clearAccessToken();
+    await handleSessionExpired();
     throw new Error('Session expired. Please sign in again.');
   }
 
@@ -262,7 +272,7 @@ export async function getDailyVibe() {
   console.log('🌐 daily_vibe status:', res.status);
 
   if (res.status === 401 || res.status === 403) {
-    await clearAccessToken();
+    await handleSessionExpired();
     return null;
   }
 
@@ -317,7 +327,7 @@ export async function deleteAccount() {
     );
 
     if (res.status === 401 || res.status === 403) {
-      await clearAccessToken();
+      await handleSessionExpired();
       throw new Error('Session expired. Please sign in again.');
     }
 
@@ -405,7 +415,7 @@ export async function verifySubscription(provider, receiptData) {
   console.log('🌐 verify subscription status:', res.status);
 
   if (res.status === 401 || res.status === 403) {
-    await clearAccessToken();
+    await handleSessionExpired();
     throw new Error('Session expired. Please sign in again.');
   }
 
@@ -458,7 +468,7 @@ export async function registerDeviceToken(token, platform) {
   console.log('🌐 register device status:', res.status);
 
   if (res.status === 401 || res.status === 403) {
-    await clearAccessToken();
+    await handleSessionExpired();
     return null;
   }
 
@@ -545,7 +555,7 @@ export async function postOnboarding(payload) {
   console.log('🌐 on_boarding status:', res.status);
 
   if (res.status === 401 || res.status === 403) {
-    await clearAccessToken();
+    await handleSessionExpired();
     throw new Error('Session expired. Please sign in again.');
   }
 
