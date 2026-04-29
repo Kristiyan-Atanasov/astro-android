@@ -8,6 +8,8 @@ import {
   Dimensions,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -49,30 +51,45 @@ export default function VibeScreen() {
       const draft = await getOnboardingDraft();
       console.log('🧾 onboarding draft:', draft);
 
-      // If name isn’t in the draft, final submit will fail with {"name":["This field is required."]}
       if (!draft?.name) {
         Alert.alert('Missing info', 'Please enter your name first.');
-        // If your name screen path differs, change this:
-        // router.push('/onboarding/name');
+        return;
+      }
+      if (!draft?.birth_date) {
+        Alert.alert('Missing info', 'Please enter your date of birth first.');
         return;
       }
 
-      const payload = {
+      // Backend's TimeField needs HH:MM:SS, IntegerField needs a real
+      // integer (not null), so we always provide valid defaults.
+      const birthHour =
+        typeof draft.birth_hour === 'number' ? draft.birth_hour : 12;
+      const birthMinute =
+        typeof draft.birth_minute === 'number' ? draft.birth_minute : 0;
+
+      const payload: Record<string, any> = {
         name: String(draft.name),
-        birth_date: draft.birth_date ? String(draft.birth_date) : null,
-        birth_hour: draft.birth_hour === undefined ? null : draft.birth_hour,
-        birth_minute: draft.birth_minute === undefined ? null : draft.birth_minute,
-        birth_city: draft.birth_city ? String(draft.birth_city) : null,
-        social_acc_instagram: draft.social_acc_instagram ? String(draft.social_acc_instagram) : '',
-        social_acc_facebook: draft.social_acc_facebook ? String(draft.social_acc_facebook) : '',
-        user_settings: draft.user_settings ?? {
+        birth_date: String(draft.birth_date),
+        birth_hour: birthHour,
+        birth_minute: birthMinute,
+        birth_city: draft.birth_city ? String(draft.birth_city) : 'Unknown',
+        social_acc_instagram: draft.social_acc_instagram
+          ? String(draft.social_acc_instagram)
+          : '',
+        social_acc_facebook: draft.social_acc_facebook
+          ? String(draft.social_acc_facebook)
+          : '',
+        user_settings: {
           allow_notifications: true,
           language: 'ENGLISH',
           reminder_count: 1,
-          reminder_time_start: '09:00',
-          reminder_time_end: '21:00',
+          reminder_time_start: '09:00:00',
+          reminder_time_end: '21:00:00',
+          ...(draft.user_settings ?? {}),
         },
       };
+
+      console.log('📤 onboarding payload:', payload);
 
       const res = await postOnboarding(payload);
       console.log('✅ onboarding success response:', res);
@@ -81,7 +98,19 @@ export default function VibeScreen() {
       router.replace('/onboarding/notifications');
     } catch (e: any) {
       console.log('❌ onboarding submit error:', e?.message ?? String(e));
-      Alert.alert('Onboarding failed', e?.message ?? String(e));
+      Alert.alert(
+        'Onboarding failed',
+        e?.message
+          ? `${e.message}\n\nYou can continue and we’ll retry in the background, or try again now.`
+          : 'Something went wrong.',
+        [
+          { text: 'Try again', style: 'cancel' },
+          {
+            text: 'Continue anyway',
+            onPress: () => router.replace('/onboarding/notifications'),
+          },
+        ],
+      );
     } finally {
       setSubmitting(false);
     }
@@ -119,9 +148,26 @@ export default function VibeScreen() {
           end={{ x: 1, y: 0 }}
           style={[styles.button, submitting && styles.buttonDisabled]}
         >
-          <Text style={styles.buttonText}>{submitting ? 'Submitting...' : 'Continue'}</Text>
+          {submitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Continue</Text>
+          )}
         </LinearGradient>
       </TouchableOpacity>
+
+      <Modal visible={submitting} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <ActivityIndicator color="#B283ED" size="large" />
+            <Text style={styles.modalTitle}>Calculating your chart…</Text>
+            <Text style={styles.modalSubtitle}>
+              We’re asking the stars a few questions. This can take up to a
+              minute the first time.
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -215,5 +261,37 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Nunito-Bold',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(8, 10, 22, 0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#1B1F2E',
+    borderRadius: 20,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(140, 140, 200, 0.18)',
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 17,
+    fontFamily: 'CooperLtBT-Bold',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    color: '#9C9CA6',
+    fontSize: 13,
+    fontFamily: 'SFProDisplay-Regular',
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

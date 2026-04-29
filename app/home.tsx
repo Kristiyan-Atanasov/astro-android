@@ -22,8 +22,9 @@ import {
   clearAccessToken,
   getCachedAccessToken,
   getUserArchetypes,
+  postOnboarding,
 } from '../services/api';
-import { clearOnboardingDraft } from '../services/onboardingDraft';
+import { clearOnboardingDraft, getOnboardingDraft } from '../services/onboardingDraft';
 import { setBiometricEnabled } from '../services/biometric';
 import {
   clearRegisteredToken,
@@ -140,6 +141,42 @@ export default function HomeScreen() {
       console.log('Device token sync failed:', e?.message ?? String(e)),
     );
 
+    (async () => {
+      try {
+        const draft = await getOnboardingDraft();
+        if (!draft || !draft.name || !draft.birth_date) return;
+        const birthHour = typeof draft.birth_hour === 'number' ? draft.birth_hour : 12;
+        const birthMinute = typeof draft.birth_minute === 'number' ? draft.birth_minute : 0;
+        const payload = {
+          name: String(draft.name),
+          birth_date: String(draft.birth_date),
+          birth_hour: birthHour,
+          birth_minute: birthMinute,
+          birth_city: draft.birth_city ? String(draft.birth_city) : 'Unknown',
+          social_acc_instagram: draft.social_acc_instagram
+            ? String(draft.social_acc_instagram)
+            : '',
+          social_acc_facebook: draft.social_acc_facebook
+            ? String(draft.social_acc_facebook)
+            : '',
+          user_settings: {
+            allow_notifications: true,
+            language: 'ENGLISH',
+            reminder_count: 1,
+            reminder_time_start: '09:00:00',
+            reminder_time_end: '21:00:00',
+            ...(draft.user_settings ?? {}),
+          },
+        };
+        console.log('🔁 retrying pending onboarding submit');
+        await postOnboarding(payload);
+        await clearOnboardingDraft();
+        console.log('✅ pending onboarding submitted');
+      } catch (e) {
+        console.log('⚠️ onboarding retry failed:', (e as any)?.message ?? String(e));
+      }
+    })();
+
     const unsubscribe = subscribeToNotificationTaps((route) => {
       try {
         router.push(route as any);
@@ -155,7 +192,17 @@ export default function HomeScreen() {
   }, [router]);
 
   const goToArchetype = (sign: ZodiacSign) => {
-    router.push(`/archetype/${sign.code}` as any);
+    Alert.alert(
+      'Premium account required',
+      `${sign.label} details are only available on the premium plan. Upgrade to unlock all archetypes.`,
+      [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'See plans',
+          onPress: () => router.push('/subscription' as any),
+        },
+      ],
+    );
   };
 
   const openMenu = () => {

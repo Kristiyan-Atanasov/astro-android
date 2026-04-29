@@ -184,18 +184,25 @@ export async function getUserQualities() {
   if (!res.ok) return null;
 
   const { data } = await readResponse(res);
-  return Array.isArray(data) ? data : null;
+  // Backend wraps the list in { qualities: [...] } per OpenAPI spec, but
+  // tolerate older shapes (top-level array) too.
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.qualities)) return data.qualities;
+  return [];
 }
 
-export async function updateUserQualityStatus(qualityId, action) {
+export async function updateUserQualityStatus(qualityId, status) {
   const token = await getAccessToken();
   if (!token) throw new Error('Missing access token. Please sign in again.');
 
   if (typeof qualityId !== 'number') {
     throw new Error('Invalid quality id');
   }
-  if (action !== 'activate' && action !== 'deactivate') {
-    throw new Error('Invalid action');
+  // Backend expects { quality_id, status: 'ACTIVE' | 'INACTIVE' } per
+  // UserQualityStatusUpdateRequest in the OpenAPI spec.
+  const normalized = String(status || '').toUpperCase();
+  if (normalized !== 'ACTIVE' && normalized !== 'INACTIVE') {
+    throw new Error('Invalid quality status');
   }
 
   let res;
@@ -206,7 +213,7 @@ export async function updateUserQualityStatus(qualityId, action) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ quality_id: qualityId, action }),
+      body: JSON.stringify({ quality_id: qualityId, status: normalized }),
     });
   } catch (e) {
     console.log('🌐 user_qualities update network error:', e?.message ?? String(e));
@@ -382,7 +389,7 @@ export async function verifySubscription(provider, receiptData) {
 
   let res;
   try {
-    res = await fetch(`${API_BASE}/subscriptions/verify/`, {
+    res = await fetch(`${API_BASE}/payments/verify/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -472,6 +479,46 @@ export function isOnboardingComplete(profile) {
   return hasName && hasBirthDate;
 }
 
+function formatDjangoError(data) {
+  if (!data || typeof data !== 'object') return null;
+  if (data.message) return String(data.message);
+  if (data.detail) return String(data.detail);
+  // Django REST Framework field validation: { field: ["error", ...] }
+  const lines = [];
+  for (const [field, val] of Object.entries(data)) {
+    if (Array.isArray(val)) {
+      lines.push(`${field}: ${val.join(', ')}`);
+    } else if (typeof val === 'string') {
+      lines.push(`${field}: ${val}`);
+    }
+  }
+  return lines.length > 0 ? lines.join('\n') : null;
+}
+
+// When Django serves its yellow debug error page we get a giant HTML
+// blob back. Pull just the exception class + message out of it so the
+// alert text stays short and readable.
+function summarizeHtmlError(raw) {
+  if (typeof raw !== 'string' || !raw.includes('<')) return null;
+  const titleMatch = raw.match(/<title>([\s\S]*?)<\/title>/i);
+  const exceptionType = raw.match(
+    /<th>Exception Type:<\/th>\s*<td>([\s\S]*?)<\/td>/i,
+  );
+  const exceptionValue = raw.match(
+    /<th>Exception Value:<\/th>\s*<td><pre[^>]*>([\s\S]*?)<\/pre>/i,
+  );
+
+  if (exceptionType || exceptionValue) {
+    const t = exceptionType ? exceptionType[1].trim() : null;
+    const v = exceptionValue ? exceptionValue[1].trim() : null;
+    return [t, v].filter(Boolean).join('\n');
+  }
+  if (titleMatch) {
+    return titleMatch[1].replace(/\s+/g, ' ').trim();
+  }
+  return null;
+}
+
 export async function postOnboarding(payload) {
   const token = await getAccessToken();
   if (!token) throw new Error('Missing access token. Please sign in again.');
@@ -488,20 +535,39 @@ export async function postOnboarding(payload) {
     });
   } catch (e) {
     console.log('🌐 on_boarding network error:', e?.message ?? String(e));
-    throw new Error('Network request failed');
+    throw new Error(
+      'We couldn’t reach the server. Please check your connection and try again.',
+    );
   }
 
   const { raw, data } = await readResponse(res);
 
   console.log('🌐 on_boarding status:', res.status);
 
+  if (res.status === 401 || res.status === 403) {
+    await clearAccessToken();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
   if (!res.ok) {
-    throw new Error(
-      data?.message ||
-        data?.detail ||
-        raw ||
-        `Onboarding submit failed (${res.status})`
-    );
+    console.log('❌ on_boarding error body:', raw);
+    const friendly =
+      formatDjangoError(data) ||
+      summarizeHtmlError(raw) ||
+      `Onboarding submit failed (${res.status})`;
+
+    // 5xx with a Django HTML traceback = backend bug, not a frontend
+    // validation failure. Surface that fact so the user can report it.
+    if (res.status >= 500) {
+      const err = new Error(
+        `Server error (${res.status}): ${friendly}\n\n` +
+          'This is a backend issue. Please report it to support.',
+      );
+      err.code = 'server-error';
+      throw err;
+    }
+
+    throw new Error(friendly);
   }
 
   return data;
