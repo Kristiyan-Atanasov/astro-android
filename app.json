@@ -11,9 +11,10 @@
       "bundleIdentifier": "io.astroinsights.app",
       "buildNumber": "1",
       "supportsTablet": true,
-      "usesAppleSignIn": false,
+      "usesAppleSignIn": true,
       "entitlements": {
-        "aps-environment": "production"
+        "aps-environment": "production",
+        "com.apple.developer.applesignin": ["Default"]
       },
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to sign in to AstroInsights faster and more securely.",

@@ -54,6 +54,8 @@ const bg: Translations = {
     subtitle: 'Направи първите стъпки към новия си живот',
     google: 'Влез с Google',
     googleFailed: 'Влизането с Google не успя',
+    apple: 'Влез с Apple',
+    appleFailed: 'Влизането с Apple не успя',
     loginFailed: 'Влизането не успя',
     enableBiometricTitle: 'Активирай {{label}}?',
     enableBiometricBody:

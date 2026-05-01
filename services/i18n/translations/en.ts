@@ -51,6 +51,8 @@ const en = {
     subtitle: 'Begin your journey of personal transformation',
     google: 'Sign in with Google',
     googleFailed: 'Google Sign-In failed',
+    apple: 'Sign in with Apple',
+    appleFailed: 'Apple Sign-In failed',
     loginFailed: 'Login failed',
     enableBiometricTitle: 'Enable {{label}}?',
     enableBiometricBody: 'Use {{label}} to sign in to Astroinsights faster next time.',

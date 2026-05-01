@@ -1,13 +1,27 @@
 import React from "react";
-import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { makeRedirectUri } from "expo-auth-session";
 
-import { API_BASE, setAccessToken, getUserProfile, isOnboardingComplete } from "../services/api";
+import {
+  getUserProfile,
+  isOnboardingComplete,
+  socialLogin,
+} from "../services/api";
 import {
   getBiometricLabel,
   isBiometricEnabled,
@@ -16,7 +30,11 @@ import {
 } from "../services/biometric";
 import { syncDeviceTokenIfChanged } from "../services/notifications";
 
-WebBrowser.maybeCompleteAuthSession(); // required for auth-session redirects [web:334]
+// Required for the Google OAuth web-flow popup to dismiss correctly when
+// the deep link comes back into the app.
+WebBrowser.maybeCompleteAuthSession();
+
+// --- Provider config -------------------------------------------------------
 
 const WEB_CLIENT_ID =
   "154762470670-dma1hg357n6n48ishn1b4gjodo33v08r.apps.googleusercontent.com";
@@ -24,53 +42,67 @@ const WEB_CLIENT_ID =
 const IOS_CLIENT_ID =
   "154762470670-n099k64j893h5qr85lrhh85fiutk533e.apps.googleusercontent.com";
 
+type ProviderId = "google" | "apple";
+
+// --- Screen ----------------------------------------------------------------
+
 export default function SignInScreen() {
   const router = useRouter();
   const { t } = useTranslation();
 
-  const APP_SCHEME = "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e";
+  // Submitting state per provider so we can show a spinner only on the
+  // button that was tapped while still letting the user pick another one
+  // if the first popup was cancelled.
+  const [submitting, setSubmitting] = React.useState<ProviderId | null>(null);
+  const [appleAvailable, setAppleAvailable] = React.useState(false);
 
-  const redirectUri = makeRedirectUri({
+  // ---- Google ----
+  const APP_SCHEME =
+    "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e";
+
+  const googleRedirectUri = makeRedirectUri({
     native: `${APP_SCHEME}:/signin`,
   });
 
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    iosClientId: IOS_CLIENT_ID,
-    webClientId: WEB_CLIENT_ID,
-    redirectUri,
-    scopes: ["openid", "profile", "email"],
-  });
+  const [googleRequest, googleResponse, promptGoogle] =
+    Google.useIdTokenAuthRequest({
+      iosClientId: IOS_CLIENT_ID,
+      webClientId: WEB_CLIENT_ID,
+      redirectUri: googleRedirectUri,
+      scopes: ["openid", "profile", "email"],
+    });
 
-
-  const exchangeIdTokenWithBackend = React.useCallback(
-    async (idToken: string) => {
-      const res = await fetch(`${API_BASE}/authentication/social_login/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "google", id_token: idToken }),
+  // ---- Apple ----
+  React.useEffect(() => {
+    let cancelled = false;
+    AppleAuthentication.isAvailableAsync()
+      .then((available) => {
+        if (!cancelled) setAppleAvailable(available);
+      })
+      .catch(() => {
+        if (!cancelled) setAppleAvailable(false);
       });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-      const raw = await res.text();
-      console.log("🌐 social_login status:", res.status);
-
-      let json: any = null;
+  // Shared: send the provider token to the backend, store JWT(s), then
+  // optionally prompt for biometric and route the user.
+  const finishSocialLogin = React.useCallback(
+    async (provider: ProviderId, providerToken: string) => {
       try {
-        json = raw ? JSON.parse(raw) : null;
-      } catch {
-        json = null;
+        await socialLogin(provider, providerToken);
+      } catch (e: any) {
+        Alert.alert(t("signin.loginFailed"), e?.message ?? String(e));
+        return;
       }
-
-      if (!res.ok) {
-        throw new Error(json?.message || json?.detail || `HTTP ${res.status}`);
-      }
-
-      const jwt = json?.access || json?.access_token || json?.token || null;
-      if (!jwt) throw new Error("Backend returned no JWT.");
-
-      await setAccessToken(jwt);
 
       syncDeviceTokenIfChanged().catch((e) =>
-        console.log("Post-login device token sync failed:", e?.message ?? String(e)),
+        console.log(
+          "Post-login device token sync failed:",
+          e?.message ?? String(e)
+        )
       );
 
       const profile = await getUserProfile();
@@ -105,7 +137,10 @@ export default function SignInScreen() {
           return;
         }
       } catch (e) {
-        console.log("Biometric prompt failed:", (e as any)?.message ?? String(e));
+        console.log(
+          "Biometric prompt failed:",
+          (e as any)?.message ?? String(e)
+        );
       }
 
       router.replace(next);
@@ -113,33 +148,74 @@ export default function SignInScreen() {
     [router, t]
   );
 
+  // ---- Google response handler ----
   React.useEffect(() => {
-    if (!response) return;
+    if (!googleResponse || submitting !== "google") return;
 
-    if (response.type === "success") {
-      const idToken = (response.params as any)?.id_token;
-
+    if (googleResponse.type === "success") {
+      const idToken = (googleResponse.params as any)?.id_token;
       if (!idToken) {
-        Alert.alert(t("signin.googleFailed"), "No id_token returned from Google.");
+        Alert.alert(
+          t("signin.googleFailed"),
+          "No id_token returned from Google."
+        );
+        setSubmitting(null);
         return;
       }
-
-      exchangeIdTokenWithBackend(idToken).catch((e: any) => {
-        Alert.alert(t("signin.loginFailed"), e?.message ?? String(e));
-      });
+      finishSocialLogin("google", idToken).finally(() => setSubmitting(null));
+      return;
     }
 
-    if (response.type === "error") {
-      Alert.alert(t("signin.googleFailed"), response.error?.message ?? "Unknown error");
+    if (googleResponse.type === "error") {
+      Alert.alert(
+        t("signin.googleFailed"),
+        googleResponse.error?.message ?? "Unknown error"
+      );
     }
-  }, [response, exchangeIdTokenWithBackend, t]);
+    // For "cancel" / "dismiss" we silently reset.
+    setSubmitting(null);
+  }, [googleResponse, finishSocialLogin, submitting, t]);
+
+  // ---- Button handlers ----
 
   const onPressGoogle = async () => {
+    if (submitting || !googleRequest) return;
+    setSubmitting("google");
     try {
-      if (!request) return;
-      await promptAsync({ useProxy: false });
+      await promptGoogle({ useProxy: false } as any);
     } catch (e: any) {
       Alert.alert(t("signin.googleFailed"), e?.message ?? String(e));
+      setSubmitting(null);
+    }
+  };
+
+  const onPressApple = async () => {
+    if (submitting) return;
+    setSubmitting("apple");
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      const idToken = credential.identityToken;
+      if (!idToken) {
+        Alert.alert(
+          t("signin.appleFailed"),
+          "Apple did not return an identity token."
+        );
+        setSubmitting(null);
+        return;
+      }
+      await finishSocialLogin("apple", idToken);
+    } catch (e: any) {
+      // ERR_REQUEST_CANCELED = user dismissed the sheet, don't alert.
+      if (e?.code !== "ERR_REQUEST_CANCELED") {
+        Alert.alert(t("signin.appleFailed"), e?.message ?? String(e));
+      }
+    } finally {
+      setSubmitting(null);
     }
   };
 
@@ -155,8 +231,31 @@ export default function SignInScreen() {
         <Text style={styles.title}>{t("signin.title")}</Text>
         <Text style={styles.subtitle}>{t("signin.subtitle")}</Text>
 
-        <TouchableOpacity style={styles.googleButton} onPress={onPressGoogle} disabled={!request}>
-          <Text style={styles.googleText}>{t("signin.google")}</Text>
+        {/* Apple — first on iOS per Apple's HIG. Hidden if not supported. */}
+        {appleAvailable && Platform.OS === "ios" ? (
+          <TouchableOpacity
+            style={styles.appleButton}
+            onPress={onPressApple}
+            disabled={submitting !== null}
+          >
+            {submitting === "apple" ? (
+              <ActivityIndicator color="#000" />
+            ) : (
+              <Text style={styles.appleText}>{t("signin.apple")}</Text>
+            )}
+          </TouchableOpacity>
+        ) : null}
+
+        <TouchableOpacity
+          style={styles.providerButton}
+          onPress={onPressGoogle}
+          disabled={!googleRequest || submitting !== null}
+        >
+          {submitting === "google" ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.providerText}>{t("signin.google")}</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -207,7 +306,21 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     fontFamily: "Nunito-Regular",
   },
-  googleButton: {
+  appleButton: {
+    width: 328,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  appleText: {
+    color: "#000",
+    fontSize: 16,
+    fontFamily: "Nunito-Bold",
+  },
+  providerButton: {
     width: 328,
     height: 60,
     borderRadius: 30,
@@ -216,8 +329,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "transparent",
+    marginBottom: 12,
   },
-  googleText: {
+  providerText: {
     color: "#fff",
     fontSize: 16,
     fontFamily: "Nunito-Bold",

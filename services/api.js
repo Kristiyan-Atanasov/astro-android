@@ -5,9 +5,12 @@ import { notifySessionExpired } from './sessionEvents';
 export const API_BASE = 'https://yrfz6x9dl1.execute-api.eu-central-1.amazonaws.com/dev';
 
 const ACCESS_TOKEN_KEY = 'accessToken';
+const REFRESH_TOKEN_KEY = 'refreshToken';
 
 let cachedAccessToken = null;
 let cachedAccessTokenPromise = null;
+let cachedRefreshToken = null;
+let inFlightRefresh = null;
 
 // Called by every 401/403 path. Clears the stored token and pings the
 // global session-expiry listener (registered in app/_layout.tsx) so we
@@ -47,7 +50,134 @@ export function getCachedAccessToken() {
 export async function clearAccessToken() {
   cachedAccessToken = null;
   cachedAccessTokenPromise = null;
+  cachedRefreshToken = null;
   await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+  await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+}
+
+// Persist a refresh token returned from /authentication/social_login/.
+// Stored alongside the access token so we can call /authentication/refresh/
+// silently when the access token expires.
+export async function setRefreshToken(token) {
+  if (!token || typeof token !== 'string') {
+    cachedRefreshToken = null;
+    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+    return;
+  }
+  cachedRefreshToken = token;
+  await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
+}
+
+export async function getRefreshToken() {
+  if (cachedRefreshToken) return cachedRefreshToken;
+  try {
+    const token = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+    cachedRefreshToken = token || null;
+    return cachedRefreshToken;
+  } catch {
+    return null;
+  }
+}
+
+// Backend contract:
+//   POST /authentication/social_login/
+//   { "provider": "google" | "apple" | "facebook", "id_token": "..." }
+//   -> { "access": "...", "refresh": "..." }
+//
+// We always send the provider's token in the `id_token` field per the
+// backend's API guide. For Google and Apple this is the OIDC id_token; for
+// Facebook the value is whatever Facebook returned (access_token), and the
+// backend validates it against the Graph API.
+//
+// On success this stores both tokens and returns them; the caller is
+// responsible for navigating the user.
+export async function socialLogin(provider, idToken) {
+  if (provider !== 'google' && provider !== 'apple' && provider !== 'facebook') {
+    throw new Error(`Unsupported social login provider: ${provider}`);
+  }
+  if (!idToken || typeof idToken !== 'string') {
+    throw new Error('Missing provider token');
+  }
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/authentication/social_login/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, id_token: idToken }),
+    });
+  } catch (e) {
+    console.log('🌐 social_login network error:', e?.message ?? String(e));
+    throw new Error('Network request failed');
+  }
+
+  console.log(`🌐 social_login (${provider}) status:`, res.status);
+
+  const { raw, data } = await readResponse(res);
+
+  if (!res.ok) {
+    console.log('❌ social_login error body:', raw);
+    throw new Error(
+      data?.message || data?.detail || raw || `HTTP ${res.status}`
+    );
+  }
+
+  const access = data?.access || data?.access_token || data?.token || null;
+  const refresh = data?.refresh || data?.refresh_token || null;
+  if (!access) throw new Error('Backend returned no JWT.');
+
+  await setAccessToken(access);
+  if (refresh) await setRefreshToken(refresh);
+
+  return { access, refresh };
+}
+
+// Calls /authentication/refresh/ with the stored refresh token and updates
+// the cached/stored access token. De-duped so concurrent 401s only fire one
+// refresh request. Returns the new access token, or null if refresh failed
+// (caller should treat that as a session-expired event).
+export async function refreshAccessToken() {
+  if (inFlightRefresh) return inFlightRefresh;
+
+  inFlightRefresh = (async () => {
+    try {
+      const refresh = await getRefreshToken();
+      if (!refresh) return null;
+
+      let res;
+      try {
+        res = await fetch(`${API_BASE}/authentication/refresh/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh }),
+        });
+      } catch (e) {
+        console.log('🌐 refresh network error:', e?.message ?? String(e));
+        return null;
+      }
+
+      console.log('🌐 refresh status:', res.status);
+
+      if (!res.ok) {
+        // 401/403 here means the refresh token itself is dead → force sign-in.
+        if (res.status === 401 || res.status === 403) {
+          await clearAccessToken();
+        }
+        return null;
+      }
+
+      const { data } = await readResponse(res);
+      const access = data?.access || data?.access_token || null;
+      if (!access) return null;
+
+      await setAccessToken(access);
+      return access;
+    } finally {
+      inFlightRefresh = null;
+    }
+  })();
+
+  return inFlightRefresh;
 }
 
 function safeJsonFromText(raw) {
