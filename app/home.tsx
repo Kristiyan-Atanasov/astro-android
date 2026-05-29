@@ -240,21 +240,12 @@ export default function HomeScreen() {
     };
   }, [router]);
 
+  // Tapping an active archetype on the wheel or in the symbol grid opens
+  // the archetype detail screen at app/archetype/[name].tsx. The screen
+  // accepts the sign code case-insensitively; lowercase keeps the URL
+  // tidy.
   const goToArchetype = (sign: ZodiacSign) => {
-    const localizedLabel = t(`archetypeMeta.${sign.code}.label`, {
-      defaultValue: sign.label,
-    });
-    Alert.alert(
-      t('home.premiumRequiredTitle'),
-      t('home.premiumRequiredBody', { archetype: localizedLabel }),
-      [
-        { text: t('common.notNow'), style: 'cancel' },
-        {
-          text: t('common.seePlans'),
-          onPress: () => router.push('/subscription' as any),
-        },
-      ],
-    );
+    router.push(`/archetype/${sign.code.toLowerCase()}` as any);
   };
 
   const openMenu = () => {
@@ -351,7 +342,11 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitle}>{t('home.astrowheelTitle')}</Text>
         <Text style={styles.sectionSub}>{t('home.astrowheelText')}</Text>
         <View style={styles.wheelWrap}>
-          <Astrowheel activeSet={activeArchetypes} onPressSign={goToArchetype} />
+          <Astrowheel
+            size={width - 2}
+            activeSet={activeArchetypes}
+            onPressSign={goToArchetype}
+          />
         </View>
 
         {/* Zodiac Grid */}
@@ -380,10 +375,17 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               );
             }
+            // Inactive tiles are still tappable so the user can learn
+            // about any sign, not just their suggested archetypes.
             return (
-              <View key={sign.code} style={styles.symbolBox}>
+              <TouchableOpacity
+                key={sign.code}
+                style={styles.symbolBox}
+                activeOpacity={0.7}
+                onPress={() => goToArchetype(sign)}
+              >
                 <Image source={sign.icon} style={styles.symbolImage} />
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -474,7 +476,6 @@ export default function HomeScreen() {
               {/* Menu Items */}
               {[
                 { label: t('menu.items.home'), icon: icons.home, route: '/home' as const, replace: true },
-                { label: t('menu.items.myProfile'), icon: icons.profile, route: '/profile' as const },
                 { label: t('menu.items.editProfile'), icon: icons.edit, route: '/edit-profile' as const },
                 { label: t('menu.items.notifications'), icon: icons.notifications, route: '/notifications' as const },
                 {
@@ -626,7 +627,15 @@ const styles = StyleSheet.create({
   },
   wheelWrap: {
     alignSelf: 'center',
-    marginBottom: 24,
+    // Pull outside the scroll's horizontal padding so the wheel can sit
+    // close to the screen edges and feel as large as in the design.
+    marginHorizontal: -23,
+    // The wheel SVG's viewBox is taller than the visible wheel art,
+    // leaving empty space above and below the circle. Negative vertical
+    // margins eat into that empty space so the section feels tighter
+    // without cropping or shrinking the wheel itself.
+    marginTop: -24,
+    marginBottom: 4,
   },
   symbolGrid: {
     flexDirection: 'row',

@@ -6,6 +6,48 @@ export const API_BASE = 'https://yrfz6x9dl1.execute-api.eu-central-1.amazonaws.c
 
 const ACCESS_TOKEN_KEY = 'accessToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';
+const DAILY_VIBE_CACHE_KEY = 'dailyVibeCache';
+
+// Returns the user's local calendar day as a YYYY-MM-DD string. We use the
+// local date (rather than UTC) so the vibe rolls over at the user's own
+// midnight rather than at a server timezone they don't see.
+function getLocalDateKey(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+async function readDailyVibeCache() {
+  try {
+    const raw = await SecureStore.getItemAsync(DAILY_VIBE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function writeDailyVibeCache(entry) {
+  try {
+    await SecureStore.setItemAsync(DAILY_VIBE_CACHE_KEY, JSON.stringify(entry));
+  } catch (e) {
+    console.log(
+      '🌐 daily_vibe cache write failed:',
+      e?.message ?? String(e),
+    );
+  }
+}
+
+export async function clearDailyVibeCache() {
+  try {
+    await SecureStore.deleteItemAsync(DAILY_VIBE_CACHE_KEY);
+  } catch {
+    // ignore
+  }
+}
 
 let cachedAccessToken = null;
 let cachedAccessTokenPromise = null;
@@ -53,6 +95,9 @@ export async function clearAccessToken() {
   cachedRefreshToken = null;
   await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
   await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+  // Drop the cached daily vibe so a different account signing in next
+  // doesn't inherit the previous user's vibe text.
+  await clearDailyVibeCache();
 }
 
 // Persist a refresh token returned from /authentication/social_login/.
@@ -385,6 +430,17 @@ export async function getDailyVibe() {
   const token = await getAccessToken();
   if (!token) return null;
 
+  const todayKey = getLocalDateKey();
+
+  // Serve today's vibe from the local cache so it stays stable across
+  // re-renders, navigation and re-logins within the same calendar day.
+  // A new day invalidates the cache and we fetch a fresh vibe.
+  const cached = await readDailyVibeCache();
+  if (cached && cached.date === todayKey && cached.data) {
+    console.log('🌐 daily_vibe cache hit for', todayKey);
+    return cached.data;
+  }
+
   let res;
   try {
     res = await fetch(`${API_BASE}/archetypes/daily_vibe/`, {
@@ -396,6 +452,9 @@ export async function getDailyVibe() {
     });
   } catch (e) {
     console.log('🌐 daily_vibe network error:', e?.message ?? String(e));
+    // Fall back to a stale cached vibe if we have one so the UI doesn't
+    // flash empty when the network is briefly unavailable.
+    if (cached && cached.data) return cached.data;
     return null;
   }
 
@@ -406,10 +465,17 @@ export async function getDailyVibe() {
     return null;
   }
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    if (cached && cached.data) return cached.data;
+    return null;
+  }
 
   const { data } = await readResponse(res);
-  return data || null;
+  if (data) {
+    await writeDailyVibeCache({ date: todayKey, data });
+    return data;
+  }
+  return null;
 }
 
 // Backends differ on what the "delete my account" endpoint is called.

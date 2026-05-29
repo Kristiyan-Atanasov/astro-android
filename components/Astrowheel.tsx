@@ -7,7 +7,14 @@ import {
   Dimensions,
   ImageSourcePropType,
 } from 'react-native';
-import Svg, { Defs, LinearGradient, Stop, Path, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Defs,
+  LinearGradient,
+  Path,
+  RadialGradient,
+  Stop,
+  Text as SvgText,
+} from 'react-native-svg';
 import WheelSvg from '../assets/images/astro-wheel.svg';
 import {
   ZODIAC_SIGN_PATHS,
@@ -39,6 +46,22 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
 const ASPECT = SVG_VIEWBOX_H / SVG_VIEWBOX_W;
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
+// Geometry of the wheel inside the SVG viewBox. The wheel is centred in
+// the viewBox; signs are arranged on a circle around that centre.
+const WHEEL_CENTER_X = SVG_VIEWBOX_W / 2;
+const WHEEL_CENTER_Y = SVG_VIEWBOX_H / 2;
+
+// The light beam reaches outward from the wheel centre to just inside
+// the ring where the glyphs are drawn. Tuned visually against the
+// reference design.
+const BEAM_OUTER_RADIUS = 108;
+// Each zodiac sector spans 30°. The beam fills nearly that full slice.
+const BEAM_ANGULAR_SPAN_DEG = 28;
+
+// Soft shimmer applied on top of the static beam opacity.
+const PULSE_DURATION = 1500;
+const PULSE_MIN_OPACITY = 0.62;
+
 const SIGN_RELATIVE_POSITIONS: Record<string, { x: number; y: number }> = {
   ARIES: { x: 227.15 / SVG_VIEWBOX_W, y: 112.42 / SVG_VIEWBOX_H },
   TAURUS: { x: 284.44 / SVG_VIEWBOX_W, y: 141.37 / SVG_VIEWBOX_H },
@@ -53,6 +76,40 @@ const SIGN_RELATIVE_POSITIONS: Record<string, { x: number; y: number }> = {
   AQUARIUS: { x: 113.9 / SVG_VIEWBOX_W, y: 146.38 / SVG_VIEWBOX_H },
   PISCES: { x: 164.67 / SVG_VIEWBOX_W, y: 114.65 / SVG_VIEWBOX_H },
 };
+
+// Angle (degrees) from the wheel centre to each sign's glyph. SVG y axis
+// points down, so atan2(dy, dx) already gives the orientation we need
+// for drawing wedges with the standard cos/sin formulae.
+const SIGN_ANGLES_DEG: Record<string, number> = Object.entries(
+  SIGN_RELATIVE_POSITIONS,
+).reduce<Record<string, number>>((acc, [code, pos]) => {
+  const x = pos.x * SVG_VIEWBOX_W;
+  const y = pos.y * SVG_VIEWBOX_H;
+  const angle = (Math.atan2(y - WHEEL_CENTER_Y, x - WHEEL_CENTER_X) * 180) / Math.PI;
+  acc[code] = angle;
+  return acc;
+}, {});
+
+// Build the SVG `d` for a pie slice whose apex is at (cx, cy), spanning
+// `spanDeg` degrees centred on `midAngleDeg`, out to radius `r`.
+function buildWedgePath(
+  cx: number,
+  cy: number,
+  r: number,
+  midAngleDeg: number,
+  spanDeg: number,
+): string {
+  const halfSpanRad = ((spanDeg / 2) * Math.PI) / 180;
+  const midRad = (midAngleDeg * Math.PI) / 180;
+  const startRad = midRad - halfSpanRad;
+  const endRad = midRad + halfSpanRad;
+  const x1 = cx + r * Math.cos(startRad);
+  const y1 = cy + r * Math.sin(startRad);
+  const x2 = cx + r * Math.cos(endRad);
+  const y2 = cy + r * Math.sin(endRad);
+  const largeArc = spanDeg > 180 ? 1 : 0;
+  return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+}
 
 interface AstrowheelProps {
   size?: number;
@@ -82,6 +139,7 @@ export default function Astrowheel({
 
   const rollProgress = useRef(new Animated.Value(0)).current;
   const signsOpacity = useRef(new Animated.Value(0)).current;
+  const glowPulse = useRef(new Animated.Value(1)).current;
   const initialPlayed = useRef(false);
 
   // Roll the wheel in on mount.
@@ -115,6 +173,33 @@ export default function Astrowheel({
     });
   }, [activeKey, signsOpacity]);
 
+  // Continuous, gentle shimmer applied on top of the static halo opacity so
+  // the active glyphs feel "alive" instead of being a flat colour wash.
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowPulse, {
+          toValue: PULSE_MIN_OPACITY,
+          duration: PULSE_DURATION,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: false,
+        }),
+        Animated.timing(glowPulse, {
+          toValue: 1,
+          duration: PULSE_DURATION,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: false,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [glowPulse]);
+
+  // Multiply the fade-in by the pulse so that a brand new mount still
+  // ramps the halos up smoothly before the shimmer takes over.
+  const glowOpacity = Animated.multiply(signsOpacity, glowPulse);
+
   const wheelRotate = rollProgress.interpolate({
     inputRange: [0, 1],
     outputRange: ['-360deg', '0deg'],
@@ -141,7 +226,53 @@ export default function Astrowheel({
             <Stop offset="0" stopColor="#B283ED" stopOpacity="1" />
             <Stop offset="1" stopColor="#577CFB" stopOpacity="1" />
           </LinearGradient>
+          {/*
+            Beam gradient: anchored at the wheel centre in user space so
+            the same gradient lights up every active wedge identically.
+            Brightest in the middle of the wedge length, falling to zero
+            at both the centre apex and the outer rim near the glyph.
+          */}
+          <RadialGradient
+            id="signBeam"
+            cx={WHEEL_CENTER_X}
+            cy={WHEEL_CENTER_Y}
+            r={BEAM_OUTER_RADIUS}
+            fx={WHEEL_CENTER_X}
+            fy={WHEEL_CENTER_Y}
+            gradientUnits="userSpaceOnUse"
+          >
+            <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0" />
+            <Stop offset="22%" stopColor="#FFFFFF" stopOpacity="0.55" />
+            <Stop offset="42%" stopColor="#E2D2FF" stopOpacity="0.45" />
+            <Stop offset="70%" stopColor="#9A7AF0" stopOpacity="0.18" />
+            <Stop offset="100%" stopColor="#577CFB" stopOpacity="0" />
+          </RadialGradient>
         </Defs>
+
+        {/*
+          One wedge of light per active sign, drawn before the glyphs so
+          the symbol stays crisp on top of the beam.
+        */}
+        {ZODIAC_SIGNS.map((sign) => {
+          if (!activeSet.has(sign.code)) return null;
+          const angle = SIGN_ANGLES_DEG[sign.code];
+          if (angle == null) return null;
+          const d = buildWedgePath(
+            WHEEL_CENTER_X,
+            WHEEL_CENTER_Y,
+            BEAM_OUTER_RADIUS,
+            angle,
+            BEAM_ANGULAR_SPAN_DEG,
+          );
+          return (
+            <AnimatedPath
+              key={`beam-${sign.code}`}
+              d={d}
+              fill="url(#signBeam)"
+              opacity={glowOpacity}
+            />
+          );
+        })}
 
         {ZODIAC_SIGNS.map((sign) => {
           const paths = ZODIAC_SIGN_PATHS[sign.code];
@@ -179,8 +310,12 @@ export default function Astrowheel({
         })}
       </Svg>
 
+      {/*
+        Tap targets for every sign. The "active" highlight on the wheel
+        is just a hint of what's relevant to the user; tapping any sign
+        (active or not) opens its archetype detail screen.
+      */}
       {ZODIAC_SIGNS.map((sign) => {
-        if (!activeSet.has(sign.code)) return null;
         const pos = SIGN_RELATIVE_POSITIONS[sign.code];
         if (!pos) return null;
 

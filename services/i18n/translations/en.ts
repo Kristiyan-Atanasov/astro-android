@@ -184,6 +184,28 @@ const en = {
     saved: 'Your profile has been updated.',
     updateFailed: 'Update failed',
     done: 'Done',
+    lockedHint:
+      'Your astrology profile is locked. To request a change, contact support.',
+    contactSupport: 'Contact support',
+    supportTitle: 'Request a profile change',
+    supportInstructions:
+      'Tell us what you’d like to change. We’ll review it and get back to you.',
+    supportEmailLabel: 'Your email',
+    supportEmailPlaceholder: 'you@example.com',
+    supportMessageLabel: 'What would you like to change?',
+    supportMessagePlaceholder:
+      'Describe what should be updated (e.g. correct birth time, fix city)…',
+    supportSubmit: 'Send request',
+    supportSubmitting: 'Opening mail…',
+    supportSuccessTitle: 'Almost done',
+    supportSuccessBody:
+      'Your mail app is opening with the request prefilled. Hit send to deliver it to our team.',
+    supportNoMailTitle: 'No mail app available',
+    supportNoMailBody:
+      'Please email astro.insights.ltd@gmail.com directly with your request.',
+    supportEmailRequired: 'Please enter a valid email address.',
+    supportMessageRequired: 'Please describe the change you need.',
+    supportSubject: 'Profile change request',
   },
 
   notificationsSettings: {

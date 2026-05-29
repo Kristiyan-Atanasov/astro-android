@@ -190,6 +190,28 @@ const bg: Translations = {
     saved: 'Профилът ти беше обновен.',
     updateFailed: 'Обновяването не успя',
     done: 'Готово',
+    lockedHint:
+      'Астрологичният ти профил е заключен. За промяна се свържи с поддръжката.',
+    contactSupport: 'Свържи се с поддръжката',
+    supportTitle: 'Заявка за промяна на профила',
+    supportInstructions:
+      'Опиши какво искаш да променим. Ще го прегледаме и ще ти отговорим.',
+    supportEmailLabel: 'Твоят имейл',
+    supportEmailPlaceholder: 'ти@пример.com',
+    supportMessageLabel: 'Какво искаш да променим?',
+    supportMessagePlaceholder:
+      'Опиши промяната (напр. коригиране на час на раждане, поправка на град)…',
+    supportSubmit: 'Изпрати заявка',
+    supportSubmitting: 'Отваря се имейл…',
+    supportSuccessTitle: 'Почти готово',
+    supportSuccessBody:
+      'Имейл приложението ти ще се отвори с готова заявка. Натисни „Изпрати“, за да я получим.',
+    supportNoMailTitle: 'Няма налично имейл приложение',
+    supportNoMailBody:
+      'Моля, пиши директно на astro.insights.ltd@gmail.com с твоята заявка.',
+    supportEmailRequired: 'Моля, въведи валиден имейл адрес.',
+    supportMessageRequired: 'Моля, опиши какво искаш да променим.',
+    supportSubject: 'Заявка за промяна на профила',
   },
 
   notificationsSettings: {
