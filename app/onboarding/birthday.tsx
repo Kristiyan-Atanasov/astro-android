@@ -41,7 +41,7 @@ export default function BirthdayScreen() {
       <View style={styles.content}>
         <OnboardingHeader
           title={t('onboarding.birthday.title')}
-          step={2}
+          step={3}
           onBack={() => router.back()}
           disabled={submitting}
         />

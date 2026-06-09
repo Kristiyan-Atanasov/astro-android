@@ -17,46 +17,88 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as SecureStore from 'expo-secure-store';
 import { getUserProfile, patchUserProfile } from '../services/api';
 import {
   ensureNotificationPermission,
   registerForPushNotifications,
 } from '../services/notifications';
 
-type DayOfWeek = 'EVERYDAY' | 'WEEKDAYS' | 'WEEKENDS';
+// Selectable reminder windows in 30-minute steps. Stored on the backend
+// as "HH:MM" strings inside user_settings.reminder_time_start /
+// reminder_time_end.
+const TIME_STEP_MINUTES = 30;
+const TIME_OPTIONS: { value: string; label: string }[] = (() => {
+  const out: { value: string; label: string }[] = [];
+  for (let minutes = 0; minutes < 24 * 60; minutes += TIME_STEP_MINUTES) {
+    const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
+    const mm = String(minutes % 60).padStart(2, '0');
+    const v = `${hh}:${mm}`;
+    out.push({ value: v, label: v });
+  }
+  return out;
+})();
 
-const LOCAL_PREFS_KEY = 'notificationLocalPrefs';
+// The backend stores reminder times as DRF TimeField, which accepts
+// HH:MM, HH:MM:SS and HH:MM:SS.sssZ. The picker only deals in HH:MM
+// (30-minute steps), so we normalise on the way in (trim seconds off
+// what the backend returns) and on the way out (pad to HH:MM:SS to
+// match what the rest of the onboarding payload sends).
+function isValidTimeString(s: unknown): s is string {
+  return typeof s === 'string' && /^\d{2}:\d{2}(:\d{2}(\.\d+)?Z?)?$/.test(s);
+}
+
+function normalizeIncomingTime(s: string): string {
+  // Keep only HH:MM regardless of whether the backend returned
+  // HH:MM, HH:MM:SS or HH:MM:SS.sssZ.
+  return s.slice(0, 5);
+}
+
+function toBackendTimeString(hhmm: string): string {
+  // Pad the picker's HH:MM value to HH:MM:SS for the API payload.
+  return `${hhmm}:00`;
+}
+
+function timeToMinutes(s: string): number {
+  const [h, m] = s.split(':').map((n) => parseInt(n, 10));
+  return h * 60 + m;
+}
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
 
-  const DAY_OPTIONS: { code: DayOfWeek; label: string }[] = [
-    { code: 'EVERYDAY', label: t('notificationsSettings.days.everyday') },
-    { code: 'WEEKDAYS', label: t('notificationsSettings.days.weekdays') },
-    { code: 'WEEKENDS', label: t('notificationsSettings.days.weekends') },
-  ];
-
-  const COUNT_OPTIONS: { value: number; label: string }[] = [
-    { value: 1, label: t('notificationsSettings.counts.once') },
-    { value: 2, label: t('notificationsSettings.counts.twice') },
-    { value: 3, label: t('notificationsSettings.counts.threeTimes') },
-  ];
+  // Allow the user to receive between 1 and 10 reminders per day.
+  // "Once" / "Twice" read more naturally than "1 times" / "2 times",
+  // so we special-case the first two values; everything from 3 onward
+  // uses the templated "N times" label.
+  const COUNT_OPTIONS: { value: number; label: string }[] = Array.from(
+    { length: 10 },
+    (_, i) => {
+      const value = i + 1;
+      let label: string;
+      if (value === 1) label = t('notificationsSettings.counts.once');
+      else if (value === 2) label = t('notificationsSettings.counts.twice');
+      else label = t('notificationsSettings.counts.nTimes', { count: value });
+      return { value, label };
+    },
+  );
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [allowNotifications, setAllowNotifications] = useState(true);
-  const [allowUpdates, setAllowUpdates] = useState(true);
-  const [allowAffirmations, setAllowAffirmations] = useState(true);
   const [reminderCount, setReminderCount] = useState<number>(1);
-  const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>('EVERYDAY');
+  // Reminder window — when in the day the user is willing to receive
+  // notifications. Stored as "HH:MM" so it round-trips through the
+  // backend user_settings payload unchanged.
+  const [reminderTimeStart, setReminderTimeStart] = useState<string>('09:00');
+  const [reminderTimeEnd, setReminderTimeEnd] = useState<string>('21:00');
 
   const [profileSnapshot, setProfileSnapshot] = useState<any>(null);
   const [showCountPicker, setShowCountPicker] = useState(false);
-  const [showDayPicker, setShowDayPicker] = useState(false);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,27 +114,18 @@ export default function NotificationsScreen() {
             setAllowNotifications(settings.allow_notifications);
           }
           if (typeof settings.reminder_count === 'number') {
-            const clamped = Math.max(1, Math.min(3, settings.reminder_count));
+            const clamped = Math.max(
+              1,
+              Math.min(10, Math.round(settings.reminder_count)),
+            );
             setReminderCount(clamped);
           }
-        }
-
-        try {
-          const raw = await SecureStore.getItemAsync(LOCAL_PREFS_KEY);
-          if (raw) {
-            const local = JSON.parse(raw);
-            if (typeof local.allow_updates === 'boolean') setAllowUpdates(local.allow_updates);
-            if (typeof local.allow_affirmations === 'boolean') setAllowAffirmations(local.allow_affirmations);
-            if (
-              local.day_of_week === 'EVERYDAY' ||
-              local.day_of_week === 'WEEKDAYS' ||
-              local.day_of_week === 'WEEKENDS'
-            ) {
-              setDayOfWeek(local.day_of_week);
-            }
+          if (isValidTimeString(settings.reminder_time_start)) {
+            setReminderTimeStart(normalizeIncomingTime(settings.reminder_time_start));
           }
-        } catch (e) {
-          console.log('Notif local prefs read failed:', (e as any)?.message ?? String(e));
+          if (isValidTimeString(settings.reminder_time_end)) {
+            setReminderTimeEnd(normalizeIncomingTime(settings.reminder_time_end));
+          }
         }
       } catch (e) {
         console.log('Notifications load failed:', (e as any)?.message ?? String(e));
@@ -106,6 +139,17 @@ export default function NotificationsScreen() {
   }, []);
 
   const handleSave = async () => {
+    // Cheap validation: the picker is constrained to valid HH:MM values,
+    // but the user can still pick end <= start, which we don't want to
+    // send to the backend.
+    if (timeToMinutes(reminderTimeEnd) <= timeToMinutes(reminderTimeStart)) {
+      Alert.alert(
+        t('notificationsSettings.updateFailed'),
+        t('notificationsSettings.invalidRange'),
+      );
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -113,8 +157,8 @@ export default function NotificationsScreen() {
         allow_notifications: true,
         language: 'ENGLISH',
         reminder_count: 1,
-        reminder_time_start: '09:00',
-        reminder_time_end: '21:00',
+        reminder_time_start: '09:00:00',
+        reminder_time_end: '21:00:00',
       };
 
       await patchUserProfile({
@@ -122,21 +166,10 @@ export default function NotificationsScreen() {
           ...baseSettings,
           allow_notifications: allowNotifications,
           reminder_count: reminderCount,
+          reminder_time_start: toBackendTimeString(reminderTimeStart),
+          reminder_time_end: toBackendTimeString(reminderTimeEnd),
         },
       });
-
-      try {
-        await SecureStore.setItemAsync(
-          LOCAL_PREFS_KEY,
-          JSON.stringify({
-            allow_updates: allowUpdates,
-            allow_affirmations: allowAffirmations,
-            day_of_week: dayOfWeek,
-          }),
-        );
-      } catch (e) {
-        console.log('Notif local prefs save failed:', (e as any)?.message ?? String(e));
-      }
 
       if (allowNotifications) {
         const perm = await ensureNotificationPermission();
@@ -165,9 +198,6 @@ export default function NotificationsScreen() {
   const countLabel =
     COUNT_OPTIONS.find((o) => o.value === reminderCount)?.label ??
     t('notificationsSettings.counts.once');
-  const dayLabel =
-    DAY_OPTIONS.find((o) => o.code === dayOfWeek)?.label ??
-    t('notificationsSettings.days.everyday');
 
   return (
     <View style={styles.wrapper}>
@@ -199,48 +229,79 @@ export default function NotificationsScreen() {
           onChange={setAllowNotifications}
           disabled={saving}
         />
-        <ToggleRow
-          label={t('notificationsSettings.updates')}
-          value={allowUpdates}
-          onChange={setAllowUpdates}
-          disabled={saving || !allowNotifications}
-        />
-        <ToggleRow
-          label={t('notificationsSettings.affirmations')}
-          value={allowAffirmations}
-          onChange={setAllowAffirmations}
-          disabled={saving || !allowNotifications}
-        />
 
         <Text style={styles.sectionTitle}>
           {t('notificationsSettings.receiveDaily')}
         </Text>
 
         <Text style={styles.fieldLabel}>
-          {t('notificationsSettings.dayOfWeek')}
+          {t('notificationsSettings.timeOfDay')}
         </Text>
-        <TouchableOpacity
-          style={styles.field}
-          onPress={() => setShowDayPicker((v) => !v)}
-          disabled={saving}
-        >
-          <Text style={styles.fieldValue}>{dayLabel}</Text>
-          <Ionicons name="chevron-expand" size={18} color="#aaa" />
-        </TouchableOpacity>
-        {showDayPicker && (
+        <View style={styles.timeRow}>
+          <View style={styles.timeColumn}>
+            <Text style={styles.timeColumnLabel}>
+              {t('notificationsSettings.from')}
+            </Text>
+            <TouchableOpacity
+              style={styles.field}
+              onPress={() => {
+                setShowStartPicker((v) => !v);
+                setShowEndPicker(false);
+              }}
+              disabled={saving}
+            >
+              <Text style={styles.fieldValue}>{reminderTimeStart}</Text>
+              <Ionicons name="chevron-expand" size={18} color="#aaa" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.timeColumn}>
+            <Text style={styles.timeColumnLabel}>
+              {t('notificationsSettings.to')}
+            </Text>
+            <TouchableOpacity
+              style={styles.field}
+              onPress={() => {
+                setShowEndPicker((v) => !v);
+                setShowStartPicker(false);
+              }}
+              disabled={saving}
+            >
+              <Text style={styles.fieldValue}>{reminderTimeEnd}</Text>
+              <Ionicons name="chevron-expand" size={18} color="#aaa" />
+            </TouchableOpacity>
+          </View>
+        </View>
+        {showStartPicker && (
           <PickerWrap>
             <Picker
-              selectedValue={dayOfWeek}
-              onValueChange={(v) => setDayOfWeek(v as DayOfWeek)}
+              selectedValue={reminderTimeStart}
+              onValueChange={(v) => setReminderTimeStart(String(v))}
               dropdownIconColor="#fff"
               itemStyle={styles.pickerItem}
             >
-              {DAY_OPTIONS.map((o) => (
-                <Picker.Item key={o.code} label={o.label} value={o.code} color="#fff" />
+              {TIME_OPTIONS.map((o) => (
+                <Picker.Item key={o.value} label={o.label} value={o.value} color="#fff" />
               ))}
             </Picker>
             {Platform.OS === 'ios' && (
-              <DonePickerButton onPress={() => setShowDayPicker(false)} />
+              <DonePickerButton onPress={() => setShowStartPicker(false)} />
+            )}
+          </PickerWrap>
+        )}
+        {showEndPicker && (
+          <PickerWrap>
+            <Picker
+              selectedValue={reminderTimeEnd}
+              onValueChange={(v) => setReminderTimeEnd(String(v))}
+              dropdownIconColor="#fff"
+              itemStyle={styles.pickerItem}
+            >
+              {TIME_OPTIONS.map((o) => (
+                <Picker.Item key={o.value} label={o.label} value={o.value} color="#fff" />
+              ))}
+            </Picker>
+            {Platform.OS === 'ios' && (
+              <DonePickerButton onPress={() => setShowEndPicker(false)} />
             )}
           </PickerWrap>
         )}
@@ -434,6 +495,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'SFProDisplay-Regular',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  timeColumn: {
+    flex: 1,
+  },
+  timeColumnLabel: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 12,
+    fontFamily: 'SFProDisplay-Regular',
+    marginBottom: 6,
   },
   pickerWrap: {
     backgroundColor: 'rgba(57, 60, 71, 0.5)',

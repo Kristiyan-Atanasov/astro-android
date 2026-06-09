@@ -213,7 +213,7 @@ export default function LocationScreen() {
       <View style={styles.content}>
         <OnboardingHeader
           title={t('onboarding.location.title')}
-          step={4}
+          step={5}
           onBack={() => router.back()}
           disabled={submitting}
         />

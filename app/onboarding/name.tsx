@@ -37,7 +37,7 @@ export default function NameScreen() {
       <View style={styles.content}>
         <OnboardingHeader
           title={t('onboarding.name.title')}
-          step={1}
+          step={2}
           onBack={() => router.back()}
           disabled={submitting}
         />

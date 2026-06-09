@@ -32,8 +32,6 @@ const bg: Translations = {
     title: 'Език',
     english: 'Английски',
     bulgarian: 'Български',
-    saved: 'Езикът беше обновен.',
-    updateFailed: 'Обновяването не успя',
   },
 
   legalLinks: {
@@ -46,7 +44,6 @@ const bg: Translations = {
     title: 'Потопи се в\nAstroinsights',
     subtitle: 'Направи първите стъпки към новия си живот',
     button: 'Начало',
-    languageHint: 'Език',
   },
 
   signin: {
@@ -63,6 +60,20 @@ const bg: Translations = {
   },
 
   onboarding: {
+    language: {
+      title: 'Избери език',
+      description:
+        'Избери на какъв език Astroinsights да говори с теб. Всички послания и екрани ще се показват на този език.',
+      english: 'English',
+      bulgarian: 'Български',
+      warning:
+        'Избирай внимателно. След като продължиш, езикът може да бъде променен само чрез нашия екип за поддръжка.',
+      confirmTitle: 'Продължаваме на {{language}}?',
+      confirmBody:
+        'По-късно ще можеш да смениш езика само като се свържеш с екипа ни за поддръжка. Да продължим ли на {{language}}?',
+      confirmContinue: 'Продължи',
+      confirmCancel: 'Избери отново',
+    },
     name: {
       title: 'Име',
       description:
@@ -149,7 +160,6 @@ const bg: Translations = {
       editProfile: 'Редактирай профила',
       notifications: 'Известия',
       subscriptions: 'Абонаменти',
-      language: 'Език',
       privacy: 'Политика за поверителност',
       terms: 'Общи условия',
       faq: 'Често задавани въпроси',
@@ -217,23 +227,19 @@ const bg: Translations = {
   notificationsSettings: {
     title: 'Известия',
     notifications: 'Известия',
-    updates: 'Новини',
-    affirmations: 'Утвърждения',
     receiveDaily: 'Получавай ежедневни известия',
-    dayOfWeek: 'Ден от седмицата',
+    timeOfDay: 'Време през деня',
+    from: 'От',
+    to: 'До',
     perDay: 'Колко на ден',
-    days: {
-      everyday: 'Всеки ден',
-      weekdays: 'Делнични дни',
-      weekends: 'Уикенди',
-    },
     counts: {
       once: 'Веднъж',
       twice: 'Два пъти',
-      threeTimes: 'Три пъти',
+      nTimes: '{{count}} пъти',
     },
     saved: 'Настройките ти за известия бяха обновени.',
     updateFailed: 'Обновяването не успя',
+    invalidRange: 'Крайният час трябва да е след началния.',
     done: 'Готово',
   },
 
@@ -241,14 +247,23 @@ const bg: Translations = {
     letsGetStarted: 'Да започваме',
     title: 'Как работи безплатният\nти период',
     plan: 'Месечен абонамент',
+    planMonthly: 'Месечен абонамент',
+    planYearly: 'Годишен абонамент',
     discount: '38% отстъпка',
+    bestValue: 'Най-изгодно',
     trial: 'със 7 дни безплатен период',
+    yearlyBilling: 'Таксува се веднъж годишно',
+    perMonth: '/ месец',
+    perYear: '/ година',
     securedAppStore: 'Защитено от App Store. Можеш да отмениш по всяко време.',
     securedPlayStore:
       'Защитено от Google Play. Можеш да отмениш по всяко време.',
     cta: 'Започни 7-дневния безплатен период, после {{price}} / месец',
+    ctaYearly: 'Абонирай се за {{price}} / година',
     cancelInfo:
       'Откажи по всяко време през безплатния период и няма да бъдеш таксуван.',
+    cancelInfoYearly:
+      'Откажи по всяко време. Годишният абонамент се подновява автоматично, освен ако не го откажеш.',
     restore: 'Възстанови покупки',
     welcomeTitle: 'Добре дошъл в премиум',
     welcomeBody:
@@ -281,6 +296,17 @@ const bg: Translations = {
     signInRequiredTitle: 'Необходимо е влизане',
     signInRequiredBody: 'Моля, влез отново преди да се абонираш.',
     continue: 'Продължи',
+    unavailableBanner:
+      'Абонаментите още не са активни в тази версия. Натисни, за да научиш как да получиш достъп.',
+    unavailableTitle: 'Абонаментите още не са активни',
+    unavailableBody:
+      'Покупките в приложението не са активирани в тази версия. Можем да ти помогнем ръчно — изпрати ни имейл и ще се свържем с теб със следващите стъпки.',
+    unavailableMailFallback:
+      'Няма налично имейл приложение. Моля, пиши директно на {{email}}, за да надстроиш.',
+    contactSupport: 'Свържи се с поддръжка',
+    supportSubject: 'Заявка за премиум абонамент',
+    supportBody:
+      'Здравейте, екипът на Astroinsights,\n\nИскам да надстроя до премиум ({{plan}} план).\n\nБлагодаря!',
   },
 
   legal: {

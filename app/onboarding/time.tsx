@@ -87,7 +87,7 @@ export default function TimeScreen() {
       <View style={styles.content}>
         <OnboardingHeader
           title={t('onboarding.time.title')}
-          step={3}
+          step={4}
           onBack={() => router.back()}
           disabled={submitting}
         />

@@ -36,6 +36,26 @@ function ensureIapAvailable() {
   }
 }
 
+// `RNIap.initConnection()` can hang forever on iOS simulators without a
+// StoreKit configuration file and on certain iOS / react-native-iap
+// version combinations. Without a deadline, the awaiting JS thread
+// makes the upgrade page appear "crashed" (frozen). We give the native
+// module a generous budget then bail out so the screen stays usable
+// even if the store is misbehaving.
+const INIT_CONNECTION_TIMEOUT_MS = 6000;
+
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error(`${label} timed out after ${ms}ms`);
+      err.code = 'E_NOT_PREPARED';
+      reject(err);
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 let connectionPromise = null;
 let purchaseUpdateSub = null;
 let purchaseErrorSub = null;
@@ -128,14 +148,32 @@ function handlePurchaseError(error) {
 // Lazily connects to the store and registers the purchase listeners.
 // Calling this multiple times is safe.
 export async function initIap() {
-  if (!IAP_SUPPORTED || !RNIap) return false;
-  if (connectionPromise) return connectionPromise;
+  if (!IAP_SUPPORTED || !RNIap) {
+    console.log('[IAP] initIap() skipped (unsupported platform or RNIap missing)', {
+      platform: Platform.OS,
+      hasRNIap: !!RNIap,
+    });
+    return false;
+  }
+  if (connectionPromise) {
+    console.log('[IAP] initIap() reusing in-flight connection');
+    return connectionPromise;
+  }
 
+  console.log('[IAP] initIap() starting fresh connection');
   connectionPromise = (async () => {
     try {
-      await RNIap.initConnection();
+      await withTimeout(
+        RNIap.initConnection(),
+        INIT_CONNECTION_TIMEOUT_MS,
+        'IAP initConnection',
+      );
+      console.log('[IAP] initConnection() resolved');
     } catch (e) {
-      console.log('⚠️ IAP initConnection error:', e?.message ?? String(e));
+      console.log('[IAP] initConnection error:', {
+        code: e?.code,
+        message: e?.message ?? String(e),
+      });
       connectionPromise = null;
       throw e;
     }
@@ -183,14 +221,32 @@ export async function endIap() {
 // Loads the subscription products from the store so the UI can
 // display a real localized price / period if it wants to.
 // Returns [] on failure rather than throwing.
-export async function loadSubscriptionProducts() {
-  if (!RNIap) return [];
+const GET_SUBSCRIPTIONS_TIMEOUT_MS = 8000;
+
+export async function loadSubscriptionProducts(skus = SUBSCRIPTION_SKUS) {
+  console.log('[IAP] loadSubscriptionProducts() called', { skus });
+  if (!RNIap) {
+    console.log('[IAP] RNIap unavailable, returning empty list');
+    return [];
+  }
   try {
     await initIap();
-    const subs = await RNIap.getSubscriptions({ skus: SUBSCRIPTION_SKUS });
+    console.log('[IAP] getSubscriptions() start', { skus });
+    const subs = await withTimeout(
+      RNIap.getSubscriptions({ skus }),
+      GET_SUBSCRIPTIONS_TIMEOUT_MS,
+      'IAP getSubscriptions',
+    );
+    console.log('[IAP] getSubscriptions() done', {
+      count: Array.isArray(subs) ? subs.length : 0,
+      ids: Array.isArray(subs) ? subs.map((s) => s?.productId) : null,
+    });
     return Array.isArray(subs) ? subs : [];
   } catch (e) {
-    console.log('⚠️ IAP getSubscriptions error:', e?.message ?? String(e));
+    console.log('[IAP] getSubscriptions error:', {
+      code: e?.code,
+      message: e?.message ?? String(e),
+    });
     return [];
   }
 }
@@ -207,7 +263,7 @@ export async function purchaseSubscription(sku = DEFAULT_SUBSCRIPTION_SKU) {
   // here, which tells the caller the product isn't configured.
   let products = [];
   try {
-    products = await RNIap.getSubscriptions({ skus: SUBSCRIPTION_SKUS });
+    products = await RNIap.getSubscriptions({ skus: [sku] });
   } catch (e) {
     console.log('⚠️ IAP getSubscriptions before purchase error:', e?.message ?? String(e));
   }

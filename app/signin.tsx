@@ -108,7 +108,7 @@ export default function SignInScreen() {
       const profile = await getUserProfile();
       const next: Href = isOnboardingComplete(profile)
         ? "/home"
-        : "/onboarding/name";
+        : "/onboarding/language";
 
       try {
         const supported = await isBiometricSupported();

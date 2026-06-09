@@ -70,7 +70,6 @@ const icons = {
   edit: require('../assets/icons/edit.png'),
   notifications: require('../assets/icons/notification.png'),
   subscriptions: require('../assets/icons/crown.png'),
-  language: require('../assets/icons/language.png'),
   privacy: require('../assets/icons/privacy.png'),
   terms: require('../assets/icons/terms.png'),
   faq: require('../assets/icons/faq.png'),
@@ -86,8 +85,6 @@ export default function HomeScreen() {
   const [dailyVibe, setDailyVibe] = useState<string>('');
   const [activeArchetypes, setActiveArchetypes] = useState<Set<string>>(new Set());
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').width)).current;
-
-  const language = i18n.language === 'bg' ? t('language.bulgarian') : t('language.english');
 
   useEffect(() => {
     let cancelled = false;
@@ -483,12 +480,6 @@ export default function HomeScreen() {
                   icon: icons.subscriptions,
                   route: '/subscription' as const,
                   status: t('menu.statuses.freePlan'),
-                },
-                {
-                  label: t('menu.items.language'),
-                  icon: icons.language,
-                  route: '/language' as const,
-                  status: language,
                 },
                 { label: t('menu.items.privacy'), icon: icons.privacy, route: '/privacy' as const },
                 { label: t('menu.items.terms'), icon: icons.terms, route: '/terms' as const },

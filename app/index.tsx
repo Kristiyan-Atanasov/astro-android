@@ -6,11 +6,9 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Modal,
 } from 'react-native';
 import { useRouter, type ErrorBoundaryProps } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Ionicons } from '@expo/vector-icons';
 import {
   clearAccessToken,
   getAccessToken,
@@ -22,11 +20,6 @@ import {
   isBiometricEnabled,
   isBiometricSupported,
 } from '../services/biometric';
-import {
-  SUPPORTED_LOCALES,
-  setAppLocale,
-  type I18nLocale,
-} from '../services/i18n';
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   const { t } = useTranslation();
@@ -44,13 +37,8 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [checking, setChecking] = React.useState(true);
-  const [languagePickerVisible, setLanguagePickerVisible] = React.useState(false);
-
-  const currentLocale: I18nLocale = i18n.language === 'bg' ? 'bg' : 'en';
-  const currentLabel =
-    SUPPORTED_LOCALES.find((l) => l.locale === currentLocale)?.label ?? 'English';
 
   React.useEffect(() => {
     let cancelled = false;
@@ -79,7 +67,8 @@ export default function WelcomeScreen() {
         if (isOnboardingComplete(profile)) {
           router.replace('/home');
         } else if (profile) {
-          router.replace('/onboarding/name');
+          // Resume onboarding from the very first step (language pick).
+          router.replace('/onboarding/language');
         } else {
           await clearAccessToken();
         }
@@ -94,12 +83,6 @@ export default function WelcomeScreen() {
     };
   }, [router]);
 
-  const handleLanguageChoice = async (locale: I18nLocale) => {
-    setLanguagePickerVisible(false);
-    if (locale === currentLocale) return;
-    await setAppLocale(locale);
-  };
-
   if (checking) {
     return (
       <View style={[styles.container, { justifyContent: 'center' }]}>
@@ -110,16 +93,6 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.languageButton}
-        onPress={() => setLanguagePickerVisible(true)}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <Ionicons name="globe-outline" size={16} color="#fff" />
-        <Text style={styles.languageButtonText}>{currentLabel}</Text>
-        <Ionicons name="chevron-down" size={14} color="#fff" />
-      </TouchableOpacity>
-
       <Image
         source={require('../assets/images/planet.png')}
         style={styles.planet}
@@ -146,38 +119,6 @@ export default function WelcomeScreen() {
           <Text style={styles.link}>{t('legalLinks.subscription')}</Text>
         </TouchableOpacity>
       </View>
-
-      <Modal
-        visible={languagePickerVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setLanguagePickerVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalBackdrop}
-          activeOpacity={1}
-          onPress={() => setLanguagePickerVisible(false)}
-        >
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('language.title')}</Text>
-            {SUPPORTED_LOCALES.map((opt) => {
-              const active = opt.locale === currentLocale;
-              return (
-                <TouchableOpacity
-                  key={opt.locale}
-                  style={[styles.modalOption, active && styles.modalOptionActive]}
-                  onPress={() => handleLanguageChoice(opt.locale)}
-                >
-                  <Text style={styles.modalOptionText}>{opt.label}</Text>
-                  {active ? (
-                    <Ionicons name="checkmark" size={18} color="#fff" />
-                  ) : null}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </View>
   );
 }
@@ -188,26 +129,6 @@ const styles = StyleSheet.create({
     padding: 30,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  languageButton: {
-    position: 'absolute',
-    top: 60,
-    right: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    zIndex: 5,
-  },
-  languageButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontFamily: 'Nunito-Bold',
   },
   planet: {
     width: 350,
@@ -265,45 +186,6 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     marginHorizontal: 5,
     fontFamily: 'Nunito-Regular',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  modalCard: {
-    width: '100%',
-    backgroundColor: '#1B1F2E',
-    borderRadius: 20,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(140,140,200,0.18)',
-  },
-  modalTitle: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'CooperLtBT-Bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-  },
-  modalOptionActive: {
-    backgroundColor: 'rgba(87, 124, 251, 0.18)',
-  },
-  modalOptionText: {
-    color: '#fff',
-    fontSize: 15,
-    fontFamily: 'SFProDisplay-Regular',
   },
 
   errorContainer: {

@@ -265,13 +265,18 @@ export default function EditProfileScreen() {
         </View>
 
         <Text style={styles.fieldLabel}>{t('editProfile.name')}</Text>
-        <TextInput
-          style={[styles.input, styles.inputLocked]}
-          value={name}
-          editable={false}
-          placeholder={t('editProfile.namePlaceholder')}
-          placeholderTextColor="rgba(255,255,255,0.4)"
-        />
+        <View style={[styles.field, styles.fieldLocked]}>
+          <Text
+            style={[
+              styles.fieldValue,
+              !name && styles.fieldValuePlaceholder,
+            ]}
+            numberOfLines={1}
+          >
+            {name || t('editProfile.namePlaceholder')}
+          </Text>
+          <Ionicons name="lock-closed-outline" size={16} color="#888" />
+        </View>
 
         <View style={styles.divider} />
 
@@ -288,13 +293,18 @@ export default function EditProfileScreen() {
         </View>
 
         <Text style={styles.fieldLabel}>{t('editProfile.birthCity')}</Text>
-        <TextInput
-          style={[styles.input, styles.inputLocked]}
-          value={birthCity}
-          editable={false}
-          placeholder={t('editProfile.birthCityPlaceholder')}
-          placeholderTextColor="rgba(255,255,255,0.4)"
-        />
+        <View style={[styles.field, styles.fieldLocked]}>
+          <Text
+            style={[
+              styles.fieldValue,
+              !birthCity && styles.fieldValuePlaceholder,
+            ]}
+            numberOfLines={1}
+          >
+            {birthCity || t('editProfile.birthCityPlaceholder')}
+          </Text>
+          <Ionicons name="lock-closed-outline" size={16} color="#888" />
+        </View>
 
         <View style={styles.timeRow}>
           <View style={styles.timeColumn}>
@@ -573,9 +583,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   fieldValue: {
+    flex: 1,
     color: '#fff',
     fontSize: 16,
     fontFamily: 'SFProDisplay-Regular',
+    marginRight: 12,
+  },
+  // Muted colour used when a locked field has no value yet (we still
+  // render its placeholder text instead of leaving the row empty).
+  fieldValuePlaceholder: {
+    color: 'rgba(255,255,255,0.4)',
   },
   timeRow: {
     flexDirection: 'row',

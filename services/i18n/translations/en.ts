@@ -29,8 +29,6 @@ const en = {
     title: 'Language',
     english: 'English',
     bulgarian: 'Bulgarian',
-    saved: 'Your language has been updated.',
-    updateFailed: 'Update failed',
   },
 
   legalLinks: {
@@ -43,7 +41,6 @@ const en = {
     title: 'Welcome to\nAstroinsights',
     subtitle: 'Begin your journey of personal transformation',
     button: 'Get Started',
-    languageHint: 'Language',
   },
 
   signin: {
@@ -59,6 +56,20 @@ const en = {
   },
 
   onboarding: {
+    language: {
+      title: 'Choose your language',
+      description:
+        'Pick the language Astroinsights will speak with you. All readings, daily messages and screens will appear in this language.',
+      english: 'English',
+      bulgarian: 'Български',
+      warning:
+        'Choose wisely. After you continue, the language can only be changed by contacting our support team.',
+      confirmTitle: 'Continue in {{language}}?',
+      confirmBody:
+        'You will only be able to change the language later by contacting our support team. Continue with {{language}}?',
+      confirmContinue: 'Continue',
+      confirmCancel: 'Pick again',
+    },
     name: {
       title: 'Your Name',
       description: 'Name or nickname you want to use.',
@@ -143,7 +154,6 @@ const en = {
       editProfile: 'Edit Profile',
       notifications: 'Notifications',
       subscriptions: 'Subscriptions',
-      language: 'Language',
       privacy: 'Privacy policy',
       terms: 'Terms of Service',
       faq: 'FAQ',
@@ -211,23 +221,19 @@ const en = {
   notificationsSettings: {
     title: 'Notifications',
     notifications: 'Notifications',
-    updates: 'Updates',
-    affirmations: 'Affirmations',
     receiveDaily: 'Receive daily notifications',
-    dayOfWeek: 'Day of the week',
+    timeOfDay: 'Time of the day',
+    from: 'From',
+    to: 'To',
     perDay: 'How many per day',
-    days: {
-      everyday: 'Everyday',
-      weekdays: 'Weekdays',
-      weekends: 'Weekends',
-    },
     counts: {
       once: 'Once',
       twice: 'Twice',
-      threeTimes: 'Three times',
+      nTimes: '{{count}} times',
     },
     saved: 'Your notification preferences have been updated.',
     updateFailed: 'Update failed',
+    invalidRange: 'End time must be after start time.',
     done: 'Done',
   },
 
@@ -235,12 +241,21 @@ const en = {
     letsGetStarted: 'Let’s get started',
     title: 'How your free trial\nworks',
     plan: 'Monthly Subscription',
+    planMonthly: 'Monthly Subscription',
+    planYearly: 'Yearly Subscription',
     discount: '38% off',
+    bestValue: 'Best value',
     trial: 'with 7 days free trial',
+    yearlyBilling: 'Billed once a year',
+    perMonth: '/ month',
+    perYear: '/ year',
     securedAppStore: 'Secured with App Store. Cancel Anytime.',
     securedPlayStore: 'Secured with Google Play. Cancel Anytime.',
     cta: 'Start your 7-days free trial, then {{price}} / per month',
+    ctaYearly: 'Subscribe for {{price}} / year',
     cancelInfo: 'Cancel anytime during your trial and you won’t be charged.',
+    cancelInfoYearly:
+      'Cancel anytime. Your yearly subscription renews automatically unless cancelled.',
     restore: 'Restore purchases',
     welcomeTitle: 'Welcome to premium',
     welcomeBody:
@@ -274,6 +289,17 @@ const en = {
     signInRequiredTitle: 'Sign in required',
     signInRequiredBody: 'Please sign in again before subscribing.',
     continue: 'Continue',
+    unavailableBanner:
+      'Subscriptions are not live in this build yet. Tap to learn how to upgrade.',
+    unavailableTitle: 'Subscriptions are not live yet',
+    unavailableBody:
+      'In-app purchases aren’t enabled in this build. We can help you upgrade manually — email our support team and we’ll get back to you with next steps.',
+    unavailableMailFallback:
+      'No mail app is available. Please email {{email}} directly to upgrade.',
+    contactSupport: 'Contact support',
+    supportSubject: 'Premium upgrade request',
+    supportBody:
+      'Hi Astroinsights team,\n\nI’d like to upgrade to premium ({{plan}} plan).\n\nThanks!',
   },
 
   legal: {

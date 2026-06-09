@@ -9,6 +9,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Linking,
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -24,13 +25,20 @@ import {
   restoreSubscriptions,
   isPremiumStatus,
 } from '../services/iap';
-import { DEFAULT_SUBSCRIPTION_SKU } from '../services/iapConfig';
+import {
+  MONTHLY_SUBSCRIPTION_SKU,
+  YEARLY_SUBSCRIPTION_SKU,
+} from '../services/iapConfig';
 import { getUserQualities } from '../services/api';
 
 const homeBg = require('../assets/images/home-bg.png');
 const moonImg = require('../assets/images/moon-banner.png');
 
-const FALLBACK_PRICE = '€7.99';
+// Used when the store hasn't returned a real localized price yet
+// (e.g. sandbox without product approval, or first load before
+// `loadSubscriptionProducts` resolves).
+const FALLBACK_MONTHLY_PRICE = '€7.99';
+const FALLBACK_YEARLY_PRICE = '€70.00';
 
 type StoreProduct = {
   productId: string;
@@ -45,13 +53,33 @@ type StoreProduct = {
   subscriptionPeriodUnitIOS?: string;
 };
 
+type PlanKey = 'monthly' | 'yearly';
+
+// Feature flag — when false, the screen never touches the native
+// react-native-iap module (so the page can't freeze on
+// `RNIap.initConnection()` while StoreKit / the products aren't set up
+// yet) and the CTA opens a support email instead of purchasing. Set to
+// `true` once the subscription products exist in App Store Connect and
+// the `/payments/verify/` backend endpoint is live end-to-end.
+const IAP_ENABLED = true;
+
+// Where the "contact support" fallback ends up while purchases are
+// disabled. Kept in sync with `app/edit-profile.tsx`.
+const SUPPORT_EMAIL = 'astro.insights.ltd@gmail.com';
+
 export default function SubscriptionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
 
-  const [product, setProduct] = useState<StoreProduct | null>(null);
-  const [loadingProduct, setLoadingProduct] = useState(true);
+  const [monthlyProduct, setMonthlyProduct] = useState<StoreProduct | null>(null);
+  const [yearlyProduct, setYearlyProduct] = useState<StoreProduct | null>(null);
+  // We no longer block rendering on the IAP roundtrip — the cards paint
+  // immediately with fallback prices, and the store load just upgrades
+  // them in the background when (and if) it returns. This keeps the
+  // upgrade page usable even when `react-native-iap` hangs (common on
+  // iOS simulators without a StoreKit configuration file).
+  const [selectedPlan, setSelectedPlan] = useState<PlanKey>('monthly');
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
@@ -64,19 +92,27 @@ export default function SubscriptionScreen() {
   }, []);
 
   useEffect(() => {
+    if (!IAP_ENABLED) return;
     let cancelled = false;
     (async () => {
       try {
         await initIap();
-        const products = await loadSubscriptionProducts();
+
+        // Only query the known-good monthly SKU while the screen opens.
+        // The yearly option still renders from its fallback price, and
+        // the store is queried for the yearly SKU only if the user
+        // explicitly selects it and taps the CTA.
+        const products = (await loadSubscriptionProducts([
+          MONTHLY_SUBSCRIPTION_SKU,
+        ])) as StoreProduct[];
+
         if (cancelled || !isMounted.current) return;
-        setProduct((products[0] as StoreProduct) ?? null);
-      } catch (e) {
-        console.log('subscription init error:', e);
-      } finally {
-        if (!cancelled && isMounted.current) {
-          setLoadingProduct(false);
-        }
+        const matched =
+          products.find((p) => p?.productId === MONTHLY_SUBSCRIPTION_SKU) ?? null;
+        setMonthlyProduct(matched);
+        setYearlyProduct(null);
+      } catch (e: any) {
+        console.log('subscription init error:', e?.message ?? String(e));
       }
     })();
     return () => {
@@ -84,19 +120,85 @@ export default function SubscriptionScreen() {
     };
   }, []);
 
-  const priceLabel = product?.localizedPrice || product?.price
-    ? product?.localizedPrice ?? `${product?.currency ?? ''} ${product?.price ?? ''}`.trim()
-    : FALLBACK_PRICE;
+  const formatStoreOrFallback = (
+    product: StoreProduct | null,
+    fallback: string,
+  ): string => {
+    if (!product) return fallback;
+    if (product.localizedPrice) return product.localizedPrice;
+    if (product.price) {
+      return `${product.currency ?? ''} ${product.price}`.trim();
+    }
+    return fallback;
+  };
 
-  const ctaPriceLabel = priceLabel || FALLBACK_PRICE;
+  const monthlyPriceLabel = formatStoreOrFallback(
+    monthlyProduct,
+    FALLBACK_MONTHLY_PRICE,
+  );
+  const yearlyPriceLabel = formatStoreOrFallback(
+    yearlyProduct,
+    FALLBACK_YEARLY_PRICE,
+  );
+
+  const selectedSku =
+    selectedPlan === 'yearly'
+      ? yearlyProduct?.productId ?? YEARLY_SUBSCRIPTION_SKU
+      : monthlyProduct?.productId ?? MONTHLY_SUBSCRIPTION_SKU;
+  const selectedPriceLabel =
+    selectedPlan === 'yearly' ? yearlyPriceLabel : monthlyPriceLabel;
+  const ctaLabel =
+    selectedPlan === 'yearly'
+      ? t('subscription.ctaYearly', { price: selectedPriceLabel })
+      : t('subscription.cta', { price: selectedPriceLabel });
+  const noteLabel =
+    selectedPlan === 'yearly'
+      ? t('subscription.cancelInfoYearly')
+      : t('subscription.cancelInfo');
+
+  // While `IAP_ENABLED` is false we don't touch the native store at
+  // all. We surface a friendly alert with a "Contact support" action
+  // that drafts an email to the same address used by the rest of the
+  // app for change requests.
+  const openSupportMail = useCallback(() => {
+    const subject = encodeURIComponent(t('subscription.supportSubject'));
+    const body = encodeURIComponent(
+      t('subscription.supportBody', { plan: selectedPlan }),
+    );
+    const url = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+    Linking.openURL(url).catch((e) => {
+      console.log('openSupportMail failed:', e?.message ?? String(e));
+      Alert.alert(
+        t('subscription.unavailableTitle'),
+        t('subscription.unavailableMailFallback', { email: SUPPORT_EMAIL }),
+      );
+    });
+  }, [selectedPlan, t]);
+
+  const showUnavailableAlert = useCallback(() => {
+    Alert.alert(
+      t('subscription.unavailableTitle'),
+      t('subscription.unavailableBody'),
+      [
+        { text: t('common.notNow'), style: 'cancel' },
+        {
+          text: t('subscription.contactSupport'),
+          onPress: openSupportMail,
+        },
+      ],
+      { cancelable: true },
+    );
+  }, [openSupportMail, t]);
 
   const handleStart = useCallback(async () => {
     if (purchasing || restoring) return;
+    if (!IAP_ENABLED) {
+      showUnavailableAlert();
+      return;
+    }
     setPurchasing(true);
     try {
-      const result = await purchaseSubscription(
-        product?.productId ?? DEFAULT_SUBSCRIPTION_SKU,
-      );
+      const result = await purchaseSubscription(selectedSku);
 
       try {
         await getUserQualities();
@@ -131,7 +233,7 @@ export default function SubscriptionScreen() {
         code === 'E_DEFERRED_PAYMENT' ||
         msg.toLowerCase().includes('cancel');
 
-      console.log('🛒 purchase failure raw:', JSON.stringify({ code, msg, e }));
+      console.log('purchase failure raw:', JSON.stringify({ code, msg }));
 
       if (!userCancelled) {
         let title = t('subscription.purchaseFailedTitle');
@@ -152,9 +254,7 @@ export default function SubscriptionScreen() {
           msg.toLowerCase().includes('not found')
         ) {
           title = t('subscription.notConfiguredTitle');
-          body = t('subscription.notConfiguredBody', {
-            sku: product?.productId ?? DEFAULT_SUBSCRIPTION_SKU,
-          });
+          body = t('subscription.notConfiguredBody', { sku: selectedSku });
         } else if (code === 'E_NOT_PREPARED' || code === 'E_SERVICE_ERROR') {
           title = t('subscription.notReadyTitle');
           body = t('subscription.notReadyBody');
@@ -171,10 +271,14 @@ export default function SubscriptionScreen() {
     } finally {
       if (isMounted.current) setPurchasing(false);
     }
-  }, [product?.productId, purchasing, restoring, router, t]);
+  }, [selectedSku, purchasing, restoring, router, t, showUnavailableAlert, selectedPlan]);
 
   const handleRestore = useCallback(async () => {
     if (purchasing || restoring) return;
+    if (!IAP_ENABLED) {
+      showUnavailableAlert();
+      return;
+    }
     setRestoring(true);
     try {
       const result = await restoreSubscriptions();
@@ -220,7 +324,7 @@ export default function SubscriptionScreen() {
     } finally {
       if (isMounted.current) setRestoring(false);
     }
-  }, [purchasing, restoring, router, t]);
+  }, [purchasing, restoring, router, t, showUnavailableAlert]);
 
   return (
     <View style={styles.container}>
@@ -249,30 +353,28 @@ export default function SubscriptionScreen() {
 
         <Image source={moonImg} style={styles.moonImage} resizeMode="contain" />
 
-        <View style={styles.subscriptionCard}>
-          <View style={styles.subscriptionRow}>
-            <Text style={styles.planLabel}>{t('subscription.plan')}</Text>
-
-            <LinearGradient
-              colors={['rgba(178, 131, 237, 1)', 'rgba(87, 124, 251, 1)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.discountBadge}
-            >
-              <Text style={styles.discountText}>
-                {t('subscription.discount')}
-              </Text>
-            </LinearGradient>
-          </View>
-
-          <Text style={styles.trialText}>{t('subscription.trial')}</Text>
-          {loadingProduct ? (
-            <View style={styles.priceLoaderRow}>
-              <ActivityIndicator color="#fff" />
-            </View>
-          ) : (
-            <Text style={styles.price}>{priceLabel}</Text>
-          )}
+        <View style={styles.plansStack}>
+          <PlanCard
+            label={t('subscription.planMonthly')}
+            badgeText={t('subscription.discount')}
+            subtitle={t('subscription.trial')}
+            priceLabel={monthlyPriceLabel}
+            periodLabel={t('subscription.perMonth')}
+            selected={selectedPlan === 'monthly'}
+            onSelect={() => setSelectedPlan('monthly')}
+            disabled={purchasing || restoring}
+            style={styles.planCardSpacing}
+          />
+          <PlanCard
+            label={t('subscription.planYearly')}
+            badgeText={t('subscription.bestValue')}
+            subtitle={t('subscription.yearlyBilling')}
+            priceLabel={yearlyPriceLabel}
+            periodLabel={t('subscription.perYear')}
+            selected={selectedPlan === 'yearly'}
+            onSelect={() => setSelectedPlan('yearly')}
+            disabled={purchasing || restoring}
+          />
         </View>
 
         <View style={styles.spacer} />
@@ -299,13 +401,13 @@ export default function SubscriptionScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.ctaText} numberOfLines={2}>
-                {t('subscription.cta', { price: ctaPriceLabel })}
+                {ctaLabel}
               </Text>
             )}
           </LinearGradient>
         </TouchableOpacity>
 
-        <Text style={styles.note}>{t('subscription.cancelInfo')}</Text>
+        <Text style={styles.note}>{noteLabel}</Text>
 
         <TouchableOpacity
           style={styles.restoreLinkHit}
@@ -347,6 +449,72 @@ export default function SubscriptionScreen() {
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+interface PlanCardProps {
+  label: string;
+  badgeText?: string;
+  subtitle?: string;
+  priceLabel: string;
+  periodLabel: string;
+  selected: boolean;
+  onSelect: () => void;
+  disabled?: boolean;
+  style?: object;
+}
+
+// Individual selectable plan tile. The whole card is tappable; the
+// radio dot on the right just mirrors the current selection. We keep
+// the visual highlight subtle (border + slight gradient) so the two
+// cards still read as related options rather than one promoted CTA.
+function PlanCard({
+  label,
+  badgeText,
+  subtitle,
+  priceLabel,
+  periodLabel,
+  selected,
+  onSelect,
+  disabled,
+  style,
+}: PlanCardProps) {
+  return (
+    <TouchableOpacity
+      style={[styles.planCard, selected && styles.planCardSelected, style]}
+      onPress={onSelect}
+      disabled={disabled}
+      activeOpacity={0.85}
+    >
+      <View style={styles.planHeaderRow}>
+        <Text style={styles.planLabel}>{label}</Text>
+        {badgeText ? (
+          <LinearGradient
+            colors={['rgba(178, 131, 237, 1)', 'rgba(87, 124, 251, 1)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.planBadge}
+          >
+            <Text style={styles.planBadgeText}>{badgeText}</Text>
+          </LinearGradient>
+        ) : null}
+      </View>
+
+      {subtitle ? <Text style={styles.planSubtitle}>{subtitle}</Text> : null}
+
+      <View style={styles.planPriceRow}>
+        <Text style={styles.planPrice}>{priceLabel}</Text>
+        <Text style={styles.planPeriod}>{periodLabel}</Text>
+
+        <View style={styles.planRadioSlot}>
+          <View style={[styles.planRadio, selected && styles.planRadioActive]}>
+            {selected ? (
+              <Ionicons name="checkmark" size={14} color="#fff" />
+            ) : null}
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -392,14 +560,24 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 28,
   },
-  subscriptionCard: {
+  plansStack: {
+    width: '100%',
+  },
+  planCardSpacing: {
+    marginBottom: 12,
+  },
+  planCard: {
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
     borderColor: 'rgba(140,140,200,0.18)',
   },
-  subscriptionRow: {
+  planCardSelected: {
+    borderColor: 'rgba(178, 131, 237, 0.9)',
+    backgroundColor: 'rgba(87, 124, 251, 0.12)',
+  },
+  planHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -408,32 +586,58 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'CooperLtBT-Bold',
+    flex: 1,
+    marginRight: 12,
   },
-  discountBadge: {
+  planBadge: {
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 14,
   },
-  discountText: {
+  planBadgeText: {
     color: '#fff',
     fontSize: 12,
     fontFamily: 'Nunito-Bold',
   },
-  trialText: {
+  planSubtitle: {
     color: '#aaa',
     fontSize: 13,
     marginTop: 6,
     fontFamily: 'SFProDisplay-Regular',
   },
-  price: {
-    color: '#fff',
-    fontSize: 28,
-    fontFamily: 'CooperLtBT-Bold',
+  planPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 10,
   },
-  priceLoaderRow: {
-    marginTop: 12,
-    alignItems: 'flex-start',
+  planPrice: {
+    color: '#fff',
+    fontSize: 26,
+    fontFamily: 'CooperLtBT-Bold',
+  },
+  planPeriod: {
+    color: '#aaa',
+    fontSize: 13,
+    marginLeft: 8,
+    fontFamily: 'SFProDisplay-Regular',
+  },
+  planRadioSlot: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  planRadio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planRadioActive: {
+    borderColor: 'rgba(178, 131, 237, 1)',
+    backgroundColor: 'rgba(178, 131, 237, 1)',
   },
   spacer: {
     flex: 1,
