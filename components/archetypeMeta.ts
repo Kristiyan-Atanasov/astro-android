@@ -8,6 +8,14 @@
 
 export type ZodiacElement = 'fire' | 'earth' | 'air' | 'water';
 
+// Per-element background photo shown behind the archetype + reading screens.
+export const ELEMENT_BACKGROUNDS: Record<ZodiacElement, any> = {
+  fire: require('../assets/images/fire.jpg'),
+  earth: require('../assets/images/earth.jpg'),
+  air: require('../assets/images/air.jpg'),
+  water: require('../assets/images/water.jpg'),
+};
+
 export interface ArchetypeMeta {
   code: string;
   label: string;

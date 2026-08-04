@@ -1,0 +1,5 @@
+<!-- Chart-only Astrowheel: outer + zodiac-inner ring only (no inner track, no dots, no center) -->
+<svg width="393" height="456" viewBox="0 0 393 456" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M265.288 296.288C303.002 258.574 303.002 197.426 265.288 159.712C227.574 121.998 166.426 121.998 128.712 159.712C90.9974 197.426 90.9974 258.574 128.712 296.288C166.426 334.002 227.574 334.003 265.288 296.288Z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M296.789 327.789C351.901 272.677 351.901 183.323 296.789 128.211C241.677 73.0992 152.323 73.0993 97.2112 128.211C42.0994 183.323 42.0994 272.677 97.2112 327.789C152.323 382.901 241.677 382.901 296.789 327.789Z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

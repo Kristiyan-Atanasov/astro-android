@@ -7,6 +7,7 @@ import {
   Dimensions,
   TouchableOpacity,
   Image,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -32,7 +33,7 @@ function to24Hour(hour12Str: string, minuteStr: string, period: 'AM' | 'PM') {
 export default function TimeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const [hour, setHour] = useState('8');
+  const [hour, setHour] = useState('08');
   const [minute, setMinute] = useState('00');
   const [period, setPeriod] = useState<'AM' | 'PM'>('PM');
   const [submitting, setSubmitting] = useState(false);
@@ -95,42 +96,64 @@ export default function TimeScreen() {
         <Text style={styles.description}>{t('onboarding.time.description')}</Text>
 
         <View style={styles.pickerRow}>
-          <Picker
-            selectedValue={hour}
-            style={styles.picker}
-            onValueChange={setHour}
-            itemStyle={styles.pickerItem}
-            enabled={!submitting}
-          >
-            {Array.from({ length: 12 }, (_, i) => {
-              const val = (i + 1).toString();
-              return <Picker.Item key={val} label={val} value={val} />;
-            })}
-          </Picker>
+          <View style={styles.pickerColumn}>
+            <Text style={styles.pickerLabel}>{t('onboarding.time.hourLabel')}</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={hour}
+                style={styles.picker}
+                onValueChange={setHour}
+                itemStyle={styles.pickerItem}
+                dropdownIconColor="#fff"
+                enabled={!submitting}
+              >
+                {Array.from({ length: 12 }, (_, i) => {
+                  const val = String(i + 1).padStart(2, '0');
+                  return (
+                    <Picker.Item key={val} label={val} value={val} color="#fff" />
+                  );
+                })}
+              </Picker>
+            </View>
+          </View>
 
-          <Picker
-            selectedValue={minute}
-            style={styles.picker}
-            onValueChange={setMinute}
-            itemStyle={styles.pickerItem}
-            enabled={!submitting}
-          >
-            {Array.from({ length: 60 }, (_, i) => {
-              const val = String(i).padStart(2, '0');
-              return <Picker.Item key={val} label={val} value={val} />;
-            })}
-          </Picker>
+          <View style={styles.pickerColumn}>
+            <Text style={styles.pickerLabel}>{t('onboarding.time.minuteLabel')}</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={minute}
+                style={styles.picker}
+                onValueChange={setMinute}
+                itemStyle={styles.pickerItem}
+                dropdownIconColor="#fff"
+                enabled={!submitting}
+              >
+                {Array.from({ length: 60 }, (_, i) => {
+                  const val = String(i).padStart(2, '0');
+                  return (
+                    <Picker.Item key={val} label={val} value={val} color="#fff" />
+                  );
+                })}
+              </Picker>
+            </View>
+          </View>
 
-          <Picker
-            selectedValue={period}
-            style={styles.picker}
-            onValueChange={(v) => setPeriod(v)}
-            itemStyle={styles.pickerItem}
-            enabled={!submitting}
-          >
-            <Picker.Item label="AM" value="AM" />
-            <Picker.Item label="PM" value="PM" />
-          </Picker>
+          <View style={styles.pickerColumn}>
+            <Text style={styles.pickerLabel}>{t('onboarding.time.periodLabel')}</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={period}
+                style={styles.picker}
+                onValueChange={(v) => setPeriod(v)}
+                itemStyle={styles.pickerItem}
+                dropdownIconColor="#fff"
+                enabled={!submitting}
+              >
+                <Picker.Item label="AM" value="AM" color="#fff" />
+                <Picker.Item label="PM" value="PM" color="#fff" />
+              </Picker>
+            </View>
+          </View>
         </View>
 
         <Text style={styles.info}>{t('onboarding.time.info')}</Text>
@@ -190,12 +213,31 @@ const styles = StyleSheet.create({
   },
   pickerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
+    justifyContent: 'space-between',
+    gap: 8,
     marginBottom: 40,
   },
+  pickerColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  pickerLabel: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 12,
+    fontFamily: 'SFProDisplay-Regular',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  pickerContainer: {
+    width: '100%',
+    height: Platform.OS === 'ios' ? 180 : 160,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(57, 60, 71, 0.35)',
+  },
   picker: {
-    width: 100,
-    height: 160,
+    width: '100%',
+    height: Platform.OS === 'ios' ? 180 : 160,
   },
   pickerItem: {
     color: '#fff',

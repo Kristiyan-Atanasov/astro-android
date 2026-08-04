@@ -17,6 +17,7 @@ import {
 } from '../services/api';
 import {
   authenticateWithBiometric,
+  getBiometricLabel,
   isBiometricEnabled,
   isBiometricSupported,
 } from '../services/biometric';
@@ -35,58 +36,130 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   );
 }
 
+type LaunchMode = 'checking' | 'welcome' | 'locked';
+
 export default function WelcomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const [checking, setChecking] = React.useState(true);
+  const [mode, setMode] = React.useState<LaunchMode>('checking');
+  const [bioLabel, setBioLabel] = React.useState('Face ID');
+  const cancelledRef = React.useRef(false);
 
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const token = await getAccessToken();
-        if (!token) return;
+  // Decide where a signed-in user should land. Returns false when the stored
+  // session turns out to be dead (even after a silent refresh), so the caller
+  // can fall back to the welcome screen.
+  const routeBySession = React.useCallback(async () => {
+    const profile = await getUserProfile();
+    if (cancelledRef.current) return true;
 
-        const biometricsEnabled = await isBiometricEnabled();
-        if (biometricsEnabled) {
-          const supported = await isBiometricSupported();
-          if (supported) {
-            const { success } = await authenticateWithBiometric(
-              'Sign in to Astroinsights',
-            );
-            if (cancelled) return;
-            if (!success) {
-              return;
-            }
-          }
-        }
+    if (isOnboardingComplete(profile)) {
+      router.replace('/home');
+      return true;
+    }
+    if (profile) {
+      // Resume onboarding from the very first step (language pick).
+      router.replace('/onboarding/language');
+      return true;
+    }
 
-        const profile = await getUserProfile();
-        if (cancelled) return;
-
-        if (isOnboardingComplete(profile)) {
-          router.replace('/home');
-        } else if (profile) {
-          // Resume onboarding from the very first step (language pick).
-          router.replace('/onboarding/language');
-        } else {
-          await clearAccessToken();
-        }
-      } catch (e) {
-        console.log('Auto-route check failed:', (e as any)?.message ?? String(e));
-      } finally {
-        if (!cancelled) setChecking(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    await clearAccessToken();
+    return false;
   }, [router]);
 
-  if (checking) {
+  // Full launch / unlock flow. Also reused by the "Unlock" retry button.
+  const runLaunchFlow = React.useCallback(async () => {
+    setMode('checking');
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        if (!cancelledRef.current) setMode('welcome');
+        return;
+      }
+
+      const biometricsEnabled = await isBiometricEnabled();
+      if (biometricsEnabled) {
+        const supported = await isBiometricSupported();
+        if (supported) {
+          const label = await getBiometricLabel();
+          if (!cancelledRef.current) setBioLabel(label);
+
+          const { success } = await authenticateWithBiometric(t('lock.prompt'));
+          if (cancelledRef.current) return;
+          // Don't drop the session — keep them on a lock screen they can retry.
+          if (!success) {
+            setMode('locked');
+            return;
+          }
+        }
+      }
+
+      const routed = await routeBySession();
+      if (cancelledRef.current) return;
+      if (!routed) setMode('welcome');
+    } catch (e) {
+      console.log('Auto-route check failed:', (e as any)?.message ?? String(e));
+      if (!cancelledRef.current) setMode('welcome');
+    }
+  }, [routeBySession, t]);
+
+  React.useEffect(() => {
+    cancelledRef.current = false;
+    runLaunchFlow();
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, [runLaunchFlow]);
+
+  const handleUseDifferentAccount = React.useCallback(async () => {
+    await clearAccessToken();
+    setMode('welcome');
+  }, []);
+
+  if (mode === 'checking') {
     return (
       <View style={[styles.container, { justifyContent: 'center' }]}>
         <ActivityIndicator color="#fff" />
+      </View>
+    );
+  }
+
+  if (mode === 'locked') {
+    return (
+      <View style={styles.container}>
+        <Image
+          source={require('../assets/images/logo.png')}
+          style={styles.planet}
+          resizeMode="contain"
+        />
+
+        <Text style={styles.title}>{t('lock.title')}</Text>
+        <Text style={styles.subtitle}>{t('lock.subtitle')}</Text>
+
+        <TouchableOpacity style={styles.button} onPress={runLaunchFlow}>
+          <Text style={styles.buttonText}>
+            {t('lock.unlock', { label: bioLabel })}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={handleUseDifferentAccount}>
+          <Text style={styles.secondaryLink}>
+            {t('lock.useDifferentAccount')}
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.linksContainer}>
+          <TouchableOpacity onPress={() => router.push('/terms')}>
+            <Text style={styles.link}>{t('legalLinks.terms')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.push('/privacy')}>
+            <Text style={styles.link}>{t('legalLinks.privacy')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.push('/subscription')}>
+            <Text style={styles.link}>{t('legalLinks.subscription')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -165,6 +238,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontFamily: 'Nunito-Bold',
+  },
+  secondaryLink: {
+    color: '#ccc',
+    fontSize: 14,
+    textDecorationLine: 'underline',
+    fontFamily: 'Nunito-Regular',
+    marginTop: 4,
   },
   linksContainer: {
     position: 'absolute',

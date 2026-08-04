@@ -223,8 +223,8 @@ export default function SignInScreen() {
     <View style={styles.container}>
       <View style={styles.content}>
         <Image
-          source={require("../assets/images/signin-graphic.png")}
-          style={styles.image}
+          source={require("../assets/images/logo-signin.png")}
+          style={styles.logo}
           resizeMode="contain"
         />
 
@@ -286,11 +286,14 @@ const styles = StyleSheet.create({
   content: {
     alignItems: "center",
     flexGrow: 1,
+    justifyContent: "center",
+    paddingBottom: 72,
+    overflow: "visible",
   },
-  image: {
-    width: 180,
-    height: 180,
-    marginBottom: 20,
+  logo: {
+    width: 260,
+    height: 260,
+    marginBottom: 32,
   },
   title: {
     fontSize: 35,

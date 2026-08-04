@@ -1,6 +1,7 @@
 // services/api.js
 import * as SecureStore from 'expo-secure-store';
 import { notifySessionExpired } from './sessionEvents';
+import { setReadProgressUser } from './readProgress';
 
 export const API_BASE = 'https://yrfz6x9dl1.execute-api.eu-central-1.amazonaws.com/dev';
 
@@ -98,6 +99,9 @@ export async function clearAccessToken() {
   // Drop the cached daily vibe so a different account signing in next
   // doesn't inherit the previous user's vibe text.
   await clearDailyVibeCache();
+  // Keep per-user reading progress so logging back in restores it; just
+  // detach the active-user pointer for now.
+  await setReadProgressUser(null);
 }
 
 // Persist a refresh token returned from /authentication/social_login/.
@@ -239,22 +243,82 @@ async function readResponse(res) {
   return { raw, data };
 }
 
+function normalizeQualitiesResponse(data) {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.qualities)) return data.qualities;
+  return [];
+}
+
+function normalizeArchetypesResponse(data) {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.archetypes)) return data.archetypes;
+  return [];
+}
+
+function formatApiError(data, raw, fallback) {
+  if (typeof data === 'string' && data.trim()) return data;
+  if (data?.detail) {
+    return typeof data.detail === 'string'
+      ? data.detail
+      : JSON.stringify(data.detail);
+  }
+  if (data?.message) return String(data.message);
+  if (data?.quality_id != null) {
+    const q = data.quality_id;
+    if (typeof q === 'string') return q;
+    if (Array.isArray(q)) return q.join(', ');
+    return JSON.stringify(q);
+  }
+  if (data && typeof data === 'object') {
+    const parts = Object.entries(data).map(([key, value]) => {
+      if (Array.isArray(value)) return `${key}: ${value.join(', ')}`;
+      if (value != null && typeof value === 'object') {
+        return `${key}: ${JSON.stringify(value)}`;
+      }
+      return `${key}: ${value}`;
+    });
+    if (parts.length) return parts.join('; ');
+  }
+  return raw || fallback;
+}
+
+let recalculateAttemptedThisSession = false;
+
 export async function getUserProfile() {
   const token = await getAccessToken();
   if (!token) return null;
 
-  let res;
-  try {
-    res = await fetch(`${API_BASE}/authentication/user_profile/`, {
+  const requestProfile = (bearer) =>
+    fetch(`${API_BASE}/authentication/user_profile/`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${bearer}`,
       },
     });
+
+  let res;
+  try {
+    res = await requestProfile(token);
   } catch (e) {
     console.log('🌐 user_profile network error:', e?.message ?? String(e));
     return null;
+  }
+
+  // The access token likely expired. Silently swap it for a fresh one using
+  // the stored refresh token and retry once before giving up — this is what
+  // keeps the user signed in across app launches instead of bouncing them
+  // back to the welcome screen.
+  if (res.status === 401 || res.status === 403) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      try {
+        res = await requestProfile(refreshed);
+      } catch (e) {
+        console.log('🌐 user_profile retry network error:', e?.message ?? String(e));
+        return null;
+      }
+    }
   }
 
   console.log('🌐 user_profile status:', res.status);
@@ -267,6 +331,15 @@ export async function getUserProfile() {
   if (!res.ok) return null;
 
   const { data } = await readResponse(res);
+  // Point local reading progress at this account so it's namespaced per user
+  // and survives logout/login on the same device. Prefer a stable id, fall
+  // back to email if the backend doesn't return one.
+  if (data) {
+    const userKey = data.id != null ? data.id : data.email;
+    if (userKey != null && userKey !== '') {
+      setReadProgressUser(userKey).catch(() => {});
+    }
+  }
   return data || null;
 }
 
@@ -341,7 +414,144 @@ export async function getUserArchetypes() {
   return data || null;
 }
 
-export async function getUserQualities() {
+// Starts learning an archetype and seeds UserQualityState rows on the backend.
+//   POST /archetypes/user_archetypes/  { archetype: "LEO" }
+export async function startUserArchetype(archetype) {
+  const token = await getAccessToken();
+  if (!token) return false;
+
+  const code = String(archetype || '').toUpperCase();
+  if (!code) return false;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/archetypes/user_archetypes/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ archetype: code }),
+    });
+  } catch {
+    return false;
+  }
+
+  await readResponse(res);
+
+  if (res.status === 401 || res.status === 403) {
+    await handleSessionExpired();
+    return false;
+  }
+
+  return res.ok;
+}
+
+// Reads backend-computed completion % for one archetype from user_archetypes.
+export async function getArchetypeCompletedPercentage(archetype) {
+  const data = await getUserArchetypes();
+  if (!data) return null;
+
+  const code = String(archetype || '').toUpperCase();
+  const list = normalizeArchetypesResponse(data);
+  const match = list.find(
+    (a) => String(a?.archetype || '').toUpperCase() === code,
+  );
+  if (!match) return null;
+
+  const raw =
+    match.completed_percentage ??
+    match.completion_percentage ??
+    match.progress_percentage;
+  if (typeof raw !== 'number') return null;
+  return Math.max(0, Math.min(100, Math.round(raw)));
+}
+
+// Fetches users with a similar wheel, used by the "People in common" screen
+// (app/community.tsx). Backend groups users per zodiac archetype:
+//   {
+//     "groups": [
+//       {
+//         "archetype": "LEO",
+//         "users": [
+//           {
+//             "id": 123,
+//             "name": "Maya",
+//             "zodiac_sign": "PISCES",      // sun sign (zodiac code)
+//             "moon_sign": "TAURUS",
+//             "ascendant": "TAURUS",        // rising sign
+//             "learning_archetypes": ["LEO", "VIRGO"],
+//             "social_acc_facebook": null,
+//             "social_acc_instagram": "maya.stars"
+//           }
+//         ]
+//       }
+//     ]
+//   }
+export async function getSimilarUsers() {
+  const token = await getAccessToken();
+  if (!token) return null;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/archetypes/similar_users/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch (e) {
+    console.log('🌐 similar_users network error:', e?.message ?? String(e));
+    return null;
+  }
+
+  console.log('🌐 similar_users status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await handleSessionExpired();
+    return null;
+  }
+
+  const { raw, data } = await readResponse(res);
+  // Temporary diagnostic: log the shape so we can see why the list may be
+  // empty (empty groups vs. a different payload shape).
+  console.log('🌐 similar_users body:', raw ? raw.slice(0, 600) : '(empty)');
+
+  if (!res.ok) return null;
+
+  return data || null;
+}
+
+export async function recalculateAstro() {
+  const token = await getAccessToken();
+  if (!token) return false;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/archetypes/astro/recalculate/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch {
+    return false;
+  }
+
+  await readResponse(res);
+
+  if (res.status === 401 || res.status === 403) {
+    await handleSessionExpired();
+    return false;
+  }
+
+  return res.ok;
+}
+
+export async function getUserQualities(options = {}) {
+  const { attemptSeed = false } = options;
   const token = await getAccessToken();
   if (!token) return null;
 
@@ -369,43 +579,148 @@ export async function getUserQualities() {
   if (!res.ok) return null;
 
   const { data } = await readResponse(res);
-  // Backend wraps the list in { qualities: [...] } per OpenAPI spec, but
-  // tolerate older shapes (top-level array) too.
+  const qualities = normalizeQualitiesResponse(data);
+
+  if (
+    qualities.length === 0 &&
+    attemptSeed &&
+    !recalculateAttemptedThisSession
+  ) {
+    recalculateAttemptedThisSession = true;
+    const seeded = await recalculateAstro();
+    if (seeded) {
+      return getUserQualities({ attemptSeed: false });
+    }
+  }
+
+  return qualities;
+}
+
+// Returns the full catalog of qualities for a given archetype from
+// /archetypes/archetype_qualities/?archetype=CODE. Unlike user_qualities this
+// is not personalized, so it's always populated for a valid archetype even
+// before the user has started learning it.
+export async function getArchetypeQualities(archetype) {
+  const token = await getAccessToken();
+  if (!token) return null;
+
+  const code = String(archetype || '').toUpperCase();
+  if (!code) return [];
+
+  let res;
+  try {
+    res = await fetch(
+      `${API_BASE}/archetypes/archetype_qualities/?archetype=${encodeURIComponent(code)}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+  } catch (e) {
+    console.log('🌐 archetype_qualities network error:', e?.message ?? String(e));
+    return null;
+  }
+
+  console.log('🌐 archetype_qualities status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await handleSessionExpired();
+    return null;
+  }
+
+  if (!res.ok) return null;
+
+  const { data } = await readResponse(res);
   if (Array.isArray(data)) return data;
   if (data && Array.isArray(data.qualities)) return data.qualities;
   return [];
 }
 
-export async function updateUserQualityStatus(qualityId, status) {
+// Toggle notification activation for an unlocked quality.
+//   POST /archetypes/user_qualities/activation/  { quality_id, is_active }
+// Returns the updated quality payload (status ACTIVE/INACTIVE, can_* flags).
+export async function setQualityActivation(qualityId, isActive) {
   const token = await getAccessToken();
   if (!token) throw new Error('Missing access token. Please sign in again.');
 
   if (typeof qualityId !== 'number') {
-    throw new Error('Invalid quality id');
-  }
-  // Backend expects { quality_id, status: 'ACTIVE' | 'INACTIVE' } per
-  // UserQualityStatusUpdateRequest in the OpenAPI spec.
-  const normalized = String(status || '').toUpperCase();
-  if (normalized !== 'ACTIVE' && normalized !== 'INACTIVE') {
-    throw new Error('Invalid quality status');
+    const coerced = Number(qualityId);
+    if (!Number.isFinite(coerced)) {
+      throw new Error('Invalid quality id');
+    }
+    qualityId = coerced;
   }
 
   let res;
   try {
-    res = await fetch(`${API_BASE}/archetypes/user_qualities/update_status/`, {
+    res = await fetch(`${API_BASE}/archetypes/user_qualities/activation/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ quality_id: qualityId, status: normalized }),
+      body: JSON.stringify({ quality_id: qualityId, is_active: !!isActive }),
     });
   } catch (e) {
-    console.log('🌐 user_qualities update network error:', e?.message ?? String(e));
+    console.log('🌐 user_qualities activation network error:', e?.message ?? String(e));
     throw new Error('Network request failed');
   }
 
-  console.log('🌐 user_qualities update status:', res.status);
+  console.log('🌐 user_qualities activation status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await handleSessionExpired();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  const { raw, data } = await readResponse(res);
+
+  if (!res.ok) {
+    const detail = formatApiError(
+      data,
+      raw,
+      `Quality activation failed (${res.status})`,
+    );
+    throw new Error(detail);
+  }
+
+  return data;
+}
+
+// Marks a quality as learned or reverts it.
+//   POST /archetypes/user_qualities/completion/  { quality_id, is_completed }
+// Returns the updated quality payload (is_completed, status, can_* flags).
+export async function setQualityCompletion(qualityId, isCompleted) {
+  const token = await getAccessToken();
+  if (!token) throw new Error('Missing access token. Please sign in again.');
+
+  if (typeof qualityId !== 'number') {
+    const coerced = Number(qualityId);
+    if (!Number.isFinite(coerced)) {
+      throw new Error('Invalid quality id');
+    }
+    qualityId = coerced;
+  }
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/archetypes/user_qualities/completion/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ quality_id: qualityId, is_completed: !!isCompleted }),
+    });
+  } catch (e) {
+    console.log('🌐 user_qualities completion network error:', e?.message ?? String(e));
+    throw new Error('Network request failed');
+  }
+
+  console.log('🌐 user_qualities completion status:', res.status);
 
   if (res.status === 401 || res.status === 403) {
     await handleSessionExpired();
@@ -416,14 +731,55 @@ export async function updateUserQualityStatus(qualityId, status) {
 
   if (!res.ok) {
     throw new Error(
-      data?.message ||
-        data?.detail ||
-        raw ||
-        `Quality update failed (${res.status})`
+      formatApiError(
+        data,
+        raw,
+        `Quality completion failed (${res.status})`,
+      ),
     );
   }
 
   return data;
+}
+
+// Records that the user shared a quality (analytics / backend share card).
+//   POST /archetypes/user_qualities/share/  { quality_id, platform? }
+// Returns the backend payload when available (may include a share image URL).
+export async function recordQualityShare(qualityId, platform) {
+  const token = await getAccessToken();
+  if (!token) return null;
+
+  if (typeof qualityId !== 'number') return null;
+
+  const body = { quality_id: qualityId };
+  if (platform) body.platform = platform;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/archetypes/user_qualities/share/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    console.log('🌐 user_qualities share network error:', e?.message ?? String(e));
+    return null;
+  }
+
+  console.log('🌐 user_qualities share status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await handleSessionExpired();
+    return null;
+  }
+
+  if (!res.ok) return null;
+
+  const { data } = await readResponse(res);
+  return data || null;
 }
 
 export async function getDailyVibe() {

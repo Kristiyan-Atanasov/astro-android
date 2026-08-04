@@ -18,6 +18,7 @@
       },
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to sign in to AstroInsights faster and more securely.",
+        "NSPhotoLibraryUsageDescription": "Allow AstroInsights to access your photos so you can set a profile picture.",
         "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
         "SKAdNetworkItems": [
           {
@@ -48,7 +49,7 @@
       "icon": "./assets/images/icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#19224B"
+        "backgroundColor": "#0A0E1A"
       }
     },
     "web": {
@@ -88,6 +89,12 @@
         {
           "icon": "./assets/icons/notification.png",
           "color": "#577CFB"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow AstroInsights to access your photos so you can set a profile picture."
         }
       ]
     ]

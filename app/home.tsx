@@ -62,6 +62,7 @@ const homeBg = require('../assets/images/home-bg.png');
 const vibeIcon = require('../assets/images/vibe-icon.png');
 const menuIcon = require('../assets/images/burger.png');
 const subBg = require('../assets/images/sub-background.png');
+const communityBg = require('../assets/images/socials.png');
 
 // Icons
 const icons = {
@@ -387,6 +388,25 @@ export default function HomeScreen() {
           })}
         </View>
 
+        {/* Community Banner */}
+        <TouchableOpacity
+          style={styles.communityCard}
+          activeOpacity={0.9}
+          onPress={() => router.push('/community')}
+        >
+          <ImageBackground
+            source={communityBg}
+            style={styles.communityBg}
+            imageStyle={styles.communityBgImage}
+          >
+            <View style={styles.communityOverlay} />
+            <View style={styles.communityContent}>
+              <Text style={styles.communityTitle}>{t('home.communityTitle')}</Text>
+              <Text style={styles.communityText}>{t('home.communityText')}</Text>
+            </View>
+          </ImageBackground>
+        </TouchableOpacity>
+
         {/* Footer */}
         <View style={styles.footer}>
           <TouchableOpacity
@@ -473,7 +493,7 @@ export default function HomeScreen() {
               {/* Menu Items */}
               {[
                 { label: t('menu.items.home'), icon: icons.home, route: '/home' as const, replace: true },
-                { label: t('menu.items.editProfile'), icon: icons.edit, route: '/edit-profile' as const },
+                { label: t('menu.items.myProfile'), icon: icons.profile, route: '/profile' as const },
                 { label: t('menu.items.notifications'), icon: icons.notifications, route: '/notifications' as const },
                 {
                   label: t('menu.items.subscriptions'),
@@ -484,7 +504,7 @@ export default function HomeScreen() {
                 { label: t('menu.items.privacy'), icon: icons.privacy, route: '/privacy' as const },
                 { label: t('menu.items.terms'), icon: icons.terms, route: '/terms' as const },
                 { label: t('menu.items.faq'), icon: icons.faq, route: '/faq' as const },
-                { label: t('menu.items.logout'), icon: icons.logout, action: 'logout' as const },
+                { label: t('menu.items.accountSettings'), icon: icons.edit, route: '/edit-profile' as const },
               ].map((item, index) => (
                 <TouchableOpacity
                   key={index}
@@ -670,6 +690,43 @@ const styles = StyleSheet.create({
     height: 52,
     resizeMode: 'contain',
     tintColor: '#D3D5FB',
+  },
+  communityCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    width: '100%',
+    marginTop: 4,
+    marginBottom: 24,
+  },
+  communityBg: {
+    width: '100%',
+    minHeight: 132,
+    justifyContent: 'center',
+  },
+  communityBgImage: {
+    borderRadius: 16,
+    resizeMode: 'cover',
+  },
+  communityOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(8, 10, 26, 0.28)',
+  },
+  communityContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+  },
+  communityTitle: {
+    color: '#fff',
+    fontSize: 22,
+    fontFamily: 'CooperLtBT-Bold',
+    marginBottom: 8,
+  },
+  communityText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'SFProDisplay-Regular',
+    maxWidth: '92%',
   },
   footer: {
     flexDirection: 'row',

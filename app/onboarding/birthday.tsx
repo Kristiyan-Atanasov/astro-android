@@ -19,9 +19,17 @@ import OnboardingHeader from '../../components/OnboardingHeader';
 const backgroundImg = require('../../assets/images/background.png');
 const starsImg = require('../../assets/images/stars.png');
 
+function formatBirthDateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export default function BirthdayScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
+  const pickerLocale = i18n.language === 'bg' ? 'bg-BG' : 'en-US';
   const [date, setDate] = useState(new Date());
   const [submitting, setSubmitting] = useState(false);
   const [showAndroidPicker, setShowAndroidPicker] = useState(false);
@@ -50,17 +58,21 @@ export default function BirthdayScreen() {
 
         <View style={styles.pickerWrapper}>
           {Platform.OS === 'ios' ? (
-            <DateTimePicker
-              value={date}
-              mode="date"
-              display="spinner"
-              maximumDate={new Date()}
-              onChange={(_, selectedDate) =>
-                selectedDate && setDate(selectedDate)
-              }
-              style={styles.datePicker}
-              textColor="#fff"
-            />
+            <View style={styles.pickerContainer}>
+              <DateTimePicker
+                value={date}
+                mode="date"
+                display="spinner"
+                locale={pickerLocale}
+                maximumDate={new Date()}
+                themeVariant="dark"
+                onChange={(_, selectedDate) =>
+                  selectedDate && setDate(selectedDate)
+                }
+                style={styles.datePicker}
+                textColor="#FFFFFF"
+              />
+            </View>
           ) : (
             <>
               <TouchableOpacity
@@ -97,7 +109,7 @@ export default function BirthdayScreen() {
             try {
               setSubmitting(true);
 
-              const formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD
+              const formattedDate = formatBirthDateLocal(date);
               await mergeOnboardingDraft({ birth_date: formattedDate });
 
               router.push('/onboarding/time');
@@ -164,9 +176,16 @@ const styles = StyleSheet.create({
   pickerWrapper: {
     marginBottom: 20,
   },
+  pickerContainer: {
+    height: 216,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: 12,
+    backgroundColor: 'rgba(57, 60, 71, 0.35)',
+  },
   datePicker: {
     width: '100%',
-    backgroundColor: 'transparent',
+    height: 216,
   },
   androidDateButton: {
     height: 60,

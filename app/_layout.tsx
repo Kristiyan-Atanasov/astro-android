@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Image, Platform, Dimensions, Alert } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { useTranslation } from 'react-i18next';
@@ -79,22 +80,25 @@ export default function RootLayout() {
   if (!fontsLoaded || !i18nReady) return null;
 
   return (
-    <View style={styles.root}>
-      {/* Background Layer */}
-      <Image source={backgroundImg} style={styles.bg} resizeMode="cover" />
-      <Image source={starsImg} style={styles.stars} resizeMode="cover" />
+    <GestureHandlerRootView style={styles.flex}>
+      <View style={styles.root}>
+        {/* Background Layer */}
+        <Image source={backgroundImg} style={styles.bg} resizeMode="cover" />
+        <Image source={starsImg} style={styles.stars} resizeMode="cover" />
 
-      {/* App Content */}
-      <View style={styles.content}>
-        <Slot />
+        {/* App Content */}
+        <View style={styles.content}>
+          <Slot />
+        </View>
       </View>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
 const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   root: {
     width,
     height,

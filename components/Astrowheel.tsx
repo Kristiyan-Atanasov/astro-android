@@ -32,7 +32,10 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
   { code: 'ARIES', label: 'Aries', icon: require('../assets/images/zodiac/aries.png') },
   { code: 'TAURUS', label: 'Taurus', icon: require('../assets/images/zodiac/taurus.png') },
   { code: 'GEMINI', label: 'Gemini', icon: require('../assets/images/zodiac/gemini.png') },
-  { code: 'CANCER', label: 'Cancer', icon: require('../assets/images/zodiac/cancer.png') },
+  // NOTE: the source asset files are mislabeled — cancer.png actually holds
+  // the Pisces glyph and pisces-active.png holds the Cancer glyph, so the
+  // requires are intentionally crossed here to render the correct symbols.
+  { code: 'CANCER', label: 'Cancer', icon: require('../assets/images/zodiac/pisces-active.png') },
   { code: 'LEO', label: 'Leo', icon: require('../assets/images/zodiac/leo-active.png') },
   { code: 'VIRGO', label: 'Virgo', icon: require('../assets/images/zodiac/virgo.png') },
   { code: 'LIBRA', label: 'Libra', icon: require('../assets/images/zodiac/libra.png') },
@@ -40,7 +43,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
   { code: 'SAGITTARIUS', label: 'Sagittarius', icon: require('../assets/images/zodiac/sagittarius.png') },
   { code: 'CAPRICORN', label: 'Capricorn', icon: require('../assets/images/zodiac/capricorn-active.png') },
   { code: 'AQUARIUS', label: 'Aquarius', icon: require('../assets/images/zodiac/aquarius-active.png') },
-  { code: 'PISCES', label: 'Pisces', icon: require('../assets/images/zodiac/pisces-active.png') },
+  { code: 'PISCES', label: 'Pisces', icon: require('../assets/images/zodiac/cancer.png') },
 ];
 
 const ASPECT = SVG_VIEWBOX_H / SVG_VIEWBOX_W;

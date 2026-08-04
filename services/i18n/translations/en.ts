@@ -55,6 +55,14 @@ const en = {
     enableBiometricBody: 'Use {{label}} to sign in to Astroinsights faster next time.',
   },
 
+  lock: {
+    title: 'Welcome back',
+    subtitle: 'Unlock to continue to Astroinsights',
+    prompt: 'Unlock Astroinsights',
+    unlock: 'Unlock with {{label}}',
+    useDifferentAccount: 'Sign in with a different account',
+  },
+
   onboarding: {
     language: {
       title: 'Choose your language',
@@ -86,6 +94,9 @@ const en = {
       description:
         'Time is important for determining your houses, rising sign, and exact Moon position.',
       info: 'We use this to generate your Astroinsights wheel. We never share or sell your data.',
+      hourLabel: 'Hour',
+      minuteLabel: 'Min',
+      periodLabel: 'AM/PM',
       dontKnow: 'I don’t know',
     },
     location: {
@@ -141,6 +152,21 @@ const en = {
     premiumRequiredTitle: 'Premium account required',
     premiumRequiredBody:
       '{{archetype}} details are only available on the premium plan. Upgrade to unlock all archetypes.',
+    communityTitle: 'Explore community',
+    communityText:
+      'Find exclusive content and connect with other people with similar wheels.',
+  },
+
+  community: {
+    headerTitle: 'People in common',
+    bannerTitle: 'Explore people like you',
+    bannerText:
+      'Find exclusive content and connect with other people with similar wheels.',
+    sectionSubtitle:
+      'Each person has 12 archetypes in their birth chart, but some are weak and others are well positioned.',
+    male: 'Male',
+    female: 'Female',
+    empty: 'No community members to show yet. Check back soon!',
   },
 
   menu: {
@@ -150,7 +176,8 @@ const en = {
     upgrade: 'Upgrade',
     items: {
       home: 'Home',
-      myProfile: 'My profile',
+      myProfile: 'Profile',
+      accountSettings: 'Account settings',
       editProfile: 'Edit Profile',
       notifications: 'Notifications',
       subscriptions: 'Subscriptions',
@@ -180,8 +207,46 @@ const en = {
     deleteFailedBody: 'Please try again later.',
   },
 
+  profilePage: {
+    pageTitle: 'Profile',
+    birthChart: 'Birth Chart',
+    transits: 'Transits',
+    sun: 'Sun',
+    moon: 'Moon',
+    rising: 'AC',
+    chartLoading: 'Loading chart…',
+    chartUnavailable:
+      'Your chart will appear here once it has been calculated for your birth data.',
+    missingBirthData:
+      'Complete your birth date, time, and city in registration so we can calculate your chart.',
+    transitNow: 'Current sky',
+    accountSettings: 'Account settings',
+    photoTitle: 'Profile photo',
+    photoHint: 'Upload a clear photo of yourself. Nudity and sexual content are not allowed.',
+    photoUpload: 'Upload photo',
+    photoRemove: 'Remove photo',
+    photoCancel: 'Cancel',
+    photoPermissionTitle: 'Photo access needed',
+    photoPermissionBody:
+      'Allow photo library access in Settings so you can set your profile picture.',
+    photoRebuildTitle: 'App rebuild needed',
+    photoRebuildBody:
+      'Photo upload needs a native rebuild. Run npx expo run:ios (or run:android), then try again.',
+    photoBlockedTitle: 'Photo not allowed',
+    photoBlockedBody:
+      'That image looks inappropriate. Please choose a different profile photo — no nudity or sexual content.',
+    photoInvalidTitle: 'Invalid photo',
+    photoInvalidBody:
+      'Please use a normal JPG or PNG photo under 6 MB. GIFs and tiny images aren’t supported.',
+    photoCheckFailedTitle: 'Couldn’t verify photo',
+    photoCheckFailedBody:
+      'We couldn’t run the safety check on that image. Try another photo, or check your connection and try again.',
+    photoFailedTitle: 'Upload failed',
+    photoFailedBody: 'Something went wrong while uploading. Please try again.',
+  },
+
   editProfile: {
-    title: 'Edit Profile',
+    title: 'Account settings',
     name: 'Name',
     namePlaceholder: 'Your name',
     birthChart: 'Birth Chart',
@@ -480,26 +545,40 @@ const en = {
     pro: 'PRO',
     intro:
       'Use the list below to explore this archetype and work with its unique traits.',
+    readMore: 'Read more',
+    showLess: 'Show less',
     learningHeader: 'Learning',
     learningDescription:
       'includes qualities you haven’t yet developed. Those are archetypal “languages” that your soul came here to learn.',
-    owningHeader: 'Owning',
+    owningHeader: 'Balancing',
     owningDescription:
       'contains affirmations for those who already possess the qualities of the sign, but may want to elevate it and reach their highest potential.',
     growthIntro:
       'We grow in two ways in this lifetime: by refining what we’re naturally gifted at and by learning the energies we weren’t born knowing.',
     learningWhy:
-      'The qualities in the "Learning" section matter, because they are often the “languages” spoken by the people closest to us: our partner, our children, our parents, siblings and sometimes our closest friends. When we don’t understand these archetypal languages we experience friction, misunderstandings or emotional distance. But when we learn them our relationships soften. We can love others in a way they truly feel and we allow them to love us back in their own authentic way. Developing these qualities also creates balance within you. For example, if you’re naturally very introverted, you may attract people who are extremely loud and nosy, but when you learn how to be more outgoing and social, you’ll stop attracting extremes and you\'ll also find new opportunities and bring about more joy and deep friendships in your life.',
+      'The qualities in the "Learning" section matter, because they are often the “languages” spoken by the people closest to us: our partner, our children, our parents, siblings and sometimes our closest friends. When we don’t understand these archetypal languages we experience friction, misunderstandings or emotional distance. But when we learn them our relationships soften. We can love others in a way they truly feel and we allow them to love us back in their own authentic way.',
     switchExplain:
-      'Each quality in the list below has a switch you can activate by swiping left or right.\nWhen a quality is ON it\'ll light up and you’ll receive daily notifications and affirmations designed to help you learn or refine that specific trait.\nWhen it’s OFF, you won’t receive reminders.',
+      'Tap a quality to switch it on — it turns purple, becomes active and starts showing up in your daily insights. Swipe it right once you’ve learned it to move it to the bottom and count it toward your progress.',
     explorePace: 'Explore everything at your own pace.',
     glowingHint:
-      'If this archetype is glowing in your Astrowheel, we recommend keeping the Learning qualities ON since they represent important lessons for your growth at this stage of your life. If you find that some of those skills are already a part of you, you can turn them off and you won\'t have to see them again. Switch ON only those who feel difficult, since learning them will bring you the biggest rewards.',
-    tabMastering: 'Mastering',
-    tabManaging: 'Managing',
-    progressPhysical: 'Physical',
-    progressEmotional: 'Emotional',
+      'If this archetype is glowing in your Astrowheel, we recommend starting with the Learning qualities, since they represent important lessons for your growth at this stage of your life. Focus on the ones that feel difficult — learning them will bring you the biggest rewards.',
+    tabMastering: 'Learning',
+    tabManaging: 'Balancing',
+    progress: 'Progress',
     progressPercent: '{{percent}}% complete',
+    learnedAction: 'Learned',
+    unlearnAction: 'Unlearn',
+    learnedLabel: 'Learned',
+    newLabel: 'New',
+    openHint: 'Read',
+    legendTitle: 'How it works',
+    legendTap:
+      'Tap a trait to activate it (purple) — active traits power your daily insights.',
+    legendLearned:
+      'Swipe right once you’ve learned it — it turns green and moves to the bottom.',
+    legendUnlearn:
+      'Swipe left on a green learned trait to mark it as not learned yet.',
+    legendOpen: 'Tap Read to open and view the full lesson.',
     emptyQualities: 'No qualities to show yet. Check back later.',
     premiumQualityTitle: 'Premium quality',
     premiumQualityBody:
@@ -507,6 +586,13 @@ const en = {
     qualityUpdateFailed: 'Update failed',
     qualityUpdateFailedBody:
       'We couldn’t update this quality. Please try again.',
+  },
+
+  quality: {
+    shareTitle: 'Share',
+    shareUnavailableTitle: 'Sharing unavailable',
+    shareUnavailableBody:
+      'We couldn’t open the share menu on this device. Please try again.',
   },
 
   // Static archetype meta. Backend returns dynamic content already
