@@ -65,9 +65,9 @@ def extract_emblem(source: Image.Image) -> Image.Image:
         return emblem
 
     x0, y0, x1, y1 = bbox
-    pad_x = int((x1 - x0) * 0.08)
-    pad_y_top = int((y1 - y0) * 0.08)
-    pad_y_bottom = int((y1 - y0) * 0.14)
+    pad_x = int((x1 - x0) * 0.04)
+    pad_y_top = int((y1 - y0) * 0.04)
+    pad_y_bottom = int((y1 - y0) * 0.06)
     x0 = max(0, x0 - pad_x)
     y0 = max(0, y0 - pad_y_top)
     x1 = min(rw, x1 + pad_x)
@@ -76,7 +76,7 @@ def extract_emblem(source: Image.Image) -> Image.Image:
 
     side = max(cropped.width, cropped.height)
     canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-    fit = int(side * 0.86)
+    fit = int(side * 0.96)
     scale = fit / max(cropped.width, cropped.height)
     scaled = cropped.resize(
         (max(1, int(cropped.width * scale)), max(1, int(cropped.height * scale))),
@@ -92,7 +92,8 @@ def extract_emblem(source: Image.Image) -> Image.Image:
 def make_app_icon(emblem: Image.Image, size: int = 1024) -> Image.Image:
     """App Store / home-screen icon: emblem centered on navy square."""
     icon = Image.new("RGBA", (size, size), NAVY)
-    target = int(size * 0.74)
+    # Fill most of the icon — leave a small margin for iOS rounded corners.
+    target = int(size * 0.88)
     scaled = emblem.resize((target, target), Image.Resampling.LANCZOS)
     x = (size - target) // 2
     y = (size - target) // 2
@@ -121,22 +122,23 @@ def main() -> None:
     if not SOURCE.exists():
         raise SystemExit(f"Missing source image: {SOURCE}")
 
+    # Only regenerate home-screen / store icons — do not touch in-app logos
+    # (logo-signin.png, logo.png, etc.).
     source = Image.open(SOURCE)
     emblem = extract_emblem(source)
     app_icon = make_app_icon(emblem)
 
-    LOGO_SIGNIN_OUT.parent.mkdir(parents=True, exist_ok=True)
-    emblem.save(LOGO_SIGNIN_OUT, optimize=True)
+    ICON_OUT.parent.mkdir(parents=True, exist_ok=True)
     app_icon.save(ICON_OUT, optimize=True)
 
     IOS_ICON.parent.mkdir(parents=True, exist_ok=True)
     app_icon.save(IOS_ICON, optimize=True)
     write_android_icons(app_icon)
 
-    print(f"Wrote sign-in logo: {LOGO_SIGNIN_OUT}")
     print(f"Wrote app icon:     {ICON_OUT}")
     print(f"Wrote iOS icon:     {IOS_ICON}")
     print("Updated Android launcher icons")
+    print("Left in-app logos unchanged")
 
 
 if __name__ == "__main__":
