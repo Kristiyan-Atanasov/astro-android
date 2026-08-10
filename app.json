@@ -78,6 +78,11 @@
         }
       ],
       "expo-font",
+      "@react-native-community/datetimepicker",
+      "expo-sharing",
+      "expo-splash-screen",
+      "expo-status-bar",
+      "expo-web-browser",
       [
         "expo-local-authentication",
         {
