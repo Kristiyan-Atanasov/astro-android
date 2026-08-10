@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "assets" / "images" / "welcome-logo-source.png"
+SOURCE = ROOT / "assets" / "images" / "welcome-logo-source.jpg"
 LOGO_SIGNIN_OUT = ROOT / "assets" / "images" / "logo-signin.png"
 ICON_OUT = ROOT / "assets" / "images" / "icon.png"
 IOS_ICON = (

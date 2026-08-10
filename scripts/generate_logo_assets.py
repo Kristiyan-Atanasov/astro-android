@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = Path(
     os.environ.get(
         "LOGO_SOURCE",
-        str(ROOT / "assets" / "images" / "logo-source.png"),
+        str(ROOT / "assets" / "images" / "logo-source.jpg"),
     )
 )
 ASSETS = ROOT / "assets" / "images"
