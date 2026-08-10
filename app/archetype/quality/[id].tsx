@@ -339,12 +339,20 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   shareCardBg: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     width: '100%',
     height: '100%',
   },
   shareCardOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: 'rgba(10, 11, 18, 0.62)',
   },
   shareCardContent: {

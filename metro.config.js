@@ -1,6 +1,5 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
-const exclusionList = require('metro-config/src/defaults/exclusionList');
 
 const config = getDefaultConfig(__dirname);
 
@@ -15,11 +14,11 @@ config.resolver = {
   ...resolver,
   assetExts: resolver.assetExts.filter((ext) => ext !== 'svg'),
   sourceExts: [...resolver.sourceExts, 'svg'],
-  blockList: exclusionList([
+  blockList: [
     /astroinsights\/.*/,
     /astroinsights\.app\/.*/,
     /build-.*\.tar\.gz$/,
-  ]),
+  ],
 };
 
 config.watchFolders = [path.resolve(__dirname)];

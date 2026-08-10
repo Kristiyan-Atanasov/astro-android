@@ -224,7 +224,7 @@ export default function HomeScreen() {
       }
     })();
 
-    const unsubscribe = subscribeToNotificationTaps((route) => {
+    const unsubscribe = subscribeToNotificationTaps((route: string) => {
       try {
         router.push(route as any);
       } catch (e) {
@@ -708,7 +708,11 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   communityOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: 'rgba(8, 10, 26, 0.28)',
   },
   communityContent: {

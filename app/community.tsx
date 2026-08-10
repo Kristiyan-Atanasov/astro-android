@@ -394,7 +394,11 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   bannerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: 'rgba(10, 8, 26, 0.28)',
   },
   bannerContent: {

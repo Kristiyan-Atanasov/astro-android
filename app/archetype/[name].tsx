@@ -247,7 +247,10 @@ export default function ArchetypeDetailScreen() {
 
       const userForArchetype = userList
         .map(normalizeQualityRow)
-        .filter((q): q is QualityItem => q !== null && q.archetype === codeUpper);
+        .filter(
+          (q: QualityItem | null): q is QualityItem =>
+            q !== null && q.archetype === codeUpper,
+        );
 
       let catalog: QualityItem[] | null = null;
       if (userForArchetype.length === 0) {
@@ -868,10 +871,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#141519',
   },
   elementBg: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
   elementBgOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: 'rgba(15, 16, 20, 0.4)',
   },
   scroll: {
