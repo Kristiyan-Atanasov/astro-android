@@ -61,12 +61,12 @@
     },
     "extra": {
       "eas": {
-        "projectId": "5b385fcd-cb4c-4770-b433-665e4c0f0cdf"
+        "projectId": "e5729bd2-6e16-4292-aa16-f2e2fad45adc"
       }
     },
     "runtimeVersion": "1.0.0",
     "updates": {
-      "url": "https://u.expo.dev/5b385fcd-cb4c-4770-b433-665e4c0f0cdf"
+      "url": "https://u.expo.dev/e5729bd2-6e16-4292-aa16-f2e2fad45adc"
     },
     "plugins": [
       "expo-router",
@@ -102,6 +102,7 @@
           "photosPermission": "Allow AstroInsights to access your photos so you can set a profile picture."
         }
       ]
-    ]
+    ],
+    "owner": "astroinsightseood"
   }
 }
