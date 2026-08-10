@@ -41,9 +41,9 @@ const FALLBACK_MONTHLY_PRICE = '€7.99';
 const FALLBACK_YEARLY_PRICE = '€70.00';
 
 type StoreProduct = {
-  productId: string;
-  localizedPrice?: string;
-  price?: string;
+  id: string;
+  displayPrice?: string;
+  price?: number | null;
   currency?: string;
   title?: string;
   introductoryPrice?: string;
@@ -108,7 +108,7 @@ export default function SubscriptionScreen() {
 
         if (cancelled || !isMounted.current) return;
         const matched =
-          products.find((p) => p?.productId === MONTHLY_SUBSCRIPTION_SKU) ?? null;
+          products.find((p) => p?.id === MONTHLY_SUBSCRIPTION_SKU) ?? null;
         setMonthlyProduct(matched);
         setYearlyProduct(null);
       } catch (e: any) {
@@ -125,8 +125,8 @@ export default function SubscriptionScreen() {
     fallback: string,
   ): string => {
     if (!product) return fallback;
-    if (product.localizedPrice) return product.localizedPrice;
-    if (product.price) {
+    if (product.displayPrice) return product.displayPrice;
+    if (product.price != null) {
       return `${product.currency ?? ''} ${product.price}`.trim();
     }
     return fallback;
@@ -143,8 +143,8 @@ export default function SubscriptionScreen() {
 
   const selectedSku =
     selectedPlan === 'yearly'
-      ? yearlyProduct?.productId ?? YEARLY_SUBSCRIPTION_SKU
-      : monthlyProduct?.productId ?? MONTHLY_SUBSCRIPTION_SKU;
+      ? yearlyProduct?.id ?? YEARLY_SUBSCRIPTION_SKU
+      : monthlyProduct?.id ?? MONTHLY_SUBSCRIPTION_SKU;
   const selectedPriceLabel =
     selectedPlan === 'yearly' ? yearlyPriceLabel : monthlyPriceLabel;
   const ctaLabel =

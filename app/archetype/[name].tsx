@@ -20,8 +20,7 @@ if (
 ) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';

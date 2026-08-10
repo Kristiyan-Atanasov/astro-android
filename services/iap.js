@@ -73,7 +73,7 @@ function buildReceiptPayload(purchase) {
       transaction_id: purchase.transactionId,
       original_transaction_id: purchase.originalTransactionIdentifierIOS,
       transaction_date: purchase.transactionDate,
-      receipt: purchase.transactionReceipt,
+      receipt: purchase.purchaseToken,
     };
   }
 
@@ -84,9 +84,8 @@ function buildReceiptPayload(purchase) {
     transaction_id: purchase.transactionId,
     transaction_date: purchase.transactionDate,
     is_acknowledged: purchase.isAcknowledgedAndroid,
-    purchase_state: purchase.purchaseStateAndroid,
-    receipt: purchase.transactionReceipt,
-    data_android: purchase.dataAndroid,
+    purchase_state: purchase.purchaseState,
+    receipt: purchase.purchaseToken,
     signature_android: purchase.signatureAndroid,
   };
 }
@@ -231,19 +230,19 @@ export async function loadSubscriptionProducts(skus = SUBSCRIPTION_SKUS) {
   }
   try {
     await initIap();
-    console.log('[IAP] getSubscriptions() start', { skus });
+    console.log('[IAP] fetchProducts() start', { skus, type: 'subs' });
     const subs = await withTimeout(
-      RNIap.getSubscriptions({ skus }),
+      RNIap.fetchProducts({ skus, type: 'subs' }),
       GET_SUBSCRIPTIONS_TIMEOUT_MS,
-      'IAP getSubscriptions',
+      'IAP fetchProducts',
     );
-    console.log('[IAP] getSubscriptions() done', {
+    console.log('[IAP] fetchProducts() done', {
       count: Array.isArray(subs) ? subs.length : 0,
-      ids: Array.isArray(subs) ? subs.map((s) => s?.productId) : null,
+      ids: Array.isArray(subs) ? subs.map((s) => s?.id) : null,
     });
     return Array.isArray(subs) ? subs : [];
   } catch (e) {
-    console.log('[IAP] getSubscriptions error:', {
+    console.log('[IAP] fetchProducts error:', {
       code: e?.code,
       message: e?.message ?? String(e),
     });
@@ -263,17 +262,17 @@ export async function purchaseSubscription(sku = DEFAULT_SUBSCRIPTION_SKU) {
   // here, which tells the caller the product isn't configured.
   let products = [];
   try {
-    products = await RNIap.getSubscriptions({ skus: [sku] });
+    products = await RNIap.fetchProducts({ skus: [sku], type: 'subs' });
   } catch (e) {
-    console.log('⚠️ IAP getSubscriptions before purchase error:', e?.message ?? String(e));
+    console.log('⚠️ IAP fetchProducts before purchase error:', e?.message ?? String(e));
   }
 
-  console.log('🛒 IAP getSubscriptions result:', products?.map((p) => ({
-    productId: p.productId,
-    price: p.localizedPrice ?? p.price,
+  console.log('🛒 IAP fetchProducts result:', products?.map((p) => ({
+    productId: p.id,
+    price: p.displayPrice ?? p.price,
   })));
 
-  const productMatch = (products || []).find((p) => p.productId === sku);
+  const productMatch = (products || []).find((p) => p.id === sku);
   if (!productMatch) {
     const err = new Error(
       `The subscription "${sku}" isn’t available from the store yet. ` +
@@ -292,24 +291,26 @@ export async function purchaseSubscription(sku = DEFAULT_SUBSCRIPTION_SKU) {
 
     const baseOfferToken =
       Platform.OS === 'android'
-        ? productMatch?.subscriptionOfferDetails?.[0]?.offerToken
+        ? productMatch?.subscriptionOffers?.[0]?.offerTokenAndroid ??
+          productMatch?.subscriptionOfferDetailsAndroid?.[0]?.offerToken
         : undefined;
 
-    const params = Platform.select({
-      ios: { sku },
-      android: baseOfferToken
+    const request =
+      Platform.OS === 'android'
         ? {
-            skus: [sku],
-            subscriptionOffers: [{ sku, offerToken: baseOfferToken }],
+            google: baseOfferToken
+              ? {
+                  skus: [sku],
+                  subscriptionOffers: [{ sku, offerToken: baseOfferToken }],
+                }
+              : { skus: [sku] },
           }
-        : { skus: [sku] },
-      default: { sku },
-    });
+        : { apple: { sku } };
 
-    console.log('🛒 IAP requestSubscription params:', params);
+    console.log('🛒 IAP requestPurchase subscription params:', request);
 
-    RNIap.requestSubscription(params).catch((err) => {
-      console.log('🛒 IAP requestSubscription rejected:', err?.code, err?.message ?? String(err));
+    RNIap.requestPurchase({ request, type: 'subs' }).catch((err) => {
+      console.log('🛒 IAP requestPurchase rejected:', err?.code, err?.message ?? String(err));
       if (activeFlow) {
         activeFlow.reject(err);
         activeFlow = null;
