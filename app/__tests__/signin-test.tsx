@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 
 import React from "react";
-import { Text, TouchableOpacity } from "react-native";
+import { Platform, Text, TouchableOpacity } from "react-native";
 import renderer, { act } from "react-test-renderer";
 
 const mockConfigure = jest.fn();
@@ -12,6 +12,8 @@ const mockSignIn = jest.fn().mockResolvedValue({
 });
 const mockSocialLogin = jest.fn().mockResolvedValue({ access: "jwt" });
 const mockReplace = jest.fn();
+
+Object.defineProperty(Platform, "OS", { value: "android" });
 
 jest.mock("@react-native-google-signin/google-signin", () => ({
   GoogleSignin: {
@@ -103,6 +105,9 @@ describe("SignInScreen", () => {
     });
 
     expect(mockSignIn).toHaveBeenCalledTimes(1);
+    expect(mockHasPlayServices).toHaveBeenCalledWith({
+      showPlayServicesUpdateDialog: true,
+    });
     expect(mockSocialLogin).toHaveBeenCalledWith("google", "google-id-token");
     expect(mockReplace).toHaveBeenCalledWith("/onboarding/language");
   });
