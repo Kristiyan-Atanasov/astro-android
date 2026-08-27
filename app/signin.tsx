@@ -11,11 +11,14 @@ import {
 } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { useTranslation } from "react-i18next";
-
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
 import * as AppleAuthentication from "expo-apple-authentication";
-import { makeRedirectUri } from "expo-auth-session";
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
 
 import {
   getUserProfile,
@@ -30,9 +33,9 @@ import {
 } from "../services/biometric";
 import { syncDeviceTokenIfChanged } from "../services/notifications";
 
-// Required for the Google OAuth web-flow popup to dismiss correctly when
-// the deep link comes back into the app.
-WebBrowser.maybeCompleteAuthSession();
+if (Platform.OS === "web") {
+  WebBrowser.maybeCompleteAuthSession();
+}
 
 // --- Provider config -------------------------------------------------------
 
@@ -42,7 +45,87 @@ const WEB_CLIENT_ID =
 const IOS_CLIENT_ID =
   "154762470670-n099k64j893h5qr85lrhh85fiutk533e.apps.googleusercontent.com";
 
+// Native Google Sign-In returns an ID token whose audience is the web client.
+// The backend validates that token in /authentication/social_login/. Android
+// authorization is linked in Google Cloud by package name + signing SHA-1.
+if (Platform.OS !== "web") {
+  GoogleSignin.configure({
+    webClientId: WEB_CLIENT_ID,
+    iosClientId: IOS_CLIENT_ID,
+    offlineAccess: false,
+  });
+}
+
 type ProviderId = "google" | "apple";
+
+type WebGoogleButtonProps = {
+  submitting: ProviderId | null;
+  setSubmitting: React.Dispatch<React.SetStateAction<ProviderId | null>>;
+  finishSocialLogin: (provider: ProviderId, providerToken: string) => Promise<void>;
+  failureTitle: string;
+  buttonLabel: string;
+};
+
+// Keep browser OAuth isolated in a web-only component. Calling Google's
+// AuthSession hook from the native screen is what caused the Android crash:
+// the hook requires androidClientId during render, before a button is tapped.
+function WebGoogleSignInButton({
+  submitting,
+  setSubmitting,
+  finishSocialLogin,
+  failureTitle,
+  buttonLabel,
+}: WebGoogleButtonProps) {
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    webClientId: WEB_CLIENT_ID,
+    scopes: ["openid", "profile", "email"],
+  });
+
+  React.useEffect(() => {
+    if (!response || submitting !== "google") return;
+
+    if (response.type === "success") {
+      const idToken = response.params?.id_token;
+      if (!idToken) {
+        Alert.alert(failureTitle, "Google did not return an identity token.");
+        setSubmitting(null);
+        return;
+      }
+      finishSocialLogin("google", idToken).finally(() => setSubmitting(null));
+      return;
+    }
+
+    if (response.type === "error") {
+      Alert.alert(failureTitle, response.error?.message ?? "Unknown error");
+    }
+    setSubmitting(null);
+  }, [failureTitle, finishSocialLogin, response, setSubmitting, submitting]);
+
+  const onPress = async () => {
+    if (submitting || !request) return;
+    setSubmitting("google");
+    try {
+      await promptAsync();
+    } catch (e: unknown) {
+      Alert.alert(failureTitle, e instanceof Error ? e.message : String(e));
+      setSubmitting(null);
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.providerButton}
+      onPress={onPress}
+      disabled={!request || submitting !== null}
+    >
+      {submitting === "google" ? (
+        <ActivityIndicator color="#fff" />
+      ) : (
+        <Text style={styles.providerText}>{buttonLabel}</Text>
+      )}
+    </TouchableOpacity>
+  );
+}
 
 // --- Screen ----------------------------------------------------------------
 
@@ -55,22 +138,6 @@ export default function SignInScreen() {
   // if the first popup was cancelled.
   const [submitting, setSubmitting] = React.useState<ProviderId | null>(null);
   const [appleAvailable, setAppleAvailable] = React.useState(false);
-
-  // ---- Google ----
-  const APP_SCHEME =
-    "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e";
-
-  const googleRedirectUri = makeRedirectUri({
-    native: `${APP_SCHEME}:/signin`,
-  });
-
-  const [googleRequest, googleResponse, promptGoogle] =
-    Google.useIdTokenAuthRequest({
-      iosClientId: IOS_CLIENT_ID,
-      webClientId: WEB_CLIENT_ID,
-      redirectUri: googleRedirectUri,
-      scopes: ["openid", "profile", "email"],
-    });
 
   // ---- Apple ----
   React.useEffect(() => {
@@ -148,43 +215,39 @@ export default function SignInScreen() {
     [router, t]
   );
 
-  // ---- Google response handler ----
-  React.useEffect(() => {
-    if (!googleResponse || submitting !== "google") return;
-
-    if (googleResponse.type === "success") {
-      const idToken = (googleResponse.params as any)?.id_token;
-      if (!idToken) {
-        Alert.alert(
-          t("signin.googleFailed"),
-          "No id_token returned from Google."
-        );
-        setSubmitting(null);
-        return;
-      }
-      finishSocialLogin("google", idToken).finally(() => setSubmitting(null));
-      return;
-    }
-
-    if (googleResponse.type === "error") {
-      Alert.alert(
-        t("signin.googleFailed"),
-        googleResponse.error?.message ?? "Unknown error"
-      );
-    }
-    // For "cancel" / "dismiss" we silently reset.
-    setSubmitting(null);
-  }, [googleResponse, finishSocialLogin, submitting, t]);
-
   // ---- Button handlers ----
 
   const onPressGoogle = async () => {
-    if (submitting || !googleRequest) return;
+    if (submitting) return;
     setSubmitting("google");
     try {
-      await promptGoogle({ useProxy: false } as any);
-    } catch (e: any) {
-      Alert.alert(t("signin.googleFailed"), e?.message ?? String(e));
+      if (Platform.OS === "android") {
+        await GoogleSignin.hasPlayServices({
+          showPlayServicesUpdateDialog: true,
+        });
+      }
+
+      const response = await GoogleSignin.signIn();
+      if (response.type === "cancelled") return;
+
+      const idToken = response.data.idToken;
+      if (!idToken) {
+        throw new Error("Google did not return an identity token.");
+      }
+
+      await finishSocialLogin("google", idToken);
+    } catch (e: unknown) {
+      // A repeated tap can race the native sheet. Treat it like a cancellation
+      // instead of showing an alarming error to the user.
+      if (isErrorWithCode(e) && e.code === statusCodes.IN_PROGRESS) return;
+
+      const message = isErrorWithCode(e)
+        ? e.message || `Google sign-in failed (${e.code}).`
+        : e instanceof Error
+          ? e.message
+          : String(e);
+      Alert.alert(t("signin.googleFailed"), message);
+    } finally {
       setSubmitting(null);
     }
   };
@@ -246,17 +309,27 @@ export default function SignInScreen() {
           </TouchableOpacity>
         ) : null}
 
-        <TouchableOpacity
-          style={styles.providerButton}
-          onPress={onPressGoogle}
-          disabled={!googleRequest || submitting !== null}
-        >
-          {submitting === "google" ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.providerText}>{t("signin.google")}</Text>
-          )}
-        </TouchableOpacity>
+        {Platform.OS === "web" ? (
+          <WebGoogleSignInButton
+            submitting={submitting}
+            setSubmitting={setSubmitting}
+            finishSocialLogin={finishSocialLogin}
+            failureTitle={t("signin.googleFailed")}
+            buttonLabel={t("signin.google")}
+          />
+        ) : (
+          <TouchableOpacity
+            style={styles.providerButton}
+            onPress={onPressGoogle}
+            disabled={submitting !== null}
+          >
+            {submitting === "google" ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.providerText}>{t("signin.google")}</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.linksContainer}>
