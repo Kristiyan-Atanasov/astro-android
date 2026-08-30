@@ -40,6 +40,7 @@
       }
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "com.android.vending.BILLING",
         "android.permission.USE_BIOMETRIC",
