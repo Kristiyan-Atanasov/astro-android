@@ -119,14 +119,18 @@ export function routeFromNotificationData(data) {
       ? data.archetype.toUpperCase()
       : null;
 
+  const archetypeRoute = archetype
+    ? `/archetype/${archetype}?fromNotification=1`
+    : null;
+
   if (type === 'quality_activated' && archetype) {
-    return `/archetype/${archetype}`;
+    return archetypeRoute;
   }
   if (screen === 'ArchetypeDetail' && archetype) {
-    return `/archetype/${archetype}`;
+    return archetypeRoute;
   }
   if (archetype) {
-    return `/archetype/${archetype}`;
+    return archetypeRoute;
   }
   return '/home';
 }

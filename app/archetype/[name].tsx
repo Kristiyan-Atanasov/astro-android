@@ -162,7 +162,10 @@ export default function ArchetypeDetailScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { name } = useLocalSearchParams<{ name: string }>();
+  const { name, fromNotification } = useLocalSearchParams<{
+    name: string;
+    fromNotification?: string;
+  }>();
   const code = (typeof name === 'string' ? name : '').toUpperCase();
   const sign = findSign(code);
   const meta = getArchetypeMeta(code);
@@ -446,6 +449,20 @@ export default function ArchetypeDetailScreen() {
   const elementColors = meta ? ELEMENT_COLORS[meta.element] : ELEMENT_COLORS.fire;
   const elementBackground = meta ? ELEMENT_BACKGROUNDS[meta.element] : null;
 
+  const handleBack = useCallback(() => {
+    if (fromNotification === '1') {
+      router.replace('/home');
+      return;
+    }
+
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/home');
+  }, [fromNotification, router]);
+
   return (
     <View style={styles.wrapper}>
       {elementBackground ? (
@@ -467,7 +484,7 @@ export default function ArchetypeDetailScreen() {
       >
         <View style={styles.topBar}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleBack}
             style={styles.backButton}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
