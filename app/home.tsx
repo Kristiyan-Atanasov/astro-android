@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   Pressable,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +23,7 @@ import {
   clearAccessToken,
   getCachedAccessToken,
   getUserArchetypes,
+  getUserQualities,
   postOnboarding,
 } from '../services/api';
 import { clearOnboardingDraft, getOnboardingDraft } from '../services/onboardingDraft';
@@ -32,6 +33,11 @@ import {
   subscribeToNotificationTaps,
   syncDeviceTokenIfChanged,
 } from '../services/notifications';
+import {
+  isUserPremiumFromProfile,
+  isUserPremiumFromQualities,
+} from '../services/iap';
+import { rememberScroll, takeScrollRestore } from '../services/scrollRestore';
 import Astrowheel, { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
 import {
   backendCodeToLocale,
@@ -70,6 +76,7 @@ const icons = {
   profile: require('../assets/icons/profile.png'),
   edit: require('../assets/icons/edit.png'),
   notifications: require('../assets/icons/notification.png'),
+  community: require('../assets/icons/community.png'),
   subscriptions: require('../assets/icons/crown.png'),
   privacy: require('../assets/icons/privacy.png'),
   terms: require('../assets/icons/terms.png'),
@@ -83,9 +90,29 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [menuVisible, setMenuVisible] = useState(false);
   const [userName, setUserName] = useState<string>('');
+  const [isPremium, setIsPremium] = useState(false);
   const [dailyVibe, setDailyVibe] = useState<string>('');
   const [activeArchetypes, setActiveArchetypes] = useState<Set<string>>(new Set());
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').width)).current;
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(0);
+  const pendingRestoreY = useRef<number | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      const y = takeScrollRestore('home');
+      if (y == null) return undefined;
+
+      pendingRestoreY.current = y;
+      scrollRef.current?.scrollTo({ y, animated: false });
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ y, animated: false });
+        pendingRestoreY.current = null;
+      });
+
+      return undefined;
+    }, []),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -104,6 +131,21 @@ export default function HomeScreen() {
         if (typeof name === 'string' && name.trim().length > 0) {
           setUserName(name.trim().split(/\s+/)[0]);
         }
+
+        let premium = isUserPremiumFromProfile(profile);
+        if (!premium) {
+          try {
+            const qualities = await getUserQualities();
+            const fromQualities = isUserPremiumFromQualities(qualities);
+            if (fromQualities === true) premium = true;
+          } catch (qualErr) {
+            console.log(
+              'Premium qualities check failed:',
+              (qualErr as any)?.message ?? String(qualErr),
+            );
+          }
+        }
+        if (!cancelled) setIsPremium(premium);
         // If the backend has a language we haven't applied yet locally,
         // adopt it so the rest of the app re-renders in the right language.
         const langCode = (profile as any)?.user_settings?.language;
@@ -243,6 +285,7 @@ export default function HomeScreen() {
   // accepts the sign code case-insensitively; lowercase keeps the URL
   // tidy.
   const goToArchetype = (sign: ZodiacSign) => {
+    rememberScroll('home', scrollYRef.current);
     router.push(`/archetype/${sign.code.toLowerCase()}` as any);
   };
 
@@ -307,6 +350,17 @@ export default function HomeScreen() {
       <Image source={homeBg} style={styles.bg} resizeMode="cover" />
 
       <ScrollView
+        ref={scrollRef}
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          scrollYRef.current = event.nativeEvent.contentOffset.y;
+        }}
+        onContentSizeChange={() => {
+          const y = pendingRestoreY.current;
+          if (y != null) {
+            scrollRef.current?.scrollTo({ y, animated: false });
+          }
+        }}
         contentContainerStyle={[
           styles.scroll,
           { paddingBottom: 60 + insets.bottom + 24 },
@@ -472,20 +526,30 @@ export default function HomeScreen() {
                   style={styles.subscriptionBg}
                   imageStyle={styles.subscriptionBgImage}
                 >
+                  <View style={styles.subscriptionOverlay} />
                   <View style={styles.subscriptionContent}>
                     <View>
                       <Text style={styles.subscriptionLabel}>{t('menu.subscription')}</Text>
-                      <Text style={styles.subscriptionPlan}>{t('menu.plan.free')}</Text>
+                      <Text style={styles.subscriptionPlan}>
+                        {isPremium ? t('menu.plan.premium') : t('menu.plan.free')}
+                      </Text>
                     </View>
-                    <LinearGradient
-                      colors={['rgba(87, 124, 251, 1)', 'rgba(178, 131, 237, 1)']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.upgradeButton}
-                    >
-                      <Ionicons name="diamond-outline" size={14} color="#fff" />
-                      <Text style={styles.upgradeText}>{t('menu.upgrade')}</Text>
-                    </LinearGradient>
+                    {!isPremium ? (
+                      <LinearGradient
+                        colors={['rgba(87, 124, 251, 1)', 'rgba(178, 131, 237, 1)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.upgradeButton}
+                      >
+                        <Ionicons name="diamond-outline" size={14} color="#fff" />
+                        <Text style={styles.upgradeText}>{t('menu.upgrade')}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.premiumBadge}>
+                        <Ionicons name="diamond" size={14} color="#fff" />
+                        <Text style={styles.upgradeText}>{t('menu.plan.premium')}</Text>
+                      </View>
+                    )}
                   </View>
                 </ImageBackground>
               </TouchableOpacity>
@@ -495,16 +559,19 @@ export default function HomeScreen() {
                 { label: t('menu.items.home'), icon: icons.home, route: '/home' as const, replace: true },
                 { label: t('menu.items.myProfile'), icon: icons.profile, route: '/profile' as const },
                 { label: t('menu.items.notifications'), icon: icons.notifications, route: '/notifications' as const },
+                { label: t('menu.items.community'), icon: icons.community, route: '/community' as const },
                 {
                   label: t('menu.items.subscriptions'),
                   icon: icons.subscriptions,
                   route: '/subscription' as const,
-                  status: t('menu.statuses.freePlan'),
+                  status: isPremium
+                    ? t('menu.statuses.premiumPlan')
+                    : t('menu.statuses.freePlan'),
                 },
+                { label: t('menu.items.accountSettings'), icon: icons.edit, route: '/edit-profile' as const },
                 { label: t('menu.items.privacy'), icon: icons.privacy, route: '/privacy' as const },
                 { label: t('menu.items.terms'), icon: icons.terms, route: '/terms' as const },
                 { label: t('menu.items.faq'), icon: icons.faq, route: '/faq' as const },
-                { label: t('menu.items.accountSettings'), icon: icons.edit, route: '/edit-profile' as const },
               ].map((item, index) => (
                 <TouchableOpacity
                   key={index}
@@ -803,8 +870,15 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 96,
     justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: 16,
   },
   subscriptionBgImage: {
+    borderRadius: 16,
+  },
+  subscriptionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(8, 10, 18, 0.28)',
     borderRadius: 16,
   },
   subscriptionContent: {
@@ -813,6 +887,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    zIndex: 1,
   },
   subscriptionLabel: {
     color: 'rgba(255,255,255,0.85)',
@@ -837,6 +912,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontFamily: 'Nunito-Bold',
+  },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: 'rgba(87, 124, 251, 0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(178, 131, 237, 0.55)',
   },
   menuItem: {
     flexDirection: 'row',

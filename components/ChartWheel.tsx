@@ -18,7 +18,11 @@ export type ChartPlanet = {
   eclipticDeg: number;
   normDegree?: number;
   degreeLabel?: string;
+  arcMinutes?: number;
+  arcSeconds?: number;
+  positionLabel?: string;
   sign: string;
+  house?: number;
   retrograde?: boolean;
   mode?: 'natal' | 'transit';
 };
@@ -109,7 +113,11 @@ const TRANSIT_LABEL_COLORS: Record<string, string> = {
   neptune: '#8DD4F0',
   pluto: '#FF4D4D',
   ascendant: '#FFFFFF',
+  descendant: '#FFFFFF',
   midheaven: '#FF4D4D',
+  imumcoeli: '#FF4D4D',
+  northnode: '#8DD4F0',
+  southnode: '#8DD4F0',
 };
 
 const HARD_ASPECTS = new Set(['square', 'opposition']);
@@ -208,7 +216,7 @@ const BIRTH_COLORS = {
   bg: '#000000',
   line: 'rgba(255,255,255,0.98)',
   lineSpoke: 'rgba(255,255,255,0.55)',
-  lineDash: 'rgba(255,255,255,0.72)',
+  lineHouse: 'rgba(255,255,255,0.62)',
 };
 
 function wheelRadii(size: number, outerFill = 0.495) {
@@ -347,31 +355,30 @@ function ChartWheelOverlay({
 
         {showHouseCusps &&
           houses.map((house) => {
-            if (isAxisHouse(house.index)) return null;
-
-            const tickOuter = polar(
+            const axis = isAxisHouse(house.index);
+            const inner = polar(
+              cx,
+              cy,
+              zodiacInnerR * 0.05,
+              house.eclipticDeg,
+              ascendant,
+            );
+            const outer = polar(
               cx,
               cy,
               zodiacInnerR,
               house.eclipticDeg,
               ascendant,
             );
-            const tickInner = polar(
-              cx,
-              cy,
-              zodiacInnerR - size * 0.016,
-              house.eclipticDeg,
-              ascendant,
-            );
             return (
               <Line
-                key={`house-tick-${house.index}`}
-                x1={tickInner.x}
-                y1={tickInner.y}
-                x2={tickOuter.x}
-                y2={tickOuter.y}
-                stroke={BIRTH_COLORS.lineDash}
-                strokeWidth={0.75}
+                key={`house-cusp-${house.index}`}
+                x1={inner.x}
+                y1={inner.y}
+                x2={outer.x}
+                y2={outer.y}
+                stroke={axis ? BIRTH_COLORS.line : BIRTH_COLORS.lineHouse}
+                strokeWidth={axis ? 1 : 0.85}
               />
             );
           })}
@@ -587,21 +594,21 @@ type TransitLabelLayout = {
 };
 
 function transitLabelMetrics(size: number) {
-  const iconSize = size * 0.068;
-  const degreeSize = size * 0.056;
-  const degreeWidth = size * 0.13;
+  const iconSize = size * 0.056;
+  const degreeSize = size * 0.046;
+  const degreeWidth = size * 0.1;
   return { iconSize, degreeSize, degreeWidth };
 }
 
-/** Outer label band: small gap from the ring, then icon + degree */
+/** Outer label band: clear the ring, then icon + degree just outside it. */
 function transitLineStops(size: number) {
   const { iconSize, degreeSize } = transitLabelMetrics(size);
-  const gap = size * 0.014;
-  // Clear air between the outer ring and the first marker
-  const planet = size * 0.055;
-  const degree = planet + iconSize * 0.82 + gap;
-  const end = degree + degreeSize * 0.7;
-  const tierStep = size * 0.058;
+  const gap = size * 0.006;
+  // Planet center sits far enough out that the glyph clears the ring edge.
+  const planet = iconSize * 0.55 + size * 0.028;
+  const degree = planet + iconSize * 0.72 + gap;
+  const end = degree + degreeSize * 0.5;
+  const tierStep = size * 0.032;
   return { planet, degree, end, tierStep };
 }
 
@@ -637,7 +644,7 @@ function transitLabelRects(
   const { iconSize, degreeSize, degreeWidth } = transitLabelMetrics(size);
   const stops = transitLineStops(size);
   const chartAngle = transitLabelChartAngle(layout, ascendant);
-  const pad = size * 0.022;
+  const pad = size * 0.01;
 
   const rects: Rect[] = [];
 
@@ -665,12 +672,12 @@ function transitLabelRects(
       lineExtend,
       chartAngle,
     );
-    const retroPad = planet.retrograde ? degreeSize * 0.75 : 0;
+    const retroPad = planet.retrograde ? degreeSize * 0.65 : 0;
     rects.push({
       left: degreePos.x - degreeWidth / 2 - retroPad - pad,
-      top: degreePos.y - degreeSize * 0.58 - pad,
+      top: degreePos.y - degreeSize * 0.55 - pad,
       right: degreePos.x + degreeWidth / 2 + retroPad + pad,
-      bottom: degreePos.y + degreeSize * 0.58 + pad,
+      bottom: degreePos.y + degreeSize * 0.55 + pad,
     });
   } else {
     const tagPos = transitLinePoint(
@@ -732,19 +739,18 @@ function computeTransitOuterLayouts(
     .sort((a, b) => a.chartAngle - b.chartAngle);
 
   const placed: TransitLabelLayout[] = [];
-  // Prefer staying on the true longitude ray; only nudge slightly if needed.
-  const nudgeOrder = [0, 2.5, -2.5, 5, -5, 7.5, -7.5];
-  const maxExtend = tierStep * 4;
+  // Spread around the ring first; only step outward when needed.
+  const nudgeOrder = [0, 3.5, -3.5, 7, -7, 10.5, -10.5, 14, -14, 18, -18];
+  const maxTier = 2;
+  const maxExtend = tierStep * maxTier;
 
   for (const item of sorted) {
     let placedThis = false;
-    // Asc/Mc must stay on their true rays (left / top).
     const nudges = item.isAngle ? [0] : nudgeOrder;
 
-    // Try radial stacking at true angle first, then small angular nudges.
-    for (const angleNudge of nudges) {
-      for (let tier = 0; tier <= 4 && !placedThis; tier++) {
-        const lineExtend = Math.min(maxExtend, tier * tierStep);
+    for (let tier = 0; tier <= maxTier && !placedThis; tier++) {
+      const lineExtend = tier * tierStep;
+      for (const angleNudge of nudges) {
         const candidate: TransitLabelLayout = {
           planet: item.planet,
           isAngle: item.isAngle,
@@ -767,6 +773,7 @@ function computeTransitOuterLayouts(
         if (!conflict) {
           placed.push(candidate);
           placedThis = true;
+          break;
         }
       }
     }
@@ -790,7 +797,7 @@ function computeTransitLabelPad(size: number, layouts: TransitLabelLayout[]) {
     (max, layout) => Math.max(max, layout.lineExtend),
     0,
   );
-  return end + maxExtend + size * 0.01;
+  return end + maxExtend + size * 0.02;
 }
 
 function fitTransitChartSize(
@@ -905,7 +912,7 @@ function renderTransitOuterLabel(
             },
           ]}
         >
-          {planet.id === 'ascendant' ? 'Asc' : 'Mc'}
+          {planet.label}
         </Text>
       ) : null}
       {!isAngle ? (
@@ -947,57 +954,116 @@ function renderTransitOuterLabel(
   );
 }
 
-function resolveInnerGlyphRadius(
-  planet: ChartPlanet,
-  baseRadius: number,
-  allPlanets: ChartPlanet[],
-  size: number,
-  maxRadius: number,
+type InnerGlyphLayout = {
+  planet: ChartPlanet;
+  radius: number;
+  angleNudge: number;
+};
+
+function innerGlyphPoint(
+  layout: InnerGlyphLayout,
+  cx: number,
+  cy: number,
+  ascendant: number,
 ) {
-  // Stable order so nearby planets get predictable staggered rings
-  const sorted = [...allPlanets].sort(
+  return polarFromChartAngle(
+    cx,
+    cy,
+    layout.radius,
+    chartAngleDeg(layout.planet.eclipticDeg, ascendant) + layout.angleNudge,
+  );
+}
+
+function innerGlyphsCollide(
+  a: InnerGlyphLayout,
+  b: InnerGlyphLayout,
+  cx: number,
+  cy: number,
+  ascendant: number,
+  glyphSize: number,
+) {
+  const pa = innerGlyphPoint(a, cx, cy, ascendant);
+  const pb = innerGlyphPoint(b, cx, cy, ascendant);
+  const minDist = glyphSize * 1.2;
+  const dx = pa.x - pb.x;
+  const dy = pa.y - pb.y;
+  return dx * dx + dy * dy < minDist * minDist;
+}
+
+function computeInnerGlyphLayouts(
+  planets: ChartPlanet[],
+  ascendant: number,
+  baseR: number,
+  minR: number,
+  maxR: number,
+  size: number,
+): InnerGlyphLayout[] {
+  const glyphSize = size * 0.058;
+  const layoutCx = 1000;
+  const layoutCy = 1000;
+  const sorted = [...planets].sort(
     (a, b) => a.eclipticDeg - b.eclipticDeg || a.id.localeCompare(b.id),
   );
-  const index = sorted.findIndex((p) => p.id === planet.id);
-  if (index < 0) return baseRadius;
+  const placed: InnerGlyphLayout[] = [];
+  const nudgeOrder = [0, 5, -5, 10, -10, 15, -15, 20, -20];
+  const radialDeltas = [
+    0,
+    -size * 0.04,
+    size * 0.04,
+    -size * 0.08,
+    size * 0.08,
+    -size * 0.12,
+  ];
 
-  let radius = baseRadius;
-  let stack = 0;
-  for (let i = 0; i < index; i++) {
-    const other = sorted[i];
-    let diff = Math.abs(planet.eclipticDeg - other.eclipticDeg);
-    if (diff > 180) diff = 360 - diff;
-    if (diff < 16) stack += 1;
-    else if (diff < 24) stack += 0.6;
-    else if (diff < 32) stack += 0.3;
+  for (const planet of sorted) {
+    let found = false;
+
+    for (const radialDelta of radialDeltas) {
+      const radius = Math.max(minR, Math.min(maxR, baseR + radialDelta));
+      for (const angleNudge of nudgeOrder) {
+        const candidate: InnerGlyphLayout = { planet, radius, angleNudge };
+        const conflict = placed.some((p) =>
+          innerGlyphsCollide(
+            candidate,
+            p,
+            layoutCx,
+            layoutCy,
+            ascendant,
+            glyphSize,
+          ),
+        );
+        if (!conflict) {
+          placed.push(candidate);
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+
+    if (!found) {
+      placed.push({ planet, radius: baseR, angleNudge: 0 });
+    }
   }
-  radius += stack * size * 0.055;
-  return Math.min(radius, maxRadius);
+
+  return placed;
 }
 
 function renderNatalInnerGlyph(
-  planet: ChartPlanet,
+  layout: InnerGlyphLayout,
   cx: number,
   cy: number,
-  glyphR: number,
-  maxGlyphR: number,
   ascendant: number,
   size: number,
-  allPlanets: ChartPlanet[],
 ) {
+  const { planet } = layout;
   const icon = PLANET_ICONS[planet.id];
   if (!icon) return null;
 
-  const glyphSize = size * 0.07;
-  const radius = resolveInnerGlyphRadius(
-    planet,
-    glyphR,
-    allPlanets,
-    size,
-    maxGlyphR,
-  );
-  const pos = polar(cx, cy, radius, planet.eclipticDeg, ascendant);
+  const glyphSize = size * 0.058;
+  const pos = innerGlyphPoint(layout, cx, cy, ascendant);
   const half = glyphSize / 2;
+  const color = TRANSIT_LABEL_COLORS[planet.id] ?? '#FFFFFF';
 
   return (
     <View
@@ -1017,7 +1083,7 @@ function renderNatalInnerGlyph(
         style={{
           width: glyphSize,
           height: glyphSize,
-          tintColor: 'rgba(255,255,255,0.92)',
+          tintColor: color,
         }}
         resizeMode="contain"
       />
@@ -1035,13 +1101,19 @@ function TransitChartWheel({
   const glowAnim = useWheelGlow();
   const { ascendant, houses } = model;
 
-  const natalPlanets =
-    model.natalPlanets ??
-    model.planets.filter(
-      (p) => p.mode !== 'transit' && NATAL_BODIES.includes(p.id),
-    );
-  const transitPlanets =
-    model.transitPlanets ?? model.planets.filter((p) => p.mode === 'transit');
+  const natalPlanets = useMemo(
+    () =>
+      (model.natalPlanets ??
+        model.planets.filter((p) => p.mode !== 'transit')).filter((p) =>
+        NATAL_BODIES.includes(p.id),
+      ),
+    [model],
+  );
+  const transitPlanets = useMemo(
+    () =>
+      model.transitPlanets ?? model.planets.filter((p) => p.mode === 'transit'),
+    [model],
+  );
 
   const outerLabelItems = useMemo(
     () => transitPlanets.map((planet) => ({ planet, isAngle: false })),
@@ -1050,7 +1122,7 @@ function TransitChartWheel({
 
   // Fit transit wheel inside the canvas with room for outer labels.
   const fitted = useMemo(() => {
-    let wheelSize = Math.round(maxTotal * 0.86);
+    let wheelSize = Math.round(maxTotal * 0.92);
     let layouts: TransitLabelLayout[] = [];
     let outerR = 0;
     let zodiacInnerR = 0;
@@ -1100,35 +1172,28 @@ function TransitChartWheel({
   const cx = totalSize / 2;
   const cy = totalSize / 2;
   const natalGlyphR = planetR * 0.92;
-  const maxNatalGlyphR = zodiacInnerR * 0.88;
-  const { end } = transitLineStops(size);
+  const minNatalGlyphR = planetR * 0.42;
+  const maxNatalGlyphR = zodiacInnerR * 0.86;
 
-  const leaderLines = useMemo(() => {
-    return outerLabelLayouts.map((layout) => {
-      // Anchor on the true ecliptic degree; tip follows the (maybe nudged) label.
-      const ringPoint = polar(
-        cx,
-        cy,
-        outerR,
-        layout.planet.eclipticDeg,
+  const innerGlyphLayouts = useMemo(
+    () =>
+      computeInnerGlyphLayouts(
+        natalPlanets,
         ascendant,
-      );
-      const tipAngle = transitLabelChartAngle(layout, ascendant);
-      const tipPoint = polarFromChartAngle(
-        cx,
-        cy,
-        outerR + end * 0.55 + layout.lineExtend,
-        tipAngle,
-      );
-      return {
-        key: `leader-${layout.planet.id}`,
-        x1: ringPoint.x,
-        y1: ringPoint.y,
-        x2: tipPoint.x,
-        y2: tipPoint.y,
-      };
-    });
-  }, [ascendant, cx, cy, end, outerLabelLayouts, outerR]);
+        natalGlyphR,
+        minNatalGlyphR,
+        maxNatalGlyphR,
+        size,
+      ),
+    [
+      natalPlanets,
+      ascendant,
+      natalGlyphR,
+      minNatalGlyphR,
+      maxNatalGlyphR,
+      size,
+    ],
+  );
 
   return (
     <View style={[styles.birthWrap, { width: totalSize, height: totalSize }]}>
@@ -1139,22 +1204,8 @@ function TransitChartWheel({
         size={size}
         ascendant={ascendant}
         houses={houses}
-        showHouseCusps={false}
+        showHouseCusps
       />
-
-      <Svg width={totalSize} height={totalSize} style={StyleSheet.absoluteFill}>
-        {leaderLines.map((line) => (
-          <Line
-            key={line.key}
-            x1={line.x1}
-            y1={line.y1}
-            x2={line.x2}
-            y2={line.y2}
-            stroke="rgba(255,255,255,0.35)"
-            strokeWidth={0.5}
-          />
-        ))}
-      </Svg>
 
       <MonochromeZodiacGlyphs
         cx={cx}
@@ -1164,17 +1215,8 @@ function TransitChartWheel({
         glowAnim={glowAnim}
       />
 
-      {natalPlanets.map((p) =>
-        renderNatalInnerGlyph(
-          p,
-          cx,
-          cy,
-          natalGlyphR,
-          maxNatalGlyphR,
-          ascendant,
-          size,
-          natalPlanets,
-        ),
+      {innerGlyphLayouts.map((layout) =>
+        renderNatalInnerGlyph(layout, cx, cy, ascendant, size),
       )}
 
       {outerLabelLayouts.map((layout) =>
@@ -1204,11 +1246,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   birthZodiacGlowOuter: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -20,11 +20,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ChartWheel, { type ChartModel } from '../components/ChartWheel';
+import ChartPositionsList from '../components/ChartPositionsList';
 // ChartWheel renders assets/images/astro-wheel-chart.svg for natal + transit
 import { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
 import { getUserProfile } from '../services/api';
 import {
-  buildNatalChartModel,
   buildTransitChartModel,
   computeBigThree,
   parseBirthInput,
@@ -36,7 +36,6 @@ import {
 } from '../services/profilePhoto';
 const LOG = '[Profile]';
 
-type ChartTab = 'natal' | 'transit';
 
 const ZODIAC_BY_CODE: Record<string, ZodiacSign> = ZODIAC_SIGNS.reduce(
   (acc, sign) => {
@@ -132,28 +131,18 @@ function ChartPanel({
   loadingText,
   emptyText,
   width,
-  kind = 'natal',
 }: {
   loading: boolean;
   model: ChartModel | null;
   loadingText: string;
   emptyText: string;
   width: number;
-  kind?: 'natal' | 'transit';
 }) {
-  // Birth chart size left alone; only transit canvas is tuned here.
-  const chartSize =
-    kind === 'transit' ? Math.round(width - 24) : width - 28;
+  const chartSize = Math.round(width - 24);
 
   if (loading) {
     return (
-      <View
-        style={[
-          styles.chartPanel,
-          kind === 'natal' && styles.chartPanelNatal,
-          { minHeight: chartSize },
-        ]}
-      >
+      <View style={[styles.chartPanel, styles.chartPanelTransit, { minHeight: chartSize }]}>
         <ActivityIndicator color="#B283ED" size="large" />
         <Text style={styles.chartHintText}>{loadingText}</Text>
       </View>
@@ -162,26 +151,15 @@ function ChartPanel({
 
   if (model) {
     return (
-      <View
-        style={[
-          styles.chartPanel,
-          kind === 'natal' && styles.chartPanelNatal,
-          kind === 'transit' && styles.chartPanelTransit,
-        ]}
-      >
+      <View style={[styles.chartPanel, styles.chartPanelTransit]}>
         <ChartWheel model={model} size={chartSize} />
+        <ChartPositionsList model={model} />
       </View>
     );
   }
 
   return (
-    <View
-      style={[
-        styles.chartPanel,
-        kind === 'natal' && styles.chartPanelNatal,
-        { minHeight: chartSize * 0.5 },
-      ]}
-    >
+    <View style={[styles.chartPanel, { minHeight: chartSize * 0.5 }]}>
       <Text style={styles.chartHintText}>{emptyText}</Text>
     </View>
   );
@@ -196,7 +174,6 @@ export default function ProfileScreen() {
 
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profile, setProfile] = useState<any>(null);
-  const [tab, setTab] = useState<ChartTab>('natal');
   const [chartError, setChartError] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -206,16 +183,11 @@ export default function ProfileScreen() {
     [profile],
   );
 
-  const natalModel = useMemo(() => {
+  const chartModel = useMemo(() => {
     if (!profile) return null;
-    return buildNatalChartModel(profile);
-  }, [profile]);
-
-  const transitModel = useMemo(() => {
-    if (!profile || tab !== 'transit') return null;
-    console.log(LOG, 'computing transit chart (memo)…');
+    console.log(LOG, 'computing natal + transit chart (memo)…');
     return buildTransitChartModel(profile);
-  }, [profile, tab]);
+  }, [profile]);
 
   const birthLine = useMemo(() => {
     const datePart = formatBirthDate(profile?.birth_date, dateLocale);
@@ -398,7 +370,7 @@ export default function ProfileScreen() {
           return;
         }
 
-        if (!buildNatalChartModel(data)) {
+        if (!buildTransitChartModel(data)) {
           console.log(LOG, 'natal chart model is null');
           setChartError('chart_failed');
         } else {
@@ -423,7 +395,6 @@ export default function ProfileScreen() {
     };
   }, [i18n.language]);
 
-  const activeModel = tab === 'natal' ? natalModel : transitModel;
   const chartLoading = loadingProfile;
 
   const chartEmptyText =
@@ -451,7 +422,15 @@ export default function ProfileScreen() {
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{t('profilePage.pageTitle')}</Text>
-          <View style={styles.headerSidePlaceholder} />
+          <TouchableOpacity
+            onPress={() => router.push('/edit-profile')}
+            style={styles.headerSideButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel={t('profilePage.accountSettings')}
+          >
+            <Ionicons name="settings-outline" size={20} color="#fff" />
+          </TouchableOpacity>
         </View>
 
         {loadingProfile ? (
@@ -513,61 +492,28 @@ export default function ProfileScreen() {
 
             <Text style={styles.dividerText}>•  ☽  ✦  ☾  •</Text>
 
-            <View style={styles.tabBar}>
-              <TouchableOpacity
-                style={[styles.tab, tab === 'natal' && styles.tabActive]}
-                onPress={() => {
-                  console.log(LOG, 'tab → natal');
-                  setTab('natal');
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.tabText, tab === 'natal' && styles.tabTextActive]}>
-                  {t('profilePage.birthChart')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.tab, tab === 'transit' && styles.tabActive]}
-                onPress={() => {
-                  console.log(LOG, 'tab → transit');
-                  setTab('transit');
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.tabText, tab === 'transit' && styles.tabTextActive]}>
-                  {t('profilePage.transits')}
-                </Text>
-              </TouchableOpacity>
+            <View style={styles.chartSectionHeading}>
+              <Text style={styles.chartSectionTitle}>
+                {t('profilePage.natalChartAndTransits')}
+              </Text>
+              <Text style={styles.transitMetaText}>
+                {[
+                  transitHeader.date,
+                  transitHeader.time,
+                  transitHeader.city || null,
+                ]
+                  .filter(Boolean)
+                  .join('  ·  ')}
+              </Text>
             </View>
-
-            {tab === 'transit' ? (
-              <View style={styles.transitHeader}>
-                <Text style={styles.transitNowLine}>
-                  {transitHeader.date} {transitHeader.time}
-                </Text>
-                {transitHeader.city ? (
-                  <Text style={styles.transitPlace}>{transitHeader.city}</Text>
-                ) : null}
-              </View>
-            ) : null}
 
             <ChartPanel
               loading={chartLoading}
-              model={activeModel}
+              model={chartModel}
               loadingText={t('profilePage.chartLoading')}
               emptyText={chartEmptyText}
               width={width}
-              kind={tab}
             />
-
-            <TouchableOpacity
-              style={styles.accountLink}
-              onPress={() => router.push('/edit-profile')}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.accountLinkText}>{t('profilePage.accountSettings')}</Text>
-              <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.55)" />
-            </TouchableOpacity>
           </>
         )}
       </ScrollView>
@@ -595,10 +541,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerSidePlaceholder: {
-    width: 40,
-    height: 40,
   },
   headerTitle: {
     flex: 1,
@@ -695,47 +637,31 @@ const styles = StyleSheet.create({
     color: '#577CFB',
     fontSize: 14,
     letterSpacing: 6,
-    marginBottom: 18,
+    marginBottom: 14,
     opacity: 0.85,
     fontFamily: 'SFProDisplay-Regular',
   },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(57, 60, 71, 0.55)',
-    borderRadius: 28,
-    padding: 4,
-    marginBottom: 20,
-  },
-  tab: {
-    flex: 1,
-    borderRadius: 24,
-    paddingVertical: 12,
+  chartSectionHeading: {
     alignItems: 'center',
+    marginBottom: 18,
+    paddingHorizontal: 4,
   },
-  tabActive: {
-    backgroundColor: '#577CFB',
-  },
-  tabText: {
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 15,
-    fontFamily: 'Nunito-Bold',
-  },
-  tabTextActive: {
+  chartSectionTitle: {
     color: '#fff',
+    fontSize: 18,
+    lineHeight: 24,
+    fontFamily: 'CooperLtBT-Bold',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    marginBottom: 6,
   },
-  transitHeader: {
-    marginBottom: 8,
-  },
-  transitNowLine: {
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 13,
-    fontFamily: 'SFProDisplay-Regular',
-    marginBottom: 2,
-  },
-  transitPlace: {
-    color: 'rgba(255,255,255,0.5)',
+  transitMetaText: {
+    color: 'rgba(211, 213, 251, 0.62)',
     fontSize: 12,
+    lineHeight: 16,
     fontFamily: 'SFProDisplay-Regular',
+    textAlign: 'center',
+    letterSpacing: 0.2,
   },
   chartPanel: {
     alignItems: 'center',
@@ -745,7 +671,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     overflow: 'visible',
   },
-  chartPanelNatal: {},
   chartPanelTransit: {
     marginHorizontal: 0,
   },
@@ -756,19 +681,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 16,
     marginTop: 8,
-  },
-  accountLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(57, 60, 71, 0.45)',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  accountLinkText: {
-    color: '#fff',
-    fontSize: 15,
-    fontFamily: 'Nunito-Bold',
   },
 });

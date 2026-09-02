@@ -377,3 +377,79 @@ export async function restoreSubscriptions() {
 export function isPremiumStatus(status) {
   return status === 'active' || status === 'in_grace_period';
 }
+
+
+/**
+ * Best-effort premium detection from the user profile payload.
+ * Backends vary on field names; we accept the common ones.
+ */
+export function isUserPremiumFromProfile(profile) {
+  if (!profile || typeof profile !== 'object') return false;
+
+  if (
+    profile.is_premium === true ||
+    profile.has_premium === true ||
+    profile.has_active_subscription === true ||
+    profile.is_subscribed === true ||
+    profile.is_pro === true
+  ) {
+    return true;
+  }
+  if (
+    profile.is_premium === false ||
+    profile.has_premium === false ||
+    profile.has_active_subscription === false ||
+    profile.is_subscribed === false
+  ) {
+    return false;
+  }
+
+  const candidates = [
+    profile.subscription_status,
+    profile.subscriptionStatus,
+    profile.subscription?.status,
+    profile.user_subscription?.status,
+    profile.plan,
+    profile.plan_type,
+    profile.account_type,
+    profile.tier,
+  ];
+
+  for (const raw of candidates) {
+    if (typeof raw !== 'string' || !raw.trim()) continue;
+    const value = raw.trim().toLowerCase();
+    if (
+      isPremiumStatus(value) ||
+      value === 'premium' ||
+      value === 'paid' ||
+      value === 'pro' ||
+      value === 'subscribed'
+    ) {
+      return true;
+    }
+    if (
+      value === 'free' ||
+      value === 'locked' ||
+      value === 'inactive' ||
+      value === 'expired' ||
+      value === 'cancelled' ||
+      value === 'canceled'
+    ) {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Infer premium from user_qualities: if any paid (non free-tier) quality
+ * is not LOCKED, the user has premium access.
+ * Returns null when the list can't decide (empty / missing).
+ */
+export function isUserPremiumFromQualities(qualities) {
+  if (!Array.isArray(qualities) || qualities.length === 0) return null;
+  const paid = qualities.filter((q) => q && !q.is_free_tier);
+  if (paid.length === 0) return null;
+  return paid.some((q) => String(q.status || '').toUpperCase() !== 'LOCKED');
+}

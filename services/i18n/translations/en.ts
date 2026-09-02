@@ -172,7 +172,7 @@ const en = {
   menu: {
     title: 'Menu',
     subscription: 'Subscription',
-    plan: { free: 'Free' },
+    plan: { free: 'Free', premium: 'Premium' },
     upgrade: 'Upgrade',
     items: {
       home: 'Home',
@@ -180,6 +180,7 @@ const en = {
       accountSettings: 'Account settings',
       editProfile: 'Edit Profile',
       notifications: 'Notifications',
+      community: 'Community',
       subscriptions: 'Subscriptions',
       privacy: 'Privacy policy',
       terms: 'Terms of Service',
@@ -188,6 +189,7 @@ const en = {
     },
     statuses: {
       freePlan: 'Free Plan',
+      premiumPlan: 'Premium',
     },
   },
 
@@ -211,6 +213,7 @@ const en = {
     pageTitle: 'Profile',
     birthChart: 'Birth Chart',
     transits: 'Transits',
+    natalChartAndTransits: 'Natal Chart and Transits',
     sun: 'Sun',
     moon: 'Moon',
     rising: 'AC',
@@ -243,6 +246,26 @@ const en = {
       'We couldn’t run the safety check on that image. Try another photo, or check your connection and try again.',
     photoFailedTitle: 'Upload failed',
     photoFailedBody: 'Something went wrong while uploading. Please try again.',
+    chartPositionsTitle: 'Planetary Positions',
+    chartPositionsBody: 'Body',
+    chartPositionsPosition: 'Sign · House',
+    chartPositionsAngles: 'Chart Angles',
+    planetSun: 'Sun',
+    planetMoon: 'Moon',
+    planetMercury: 'Mercury',
+    planetVenus: 'Venus',
+    planetMars: 'Mars',
+    planetJupiter: 'Jupiter',
+    planetSaturn: 'Saturn',
+    planetUranus: 'Uranus',
+    planetNeptune: 'Neptune',
+    planetPluto: 'Pluto',
+    planetNorthNode: 'North Node',
+    planetSouthNode: 'South Node',
+    planetAscendant: 'Ascendant',
+    planetMidheaven: 'Midheaven',
+    planetDescendant: 'Descendant',
+    planetImumCoeli: 'Imum Coeli',
   },
 
   editProfile: {
@@ -554,14 +577,13 @@ const en = {
     owningDescription:
       'contains affirmations for those who already possess the qualities of the sign, but may want to elevate it and reach their highest potential.',
     growthIntro:
-      'We grow in two ways in this lifetime: by refining what we’re naturally gifted at and by learning the energies we weren’t born knowing.',
-    learningWhy:
-      'The qualities in the "Learning" section matter, because they are often the “languages” spoken by the people closest to us: our partner, our children, our parents, siblings and sometimes our closest friends. When we don’t understand these archetypal languages we experience friction, misunderstandings or emotional distance. But when we learn them our relationships soften. We can love others in a way they truly feel and we allow them to love us back in their own authentic way.',
-    switchExplain:
-      'Tap a quality to switch it on — it turns purple, becomes active and starts showing up in your daily insights. Swipe it right once you’ve learned it to move it to the bottom and count it toward your progress.',
-    explorePace: 'Explore everything at your own pace.',
-    glowingHint:
-      'If this archetype is glowing in your Astrowheel, we recommend starting with the Learning qualities, since they represent important lessons for your growth at this stage of your life. Focus on the ones that feel difficult — learning them will bring you the biggest rewards.',
+      'We grow in two ways in this lifetime:\n• by refining what we’re naturally gifted at\n• by learning the energies we weren’t born knowing',
+    masteringSectionExplain:
+      'The "Learning" section helps us learn the language of this sign, especially when the nature of the archetype feels unfamiliar to us, but we sense that it is important to master it. By activating qualities from this list you\'ll receive daily reminders that will keep you on your path.',
+    managingSectionExplain:
+      'The "Balancing" section, on the other hand, is for cases in which the sign and its way of behaving and thinking are not unfamiliar to us, but we often operate through its lower expressions. This is why we want to be reminded of its higher expressions, in order to embody them.',
+    explorePace:
+      'You can read the qualities in both categories and select everything you feel you need to be reminded of more often.',
     tabMastering: 'Learning',
     tabManaging: 'Balancing',
     progress: 'Progress',
@@ -573,7 +595,7 @@ const en = {
     openHint: 'Read',
     legendTitle: 'How it works',
     legendTap:
-      'Tap a trait to activate it (purple) — active traits power your daily insights.',
+      'Tap a trait to activate it (purple). Active traits power your daily insights.',
     legendLearned:
       'Swipe right once you’ve learned it — it turns green and moves to the bottom.',
     legendUnlearn:

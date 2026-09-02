@@ -1,5 +1,5 @@
 // app/archetype/[name].tsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,7 @@ import {
   setQualityActivation,
   setQualityCompletion,
 } from '../../services/api';
+import { rememberScroll, takeScrollRestore } from '../../services/scrollRestore';
 
 type QualityStatus = 'ACTIVE' | 'INACTIVE' | 'LOCKED';
 
@@ -218,6 +219,17 @@ export default function ArchetypeDetailScreen() {
 
   const isMounted = useRef(true);
   const hasLoadedOnce = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(0);
+  const pendingRestoreY = useRef<number | null>(null);
+  const scrollRestoreKey = `archetype:${code}`;
+
+  const applyPendingScroll = useCallback(() => {
+    const y = pendingRestoreY.current;
+    if (y == null) return;
+    scrollRef.current?.scrollTo({ y, animated: false });
+  }, []);
+
   useEffect(() => {
     isMounted.current = true;
     return () => {
@@ -228,6 +240,7 @@ export default function ArchetypeDetailScreen() {
   // Switching archetype (e.g. Leo → Virgo) must not reuse the previous list.
   useEffect(() => {
     hasLoadedOnce.current = false;
+    pendingRestoreY.current = null;
     setAllQualities(null);
     setServerPercent(null);
     setLoading(true);
@@ -293,10 +306,38 @@ export default function ArchetypeDetailScreen() {
   // learned / active state and progress survive navigation away and back.
   useFocusEffect(
     useCallback(() => {
-      loadQualities({ silent: hasLoadedOnce.current });
-      refreshProgress();
-    }, [loadQualities, refreshProgress]),
+      let cancelled = false;
+      const restoreY = takeScrollRestore(scrollRestoreKey);
+      if (restoreY != null) {
+        pendingRestoreY.current = restoreY;
+        applyPendingScroll();
+        requestAnimationFrame(applyPendingScroll);
+      }
+
+      (async () => {
+        await loadQualities({ silent: hasLoadedOnce.current });
+        await refreshProgress();
+        if (cancelled) return;
+        if (pendingRestoreY.current != null) {
+          applyPendingScroll();
+          requestAnimationFrame(() => {
+            applyPendingScroll();
+            pendingRestoreY.current = null;
+          });
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [loadQualities, refreshProgress, scrollRestoreKey, applyPendingScroll]),
   );
+
+  useLayoutEffect(() => {
+    if (pendingRestoreY.current != null) {
+      applyPendingScroll();
+    }
+  }, [allQualities, applyPendingScroll]);
 
   const archetypeQualities = useMemo(() => {
     if (!allQualities) return [];
@@ -365,6 +406,7 @@ export default function ArchetypeDetailScreen() {
         return;
       }
 
+      rememberScroll(scrollRestoreKey, scrollYRef.current);
       router.push({
         pathname: '/archetype/quality/[id]',
         params: {
@@ -375,7 +417,7 @@ export default function ArchetypeDetailScreen() {
         },
       } as any);
     },
-    [router, code, showPaywall],
+    [router, code, showPaywall, scrollRestoreKey],
   );
 
   // Tap: toggle notification activation (purple = active in daily insights).
@@ -476,6 +518,16 @@ export default function ArchetypeDetailScreen() {
         </>
       ) : null}
       <ScrollView
+        ref={scrollRef}
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          scrollYRef.current = event.nativeEvent.contentOffset.y;
+        }}
+        onContentSizeChange={() => {
+          if (pendingRestoreY.current != null) {
+            applyPendingScroll();
+          }
+        }}
         contentContainerStyle={[
           styles.scroll,
           { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 32 },
@@ -602,10 +654,13 @@ export default function ArchetypeDetailScreen() {
         {explainExpanded ? (
           <View style={styles.explainBody}>
             <Text style={styles.unlockBlock}>{t('archetype.growthIntro')}</Text>
-            <Text style={styles.unlockBlock}>{t('archetype.learningWhy')}</Text>
-            <Text style={styles.unlockBlock}>{t('archetype.switchExplain')}</Text>
+            <Text style={styles.unlockBlock}>
+              {t('archetype.masteringSectionExplain')}
+            </Text>
+            <Text style={styles.unlockBlock}>
+              {t('archetype.managingSectionExplain')}
+            </Text>
             <Text style={styles.unlockBlockBold}>{t('archetype.explorePace')}</Text>
-            <Text style={styles.unlockBlock}>{t('archetype.glowingHint')}</Text>
           </View>
         ) : null}
 

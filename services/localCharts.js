@@ -50,6 +50,12 @@ const NATAL_BODIES = [
   'pluto',
 ];
 
+const NATAL_POINTS = ['northnode', 'southnode'];
+
+const ANGLE_IDS = ['ascendant', 'midheaven', 'descendant', 'imumcoeli'];
+
+const NATAL_INNER_IDS = [...NATAL_BODIES, ...NATAL_POINTS, ...ANGLE_IDS];
+
 const BODY_LABELS = {
   sun: '☉',
   moon: '☽',
@@ -62,7 +68,11 @@ const BODY_LABELS = {
   neptune: '♆',
   pluto: '♇',
   ascendant: 'AC',
+  descendant: 'DC',
   midheaven: 'MC',
+  imumcoeli: 'IC',
+  northnode: 'NN',
+  southnode: 'SN',
 };
 
 export function normalizeSignCode(value) {
@@ -204,19 +214,131 @@ function readNormDegree(body, eclipticDeg) {
   return Math.floor(((eclipticDeg % 30) + 30) % 30);
 }
 
-function extractBody(id, body, mode) {
-  const eclipticDeg = readEclipticDeg(body);
-  if (eclipticDeg == null) return null;
+function readInSignArc(body, eclipticDeg) {
+  const formatted30 = body?.ChartPosition?.Ecliptic?.ArcDegreesFormatted30;
+  if (typeof formatted30 === 'string') {
+    const match = /^(\d+)°\s*(\d+)'\s*(\d+)/.exec(formatted30);
+    if (match) {
+      return {
+        normDegree: Number(match[1]),
+        arcMinutes: Number(match[2]),
+        arcSeconds: Number(match[3]),
+        positionLabel: `${match[1]}° ${match[2]}' ${match[3]}"`,
+      };
+    }
+  }
 
-  const normDegree = readNormDegree(body, eclipticDeg);
+  const inSign = ((eclipticDeg % 30) + 30) % 30;
+  const normDegree = Math.floor(inSign);
+  const minFloat = (inSign - normDegree) * 60;
+  const arcMinutes = Math.floor(minFloat);
+  const arcSeconds = Math.round((minFloat - arcMinutes) * 60);
+
+  return {
+    normDegree,
+    arcMinutes,
+    arcSeconds,
+    positionLabel: `${normDegree}° ${arcMinutes}' ${arcSeconds}"`,
+  };
+}
+
+function readHouseId(body, id) {
+  const fromBody = body?.House?.id;
+  if (typeof fromBody === 'number' && fromBody >= 1 && fromBody <= 12) {
+    return fromBody;
+  }
+  if (id === 'ascendant') return 1;
+  if (id === 'imumcoeli') return 4;
+  if (id === 'descendant') return 7;
+  if (id === 'midheaven') return 10;
+  return null;
+}
+
+function normalizeEclipticDeg(deg) {
+  return ((deg % 360) + 360) % 360;
+}
+
+function signFromEclipticDeg(deg) {
+  const signs = Object.values(SIGN_FROM_LIB);
+  const index = Math.floor(normalizeEclipticDeg(deg) / 30) % 12;
+  return signs[index] || '';
+}
+
+function extractOppositeAngle(id, sourceDeg, mode) {
+  const eclipticDeg = normalizeEclipticDeg(sourceDeg + 180);
+  const normDegree = Math.floor(((eclipticDeg % 30) + 30) % 30);
+  const inSign = ((eclipticDeg % 30) + 30) % 30;
+  const minFloat = (inSign - normDegree) * 60;
+  const arcMinutes = Math.floor(minFloat);
+  const arcSeconds = Math.round((minFloat - arcMinutes) * 60);
 
   return {
     id,
     label: BODY_LABELS[id] || id.toUpperCase(),
     eclipticDeg,
     normDegree,
+    arcMinutes,
+    arcSeconds,
+    positionLabel: `${normDegree}° ${arcMinutes}' ${arcSeconds}"`,
     degreeLabel: `${normDegree}°`,
+    sign: signFromEclipticDeg(eclipticDeg),
+    house: readHouseId(null, id),
+    retrograde: false,
+    mode,
+  };
+}
+
+function extractAngles(horoscope, mode) {
+  const ascDeg = readEclipticDeg(horoscope.Ascendant);
+  const mcDeg = readEclipticDeg(horoscope.Midheaven);
+  const angles = [];
+
+  const asc = extractBody('ascendant', horoscope.Ascendant, mode);
+  if (asc) angles.push(asc);
+
+  const mc = extractBody('midheaven', horoscope.Midheaven, mode);
+  if (mc) angles.push(mc);
+
+  if (ascDeg != null) {
+    angles.push(extractOppositeAngle('descendant', ascDeg, mode));
+  }
+  if (mcDeg != null) {
+    angles.push(extractOppositeAngle('imumcoeli', mcDeg, mode));
+  }
+
+  return angles;
+}
+
+function extractCelestialPoints(horoscope, mode) {
+  const points = [];
+  const celestialPoints = horoscope.CelestialPoints;
+  if (!celestialPoints) return points;
+
+  for (const id of NATAL_POINTS) {
+    const item = extractBody(id, celestialPoints[id], mode);
+    if (item) points.push(item);
+  }
+
+  return points;
+}
+
+function extractBody(id, body, mode) {
+  const eclipticDeg = readEclipticDeg(body);
+  if (eclipticDeg == null) return null;
+
+  const arc = readInSignArc(body, eclipticDeg);
+
+  return {
+    id,
+    label: BODY_LABELS[id] || id.toUpperCase(),
+    eclipticDeg,
+    normDegree: arc.normDegree,
+    arcMinutes: arc.arcMinutes,
+    arcSeconds: arc.arcSeconds,
+    positionLabel: arc.positionLabel,
+    degreeLabel: `${arc.normDegree}°`,
     sign: signFromLibKey(body?.Sign?.key),
+    house: readHouseId(body, id),
     retrograde: Boolean(body?.isRetrograde),
     mode,
   };
@@ -312,11 +434,8 @@ function extractChartModel(horoscope, mode) {
     if (item) planets.push(item);
   }
 
-  const asc = extractBody('ascendant', horoscope.Ascendant, mode);
-  if (asc) planets.push(asc);
-
-  const mc = extractBody('midheaven', horoscope.Midheaven, mode);
-  if (mc) planets.push(mc);
+  planets.push(...extractCelestialPoints(horoscope, mode));
+  planets.push(...extractAngles(horoscope, mode));
 
   return {
     kind: mode,
@@ -421,21 +540,18 @@ export function buildTransitChartModel(profile) {
       if (item) transitPlanets.push(item);
     }
 
-    const natalBodies = natalModel.planets.filter((p) =>
-      NATAL_BODIES.includes(p.id),
-    );
-    const angles = natalModel.planets.filter(
-      (p) => p.id === 'ascendant' || p.id === 'midheaven',
+    const natalInner = natalModel.planets.filter((p) =>
+      NATAL_INNER_IDS.includes(p.id),
     );
 
     const model = {
       kind: 'transit',
       ascendant: natalModel.ascendant,
       houses: natalModel.houses,
-      planets: [...natalBodies, ...transitPlanets, ...angles],
-      natalPlanets: natalBodies,
+      planets: [...natalInner, ...transitPlanets],
+      natalPlanets: natalInner,
       transitPlanets,
-      aspects: computeCrossAspects(natalBodies, transitPlanets),
+      aspects: computeCrossAspects(natalInner, transitPlanets),
     };
 
     console.log(LOG, 'transit chart built', {
