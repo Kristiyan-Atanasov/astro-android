@@ -2,7 +2,7 @@
 // RN-safe profile photo checks: file rules + remote NSFW classification.
 // (On-device NSFWJS/TFJS is not compatible with React Native / Metro.)
 
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import Constants from 'expo-constants';
 

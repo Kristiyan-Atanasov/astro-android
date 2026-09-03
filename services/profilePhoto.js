@@ -2,7 +2,7 @@
 // Profile avatar: pick from library, safety-check, upload to backend.
 // Signed S3 URLs expire — never persist them; refresh from profile APIs.
 
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as SecureStore from 'expo-secure-store';
 import {
@@ -164,7 +164,12 @@ async function prepareUploadFile(asset) {
 function mapUploadError(error) {
   const status = error?.status;
   const message = String(error?.message ?? '').toLowerCase();
-  if (status === 413 || message.includes('too large') || message.includes('5')) {
+  if (
+    status === 413 ||
+    message.includes('too large') ||
+    message.includes('5 mb') ||
+    message.includes('5mb')
+  ) {
     return 'too_large';
   }
   if (
