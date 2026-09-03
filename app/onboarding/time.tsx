@@ -7,17 +7,31 @@ import {
   Dimensions,
   TouchableOpacity,
   Image,
-  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mergeOnboardingDraft } from '../../services/onboardingDraft';
 import OnboardingHeader from '../../components/OnboardingHeader';
+import ScrollWheelPicker from '../../components/ScrollWheelPicker';
 
 const backgroundImg = require('../../assets/images/background.png');
 const starsImg = require('../../assets/images/stars.png');
+
+const HOUR_OPTIONS = Array.from({ length: 12 }, (_, i) => {
+  const val = String(i + 1).padStart(2, '0');
+  return { value: val, label: val };
+});
+
+const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, i) => {
+  const val = String(i).padStart(2, '0');
+  return { value: val, label: val };
+});
+
+const PERIOD_OPTIONS = [
+  { value: 'AM', label: 'AM' },
+  { value: 'PM', label: 'PM' },
+];
 
 function to24Hour(hour12Str: string, minuteStr: string, period: 'AM' | 'PM') {
   const h12 = Math.max(1, Math.min(12, parseInt(hour12Str, 10) || 12));
@@ -40,7 +54,7 @@ export default function TimeScreen() {
 
   const computed = useMemo(
     () => to24Hour(hour, minute, period),
-    [hour, minute, period]
+    [hour, minute, period],
   );
 
   const handleNext = async () => {
@@ -64,8 +78,6 @@ export default function TimeScreen() {
     try {
       setSubmitting(true);
 
-      // If user doesn't know, store nulls (only if your final submit allows nulls).
-      // Alternatively remove these lines and just navigate without saving.
       await mergeOnboardingDraft({
         birth_hour: null,
         birth_minute: null,
@@ -79,6 +91,47 @@ export default function TimeScreen() {
       setSubmitting(false);
     }
   };
+
+  const renderAndroidWheels = () => (
+    <View style={styles.pickerRow}>
+      <View style={styles.pickerColumn}>
+        <Text style={styles.pickerLabel}>{t('onboarding.time.hourLabel')}</Text>
+        <View style={styles.wheelContainer}>
+          <ScrollWheelPicker
+            options={HOUR_OPTIONS}
+            selectedValue={hour}
+            onChange={setHour}
+            enabled={!submitting}
+          />
+        </View>
+      </View>
+
+      <View style={styles.pickerColumn}>
+        <Text style={styles.pickerLabel}>{t('onboarding.time.minuteLabel')}</Text>
+        <View style={styles.wheelContainer}>
+          <ScrollWheelPicker
+            options={MINUTE_OPTIONS}
+            selectedValue={minute}
+            onChange={setMinute}
+            enabled={!submitting}
+          />
+        </View>
+      </View>
+
+      <View style={styles.pickerColumn}>
+        <Text style={styles.pickerLabel}>{t('onboarding.time.periodLabel')}</Text>
+        <View style={styles.wheelContainer}>
+          <ScrollWheelPicker
+            options={PERIOD_OPTIONS}
+            selectedValue={period}
+            onChange={(v) => setPeriod(v as 'AM' | 'PM')}
+            enabled={!submitting}
+          />
+        </View>
+      </View>
+    </View>
+  );
+
 
   return (
     <View style={styles.container}>
@@ -95,66 +148,7 @@ export default function TimeScreen() {
 
         <Text style={styles.description}>{t('onboarding.time.description')}</Text>
 
-        <View style={styles.pickerRow}>
-          <View style={styles.pickerColumn}>
-            <Text style={styles.pickerLabel}>{t('onboarding.time.hourLabel')}</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={hour}
-                style={styles.picker}
-                onValueChange={setHour}
-                itemStyle={styles.pickerItem}
-                dropdownIconColor="#fff"
-                enabled={!submitting}
-              >
-                {Array.from({ length: 12 }, (_, i) => {
-                  const val = String(i + 1).padStart(2, '0');
-                  return (
-                    <Picker.Item key={val} label={val} value={val} color="#fff" />
-                  );
-                })}
-              </Picker>
-            </View>
-          </View>
-
-          <View style={styles.pickerColumn}>
-            <Text style={styles.pickerLabel}>{t('onboarding.time.minuteLabel')}</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={minute}
-                style={styles.picker}
-                onValueChange={setMinute}
-                itemStyle={styles.pickerItem}
-                dropdownIconColor="#fff"
-                enabled={!submitting}
-              >
-                {Array.from({ length: 60 }, (_, i) => {
-                  const val = String(i).padStart(2, '0');
-                  return (
-                    <Picker.Item key={val} label={val} value={val} color="#fff" />
-                  );
-                })}
-              </Picker>
-            </View>
-          </View>
-
-          <View style={styles.pickerColumn}>
-            <Text style={styles.pickerLabel}>{t('onboarding.time.periodLabel')}</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={period}
-                style={styles.picker}
-                onValueChange={(v) => setPeriod(v)}
-                itemStyle={styles.pickerItem}
-                dropdownIconColor="#fff"
-                enabled={!submitting}
-              >
-                <Picker.Item label="AM" value="AM" color="#fff" />
-                <Picker.Item label="PM" value="PM" color="#fff" />
-              </Picker>
-            </View>
-          </View>
-        </View>
+        {renderAndroidWheels()}
 
         <Text style={styles.info}>{t('onboarding.time.info')}</Text>
 
@@ -214,7 +208,7 @@ const styles = StyleSheet.create({
   pickerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 10,
     marginBottom: 40,
   },
   pickerColumn: {
@@ -225,24 +219,16 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.65)',
     fontSize: 12,
     fontFamily: 'SFProDisplay-Regular',
-    marginBottom: 6,
+    marginBottom: 8,
     textAlign: 'center',
   },
-  pickerContainer: {
+  wheelContainer: {
     width: '100%',
-    height: Platform.OS === 'ios' ? 180 : 160,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: 'rgba(57, 60, 71, 0.35)',
-  },
-  picker: {
-    width: '100%',
-    height: Platform.OS === 'ios' ? 180 : 160,
-  },
-  pickerItem: {
-    color: '#fff',
-    fontSize: 22,
-    fontFamily: 'SFProDisplay-Regular',
+    backgroundColor: 'rgba(57, 60, 71, 0.45)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(211, 213, 251, 0.12)',
   },
   info: {
     fontSize: 12,

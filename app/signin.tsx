@@ -13,7 +13,6 @@ import { useRouter, type Href } from "expo-router";
 import { useTranslation } from "react-i18next";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
-import * as AppleAuthentication from "expo-apple-authentication";
 import {
   GoogleSignin,
   isErrorWithCode,
@@ -42,21 +41,17 @@ if (Platform.OS === "web") {
 const WEB_CLIENT_ID =
   "154762470670-dma1hg357n6n48ishn1b4gjodo33v08r.apps.googleusercontent.com";
 
-const IOS_CLIENT_ID =
-  "154762470670-n099k64j893h5qr85lrhh85fiutk533e.apps.googleusercontent.com";
-
 // Native Google Sign-In returns an ID token whose audience is the web client.
 // The backend validates that token in /authentication/social_login/. Android
 // authorization is linked in Google Cloud by package name + signing SHA-1.
 if (Platform.OS !== "web") {
   GoogleSignin.configure({
     webClientId: WEB_CLIENT_ID,
-    iosClientId: IOS_CLIENT_ID,
     offlineAccess: false,
   });
 }
 
-type ProviderId = "google" | "apple";
+type ProviderId = "google";
 
 type WebGoogleButtonProps = {
   submitting: ProviderId | null;
@@ -137,22 +132,6 @@ export default function SignInScreen() {
   // button that was tapped while still letting the user pick another one
   // if the first popup was cancelled.
   const [submitting, setSubmitting] = React.useState<ProviderId | null>(null);
-  const [appleAvailable, setAppleAvailable] = React.useState(false);
-
-  // ---- Apple ----
-  React.useEffect(() => {
-    let cancelled = false;
-    AppleAuthentication.isAvailableAsync()
-      .then((available) => {
-        if (!cancelled) setAppleAvailable(available);
-      })
-      .catch(() => {
-        if (!cancelled) setAppleAvailable(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Shared: send the provider token to the backend, store JWT(s), then
   // optionally prompt for biometric and route the user.
@@ -252,35 +231,6 @@ export default function SignInScreen() {
     }
   };
 
-  const onPressApple = async () => {
-    if (submitting) return;
-    setSubmitting("apple");
-    try {
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-      const idToken = credential.identityToken;
-      if (!idToken) {
-        Alert.alert(
-          t("signin.appleFailed"),
-          "Apple did not return an identity token."
-        );
-        setSubmitting(null);
-        return;
-      }
-      await finishSocialLogin("apple", idToken);
-    } catch (e: any) {
-      // ERR_REQUEST_CANCELED = user dismissed the sheet, don't alert.
-      if (e?.code !== "ERR_REQUEST_CANCELED") {
-        Alert.alert(t("signin.appleFailed"), e?.message ?? String(e));
-      }
-    } finally {
-      setSubmitting(null);
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -293,21 +243,6 @@ export default function SignInScreen() {
 
         <Text style={styles.title}>{t("signin.title")}</Text>
         <Text style={styles.subtitle}>{t("signin.subtitle")}</Text>
-
-        {/* Apple — first on iOS per Apple's HIG. Hidden if not supported. */}
-        {appleAvailable && Platform.OS === "ios" ? (
-          <TouchableOpacity
-            style={styles.appleButton}
-            onPress={onPressApple}
-            disabled={submitting !== null}
-          >
-            {submitting === "apple" ? (
-              <ActivityIndicator color="#000" />
-            ) : (
-              <Text style={styles.appleText}>{t("signin.apple")}</Text>
-            )}
-          </TouchableOpacity>
-        ) : null}
 
         {Platform.OS === "web" ? (
           <WebGoogleSignInButton
@@ -381,20 +316,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     marginBottom: 30,
     fontFamily: "Nunito-Regular",
-  },
-  appleButton: {
-    width: 328,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  appleText: {
-    color: "#000",
-    fontSize: 16,
-    fontFamily: "Nunito-Bold",
   },
   providerButton: {
     width: 328,

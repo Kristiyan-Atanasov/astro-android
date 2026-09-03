@@ -89,12 +89,19 @@ export function initI18n(): Promise<typeof i18n> {
 
 export async function setAppLocale(locale: I18nLocale): Promise<void> {
   if (locale !== 'en' && locale !== 'bg') return;
+  const previous = getAppLocale();
   try {
     await SecureStore.setItemAsync(STORAGE_KEY, locale);
   } catch (e) {
     console.log('i18n: stored language write failed:', (e as any)?.message ?? String(e));
   }
   await i18n.changeLanguage(locale);
+  if (previous !== locale) {
+    // Daily vibe text comes from the backend in the active language;
+    // invalidate any entry cached under the previous language.
+    const { clearDailyVibeCache } = await import('../api');
+    await clearDailyVibeCache();
+  }
 }
 
 export function getAppLocale(): I18nLocale {

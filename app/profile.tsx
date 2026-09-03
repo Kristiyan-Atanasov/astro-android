@@ -10,8 +10,6 @@ import {
   useWindowDimensions,
   Image,
   Alert,
-  ActionSheetIOS,
-  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -31,11 +29,10 @@ import {
 } from '../services/localCharts';
 import {
   clearProfilePhoto,
-  getProfilePhotoUri,
   pickAndSaveProfilePhoto,
+  removeProfilePhoto,
 } from '../services/profilePhoto';
 const LOG = '[Profile]';
-
 
 const ZODIAC_BY_CODE: Record<string, ZodiacSign> = ZODIAC_SIGNS.reduce(
   (acc, sign) => {
@@ -204,14 +201,9 @@ export default function ProfileScreen() {
   }, [profile, dateLocale]);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const uri = await getProfilePhotoUri();
-      if (!cancelled) setPhotoUri(uri);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    // Clear leftover on-device avatar files from before backend storage.
+    // Signed S3 URLs must come from the profile API, never SecureStore.
+    void clearProfilePhoto();
   }, []);
 
   const explainPhotoResult = useCallback(
@@ -264,8 +256,36 @@ export default function ProfileScreen() {
     setPhotoBusy(true);
     try {
       const result = await pickAndSaveProfilePhoto();
-      if (result.ok && result.uri) {
-        setPhotoUri(result.uri);
+      if (result.ok) {
+        if (result.profile) {
+          setProfile((prev) => ({ ...(prev || {}), ...result.profile }));
+        }
+        setPhotoUri(
+          typeof result.uri === 'string' && result.uri.trim()
+            ? result.uri.trim()
+            : result.profile?.profile_picture_url || null,
+        );
+        return;
+      }
+      explainPhotoResult(result.reason);
+    } finally {
+      setPhotoBusy(false);
+    }
+  }, [explainPhotoResult]);
+
+  const deletePhoto = useCallback(async () => {
+    setPhotoBusy(true);
+    try {
+      const result = await removeProfilePhoto();
+      if (result.ok) {
+        if (result.profile) {
+          setProfile((prev) => ({
+            ...(prev || {}),
+            ...result.profile,
+            profile_picture_url: result.profile.profile_picture_url ?? null,
+          }));
+        }
+        setPhotoUri(null);
         return;
       }
       explainPhotoResult(result.reason);
@@ -276,33 +296,6 @@ export default function ProfileScreen() {
 
   const onAvatarPress = useCallback(() => {
     if (photoBusy) return;
-
-    const removePhoto = async () => {
-      await clearProfilePhoto();
-      setPhotoUri(null);
-    };
-
-    if (Platform.OS === 'ios') {
-      const options = [
-        t('profilePage.photoUpload'),
-        ...(photoUri ? [t('profilePage.photoRemove')] : []),
-        t('profilePage.photoCancel'),
-      ];
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options,
-          destructiveButtonIndex: photoUri ? 1 : undefined,
-          cancelButtonIndex: photoUri ? 2 : 1,
-          title: t('profilePage.photoTitle'),
-          message: t('profilePage.photoHint'),
-        },
-        (index) => {
-          if (index === 0) void uploadPhoto();
-          else if (photoUri && index === 1) void removePhoto();
-        },
-      );
-      return;
-    }
 
     const buttons: Array<{
       text: string;
@@ -321,13 +314,13 @@ export default function ProfileScreen() {
         text: t('profilePage.photoRemove'),
         style: 'destructive',
         onPress: () => {
-          void removePhoto();
+          void deletePhoto();
         },
       });
     }
     buttons.push({ text: t('profilePage.photoCancel'), style: 'cancel' });
     Alert.alert(t('profilePage.photoTitle'), t('profilePage.photoHint'), buttons);
-  }, [photoBusy, photoUri, t, uploadPhoto]);
+  }, [deletePhoto, photoBusy, photoUri, t, uploadPhoto]);
 
   useEffect(() => {
     console.log(LOG, 'screen mount');
@@ -360,8 +353,16 @@ export default function ProfileScreen() {
         if (!data) {
           console.log(LOG, 'no profile — user not signed in?');
           setChartError('no_profile');
+          setPhotoUri(null);
           return;
         }
+
+        const pictureUrl =
+          typeof data.profile_picture_url === 'string' &&
+          data.profile_picture_url.trim()
+            ? data.profile_picture_url.trim()
+            : null;
+        setPhotoUri(pictureUrl);
 
         const birthInput = parseBirthInput(data);
         if (!birthInput) {

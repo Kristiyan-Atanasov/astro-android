@@ -405,7 +405,7 @@ export default function EditProfileScreen() {
       >
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={undefined}
         >
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>

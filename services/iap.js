@@ -16,7 +16,7 @@ import { Platform } from 'react-native';
 import { verifySubscription } from './api';
 import { SUBSCRIPTION_SKUS, DEFAULT_SUBSCRIPTION_SKU } from './iapConfig';
 
-const IAP_SUPPORTED = Platform.OS === 'ios' || Platform.OS === 'android';
+const IAP_SUPPORTED = Platform.OS === 'android';
 
 // Lazily require the native module. On web (or any unsupported
 // platform) we never touch the import so that bundling does not
@@ -36,12 +36,9 @@ function ensureIapAvailable() {
   }
 }
 
-// `RNIap.initConnection()` can hang forever on iOS simulators without a
-// StoreKit configuration file and on certain iOS / react-native-iap
-// version combinations. Without a deadline, the awaiting JS thread
-// makes the upgrade page appear "crashed" (frozen). We give the native
-// module a generous budget then bail out so the screen stays usable
-// even if the store is misbehaving.
+// `RNIap.initConnection()` can hang on misconfigured Play Billing
+// setups. Without a deadline the upgrade page appears frozen — give
+// the native module a budget then bail so the screen stays usable.
 const INIT_CONNECTION_TIMEOUT_MS = 6000;
 
 function withTimeout(promise, ms, label) {
@@ -67,16 +64,6 @@ let activeFlow = null; // { resolve, reject, type: 'purchase' | 'restore' }
 function buildReceiptPayload(purchase) {
   if (!purchase || typeof purchase !== 'object') return null;
 
-  if (Platform.OS === 'ios') {
-    return {
-      product_id: purchase.productId,
-      transaction_id: purchase.transactionId,
-      original_transaction_id: purchase.originalTransactionIdentifierIOS,
-      transaction_date: purchase.transactionDate,
-      receipt: purchase.purchaseToken,
-    };
-  }
-
   return {
     product_id: purchase.productId,
     package_name: purchase.packageNameAndroid,
@@ -98,7 +85,7 @@ async function handlePurchaseEvent(purchase) {
     transactionId: purchase.transactionId,
   });
 
-  const provider = Platform.OS === 'ios' ? 'apple' : 'google';
+  const provider = 'google';
   const receiptPayload = buildReceiptPayload(purchase);
 
   if (!receiptPayload) {
@@ -126,7 +113,7 @@ async function handlePurchaseEvent(purchase) {
   } catch (verifyErr) {
     console.log('❌ Subscription verify error:', verifyErr?.message ?? String(verifyErr));
 
-    // Do NOT finish the transaction on verify failure — Apple/Google
+    // Do NOT finish the transaction on verify failure — Google Play
     // will redeliver it next launch so we can retry verification.
 
     if (activeFlow) {
@@ -251,13 +238,13 @@ export async function loadSubscriptionProducts(skus = SUBSCRIPTION_SKUS) {
 }
 
 // Triggers the native purchase sheet for the given subscription SKU.
-// Resolves with the backend verify result once Apple/Google has
+// Resolves with the backend verify result once Google Play has
 // returned the purchase AND the backend has accepted it.
 export async function purchaseSubscription(sku = DEFAULT_SUBSCRIPTION_SKU) {
   ensureIapAvailable();
   await initIap();
 
-  // Apple/Google require us to fetch product info before we can request
+  // Google Play requires us to fetch product info before we can request
   // a purchase. If the store doesn't know about this SKU we fail loudly
   // here, which tells the caller the product isn't configured.
   let products = [];
@@ -276,7 +263,7 @@ export async function purchaseSubscription(sku = DEFAULT_SUBSCRIPTION_SKU) {
   if (!productMatch) {
     const err = new Error(
       `The subscription "${sku}" isn’t available from the store yet. ` +
-      `Make sure it’s created and active in App Store Connect (or Play Console) and that you’re testing with a sandbox / license tester account.`,
+      `Make sure it’s created and active in Play Console and that you’re testing with a license tester account.`,
     );
     err.code = 'E_ITEM_UNAVAILABLE';
     throw err;
@@ -290,22 +277,17 @@ export async function purchaseSubscription(sku = DEFAULT_SUBSCRIPTION_SKU) {
     activeFlow = { resolve, reject, type: 'purchase' };
 
     const baseOfferToken =
-      Platform.OS === 'android'
-        ? productMatch?.subscriptionOffers?.[0]?.offerTokenAndroid ??
-          productMatch?.subscriptionOfferDetailsAndroid?.[0]?.offerToken
-        : undefined;
+      productMatch?.subscriptionOffers?.[0]?.offerTokenAndroid ??
+      productMatch?.subscriptionOfferDetailsAndroid?.[0]?.offerToken;
 
-    const request =
-      Platform.OS === 'android'
+    const request = {
+      google: baseOfferToken
         ? {
-            google: baseOfferToken
-              ? {
-                  skus: [sku],
-                  subscriptionOffers: [{ sku, offerToken: baseOfferToken }],
-                }
-              : { skus: [sku] },
+            skus: [sku],
+            subscriptionOffers: [{ sku, offerToken: baseOfferToken }],
           }
-        : { apple: { sku } };
+        : { skus: [sku] },
+    };
 
     console.log('🛒 IAP requestPurchase subscription params:', request);
 
@@ -349,7 +331,7 @@ export async function restoreSubscriptions() {
   // Most recent transaction first.
   ordered.sort((a, b) => (b.transactionDate || 0) - (a.transactionDate || 0));
 
-  const provider = Platform.OS === 'ios' ? 'apple' : 'google';
+  const provider = 'google';
 
   let lastError = null;
   for (const purchase of ordered) {

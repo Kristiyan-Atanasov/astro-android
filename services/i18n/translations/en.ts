@@ -48,8 +48,6 @@ const en = {
     subtitle: 'Begin your journey of personal transformation',
     google: 'Sign in with Google',
     googleFailed: 'Google Sign-In failed',
-    apple: 'Sign in with Apple',
-    appleFailed: 'Apple Sign-In failed',
     loginFailed: 'Login failed',
     enableBiometricTitle: 'Enable {{label}}?',
     enableBiometricBody: 'Use {{label}} to sign in to Astroinsights faster next time.',
@@ -88,6 +86,9 @@ const en = {
       title: 'Date of Birth',
       description: 'We calculate your chart, based on your day of birth.',
       info: 'We use this to generate your Astroinsights wheel. We never share or sell your data.',
+      monthLabel: 'Month',
+      dayLabel: 'Day',
+      yearLabel: 'Year',
     },
     time: {
       title: 'Time of birth',
@@ -234,7 +235,7 @@ const en = {
       'Allow photo library access in Settings so you can set your profile picture.',
     photoRebuildTitle: 'App rebuild needed',
     photoRebuildBody:
-      'Photo upload needs a native rebuild. Run npx expo run:ios (or run:android), then try again.',
+      'Photo upload needs a native rebuild. Run npx expo run:android, then try again.',
     photoBlockedTitle: 'Photo not allowed',
     photoBlockedBody:
       'That image looks inappropriate. Please choose a different profile photo — no nudity or sexual content.',
@@ -337,7 +338,6 @@ const en = {
     yearlyBilling: 'Billed once a year',
     perMonth: '/ month',
     perYear: '/ year',
-    securedAppStore: 'Secured with App Store. Cancel Anytime.',
     securedPlayStore: 'Secured with Google Play. Cancel Anytime.',
     cta: 'Start your 7-days free trial, then {{price}} / per month',
     ctaYearly: 'Subscribe for {{price}} / year',
@@ -367,10 +367,10 @@ const en = {
       'We couldn’t verify your subscription yet. Please try again.',
     notAvailableTitle: 'Not available here',
     notAvailableBody:
-      'In-app purchases aren’t available on this device. Try on a real device with the App Store / Google Play.',
+      'In-app purchases aren’t available on this device. Try on a real device with the Google Play.',
     notConfiguredTitle: 'Subscription not configured',
     notConfiguredBody:
-      'The subscription product ({{sku}}) isn’t available. Make sure it exists in App Store Connect / Play Console and is approved for testing.',
+      'The subscription product ({{sku}}) isn’t available. Make sure it exists in Play Console and is approved for testing.',
     notReadyTitle: 'Store not ready',
     notReadyBody:
       'The store connection wasn’t ready. Please close and reopen the app, then try again.',
@@ -412,7 +412,7 @@ const en = {
         },
         {
           heading: '5. Subscriptions, Trials and Refunds',
-          body: 'Certain features require a paid subscription processed by Apple App Store or Google Play. Free trials, where offered, automatically convert to a paid subscription unless cancelled before the trial ends. All payments are handled by the relevant store, and you must manage and cancel subscriptions through that store\'s account settings. Except where required by mandatory consumer-protection law, all sales are final and we do not provide refunds for unused periods, partially used periods, or accidental purchases. Pricing, currencies, billing cycles and trial terms may change at any time and will apply to subsequent billing cycles.',
+          body: 'Certain features require a paid subscription processed by Google Play. Free trials, where offered, automatically convert to a paid subscription unless cancelled before the trial ends. All payments are handled by Google Play, and you must manage and cancel subscriptions through your Google Play account settings. Except where required by mandatory consumer-protection law, all sales are final and we do not provide refunds for unused periods, partially used periods, or accidental purchases. Pricing, currencies, billing cycles and trial terms may change at any time and will apply to subsequent billing cycles.',
         },
         {
           heading: '6. Intellectual Property',
@@ -461,7 +461,7 @@ const en = {
         },
         {
           heading: '2. Data We Collect',
-          body: 'We collect: (a) account data such as your name, email address, and the social-account handles you choose to add; (b) astrological inputs such as your date, time, and city of birth, and any other information you enter to receive readings; (c) device and usage data such as device model, operating-system version, language, app version, crash reports and aggregated analytics; (d) authentication identifiers received from Apple or Google when you sign in; and (e) subscription and purchase metadata received from Apple App Store or Google Play, excluding full payment-card details, which we never see or store.',
+          body: 'We collect: (a) account data such as your name, email address, and the social-account handles you choose to add; (b) astrological inputs such as your date, time, and city of birth, and any other information you enter to receive readings; (c) device and usage data such as device model, operating-system version, language, app version, crash reports and aggregated analytics; (d) authentication identifiers received from Google when you sign in; and (e) subscription and purchase metadata received from Google Play, excluding full payment-card details, which we never see or store.',
         },
         {
           heading: '3. How We Use Your Data',
@@ -477,7 +477,7 @@ const en = {
         },
         {
           heading: '6. Sharing Your Data',
-          body: 'We share data only with: (a) cloud hosting and infrastructure providers (e.g., Amazon Web Services) acting as our processors; (b) authentication providers (Apple, Google) when you choose to sign in with them; (c) the relevant app store (Apple, Google) for subscription processing; (d) analytics, crash-reporting, and customer-support tools acting as our processors; and (e) competent authorities when required by law. We do not sell your personal data to anyone.',
+          body: 'We share data only with: (a) cloud hosting and infrastructure providers (e.g., Amazon Web Services) acting as our processors; (b) authentication providers (Google) when you choose to sign in with them; (c) Google Play for subscription processing; (d) analytics, crash-reporting, and customer-support tools acting as our processors; and (e) competent authorities when required by law. We do not sell your personal data to anyone.',
         },
         {
           heading: '7. International Transfers',
@@ -526,11 +526,11 @@ const en = {
         },
         {
           question: 'How do I cancel my subscription?',
-          answer: 'All subscriptions are billed and managed by Apple App Store or Google Play, not by AstroInsights. To cancel, open the relevant store on your device → your account → Subscriptions → AstroInsights → Cancel. Cancellation will stop the next renewal; the current paid period will remain active until it ends.',
+          answer: 'All subscriptions are billed and managed by Google Play, not by AstroInsights. To cancel, open Google Play on your device → your account → Payments & subscriptions → Subscriptions → AstroInsights → Cancel. Cancellation will stop the next renewal; the current paid period will remain active until it ends.',
         },
         {
           question: 'Can I get a refund?',
-          answer: 'Refunds for App Store and Play Store purchases are issued by Apple or Google according to their refund policies. AstroInsights does not have access to your payment method and cannot issue refunds directly. You may also have additional rights under your local consumer-protection law.',
+          answer: 'Refunds for Play Store purchases are issued by Google according to their refund policies. AstroInsights does not have access to your payment method and cannot issue refunds directly. You may also have additional rights under your local consumer-protection law.',
         },
         {
           question: 'How does the free trial work?',

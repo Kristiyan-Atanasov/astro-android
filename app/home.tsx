@@ -407,23 +407,34 @@ export default function HomeScreen() {
         <View style={styles.symbolGrid}>
           {KEYS_GRID_SIGNS.map((sign) => {
             const active = activeArchetypes.has(sign.code);
+            const tileSize = (width - 76) / 3;
             if (active) {
               return (
                 <TouchableOpacity
                   key={sign.code}
-                  style={styles.symbolBoxActiveWrap}
+                  style={[
+                    styles.symbolBoxActiveWrap,
+                    { width: tileSize, height: tileSize },
+                  ]}
                   activeOpacity={0.85}
                   onPress={() => goToArchetype(sign)}
                 >
+                  {/*
+                    Android: LinearGradient with % size + overflow:hidden often
+                    paints nothing (active Leo/Capricorn tiles vanished). Use an
+                    absolute-fill gradient over an opaque fallback color.
+                  */}
+                  <View style={styles.symbolBoxActiveFallback} />
                   <LinearGradient
                     colors={['#577CFB', '#B283ED']}
                     locations={[0, 0.9451]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
-                    style={styles.symbolBoxActive}
-                  >
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                  <View style={styles.symbolBoxActiveContent}>
                     <Image source={sign.icon} style={styles.symbolImageActive} />
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
               );
             }
@@ -432,7 +443,7 @@ export default function HomeScreen() {
             return (
               <TouchableOpacity
                 key={sign.code}
-                style={styles.symbolBox}
+                style={[styles.symbolBox, { width: tileSize, height: tileSize }]}
                 activeOpacity={0.7}
                 onPress={() => goToArchetype(sign)}
               >
@@ -723,8 +734,6 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   symbolBox: {
-    width: (width - 76) / 3,
-    height: (width - 76) / 3,
     backgroundColor: '#1A1818',
     borderRadius: 18,
     borderWidth: 0.5,
@@ -734,17 +743,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   symbolBoxActiveWrap: {
-    width: (width - 76) / 3,
-    height: (width - 76) / 3,
     borderRadius: 18,
     overflow: 'hidden',
+    backgroundColor: '#577CFB',
   },
-  symbolBoxActive: {
-    width: '100%',
-    height: '100%',
+  symbolBoxActiveFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#577CFB',
+  },
+  symbolBoxActiveContent: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 18,
   },
   symbolImage: {
     width: 48,
@@ -756,7 +766,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     resizeMode: 'contain',
-    tintColor: '#D3D5FB',
+    tintColor: '#FFFFFF',
   },
   communityCard: {
     borderRadius: 16,

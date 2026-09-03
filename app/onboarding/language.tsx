@@ -5,10 +5,10 @@
 // warn them that this can only be changed later by contacting support.
 //
 // The selection is applied immediately via `setAppLocale`, so the rest
-// of the onboarding flow renders in the chosen language. The language
-// will then be persisted to the backend when onboarding completes —
-// `app/home.tsx`'s `postOnboarding` retry payload always derives
-// `user_settings.language` from `getAppLanguageCode()`.
+// of the onboarding flow renders in the chosen language. We also sync
+// the choice to the backend right away so personalized content (like
+// the daily vibe) is generated in the correct language before
+// onboarding finishes.
 
 import React, { useState } from 'react';
 import {
@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import OnboardingHeader from '../../components/OnboardingHeader';
+import { syncUserLanguageToBackend } from '../../services/api';
 import { setAppLocale, type I18nLocale } from '../../services/i18n';
 
 const backgroundImg = require('../../assets/images/background.png');
@@ -75,6 +76,7 @@ export default function OnboardingLanguageScreen() {
       // case `handleSelect` was called but never resolved (e.g. the
       // user tapped Continue mid-toggle).
       await setAppLocale(selected);
+      await syncUserLanguageToBackend();
       router.push('/onboarding/name');
     } catch (e: any) {
       console.log('Onboarding language submit failed:', e?.message ?? String(e));

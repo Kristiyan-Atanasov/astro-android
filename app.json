@@ -7,38 +7,6 @@
     "orientation": "portrait",
     "scheme": "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e",
     "userInterfaceStyle": "automatic",
-    "ios": {
-      "bundleIdentifier": "io.astroinsights.app",
-      "buildNumber": "1",
-      "supportsTablet": true,
-      "usesAppleSignIn": true,
-      "entitlements": {
-        "aps-environment": "production",
-        "com.apple.developer.applesignin": ["Default"]
-      },
-      "infoPlist": {
-        "NSFaceIDUsageDescription": "Use Face ID to sign in to AstroInsights faster and more securely.",
-        "NSPhotoLibraryUsageDescription": "Allow AstroInsights to access your photos so you can set a profile picture.",
-        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
-        "SKAdNetworkItems": [
-          {
-            "SKAdNetworkIdentifier": "v9wttpbfk9.skadnetwork"
-          },
-          {
-            "SKAdNetworkIdentifier": "n38lu8286q.skadnetwork"
-          }
-        ],
-        "ITSAppUsesNonExemptEncryption": false,
-        "CFBundleURLTypes": [
-          {
-            "CFBundleURLName": "Google Sign-In",
-            "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e"
-            ]
-          }
-        ]
-      }
-    },
     "android": {
       "googleServicesFile": "./google-services.json",
       "permissions": [
@@ -72,18 +40,13 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.154762470670-n099k64j893h5qr85lrhh85fiutk533e"
-        }
-      ],
+      "@react-native-google-signin/google-signin",
       "expo-font",
       "expo-splash-screen",
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Use Face ID to sign in to AstroInsights faster and more securely."
+          "faceIDPermission": "Use biometrics to sign in to AstroInsights faster and more securely."
         }
       ],
       [

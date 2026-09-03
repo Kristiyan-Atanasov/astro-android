@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { postOnboarding, getDailyVibe } from '../../services/api';
+import { postOnboarding, getDailyVibe, syncUserLanguageToBackend } from '../../services/api';
 import { getOnboardingDraft, clearOnboardingDraft } from '../../services/onboardingDraft';
 import { getAppLanguageCode } from '../../services/i18n';
 
@@ -32,6 +32,9 @@ export default function VibeScreen() {
     let cancelled = false;
     (async () => {
       try {
+        // Backend defaults to Bulgarian until user_settings.language is
+        // saved; make sure it matches the app locale before fetching.
+        await syncUserLanguageToBackend();
         const vibe = await getDailyVibe();
         if (cancelled) return;
         const text = (vibe as any)?.text;
@@ -230,7 +233,7 @@ export default function VibeScreen() {
     <View style={styles.container}>
       <Image source={vibeBg} style={styles.bg} resizeMode="cover" />
 
-      {/* Shadow wrapper (solid bg to avoid iOS shadow warning) */}
+      {/* Shadow wrapper */}
       <View style={styles.cardShadow}>
         {/* Inner translucent card (no shadow here) */}
         <View style={styles.card}>
@@ -299,7 +302,7 @@ const styles = StyleSheet.create({
     zIndex: -1,
   },
 
-  // Solid background + shadow lives here (prevents iOS warning) [web:640][web:647]
+  // Solid background + shadow lives here
   cardShadow: {
     width: '100%',
     borderRadius: 16,

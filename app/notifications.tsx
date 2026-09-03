@@ -7,15 +7,16 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Platform,
   ActivityIndicator,
   Alert,
+  Modal,
+  FlatList,
+  Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getUserProfile, patchUserProfile } from '../services/api';
 import {
@@ -247,6 +248,7 @@ export default function NotificationsScreen() {
               onPress={() => {
                 setShowStartPicker((v) => !v);
                 setShowEndPicker(false);
+                setShowCountPicker(false);
               }}
               disabled={saving}
             >
@@ -263,6 +265,7 @@ export default function NotificationsScreen() {
               onPress={() => {
                 setShowEndPicker((v) => !v);
                 setShowStartPicker(false);
+                setShowCountPicker(false);
               }}
               disabled={saving}
             >
@@ -271,69 +274,22 @@ export default function NotificationsScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        {showStartPicker && (
-          <PickerWrap>
-            <Picker
-              selectedValue={reminderTimeStart}
-              onValueChange={(v) => setReminderTimeStart(String(v))}
-              dropdownIconColor="#fff"
-              itemStyle={styles.pickerItem}
-            >
-              {TIME_OPTIONS.map((o) => (
-                <Picker.Item key={o.value} label={o.label} value={o.value} color="#fff" />
-              ))}
-            </Picker>
-            {Platform.OS === 'ios' && (
-              <DonePickerButton onPress={() => setShowStartPicker(false)} />
-            )}
-          </PickerWrap>
-        )}
-        {showEndPicker && (
-          <PickerWrap>
-            <Picker
-              selectedValue={reminderTimeEnd}
-              onValueChange={(v) => setReminderTimeEnd(String(v))}
-              dropdownIconColor="#fff"
-              itemStyle={styles.pickerItem}
-            >
-              {TIME_OPTIONS.map((o) => (
-                <Picker.Item key={o.value} label={o.label} value={o.value} color="#fff" />
-              ))}
-            </Picker>
-            {Platform.OS === 'ios' && (
-              <DonePickerButton onPress={() => setShowEndPicker(false)} />
-            )}
-          </PickerWrap>
-        )}
 
         <Text style={styles.fieldLabel}>
           {t('notificationsSettings.perDay')}
         </Text>
         <TouchableOpacity
           style={styles.field}
-          onPress={() => setShowCountPicker((v) => !v)}
+          onPress={() => {
+            setShowCountPicker((v) => !v);
+            setShowStartPicker(false);
+            setShowEndPicker(false);
+          }}
           disabled={saving}
         >
           <Text style={styles.fieldValue}>{countLabel}</Text>
           <Ionicons name="chevron-expand" size={18} color="#aaa" />
         </TouchableOpacity>
-        {showCountPicker && (
-          <PickerWrap>
-            <Picker
-              selectedValue={reminderCount}
-              onValueChange={(v) => setReminderCount(Number(v))}
-              dropdownIconColor="#fff"
-              itemStyle={styles.pickerItem}
-            >
-              {COUNT_OPTIONS.map((o) => (
-                <Picker.Item key={o.value} label={o.label} value={o.value} color="#fff" />
-              ))}
-            </Picker>
-            {Platform.OS === 'ios' && (
-              <DonePickerButton onPress={() => setShowCountPicker(false)} />
-            )}
-          </PickerWrap>
-        )}
 
         <View style={styles.spacer} />
 
@@ -379,6 +335,44 @@ export default function NotificationsScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Android: native Picker expands into a huge white block. Use a dark modal list. */}
+      <OptionSheet
+        visible={showStartPicker}
+        title={t('notificationsSettings.from')}
+        options={TIME_OPTIONS}
+        selectedValue={reminderTimeStart}
+        onSelect={(v) => {
+          setReminderTimeStart(String(v));
+          setShowStartPicker(false);
+        }}
+        onClose={() => setShowStartPicker(false)}
+      />
+      <OptionSheet
+        visible={showEndPicker}
+        title={t('notificationsSettings.to')}
+        options={TIME_OPTIONS}
+        selectedValue={reminderTimeEnd}
+        onSelect={(v) => {
+          setReminderTimeEnd(String(v));
+          setShowEndPicker(false);
+        }}
+        onClose={() => setShowEndPicker(false)}
+      />
+      <OptionSheet
+        visible={showCountPicker}
+        title={t('notificationsSettings.perDay')}
+        options={COUNT_OPTIONS.map((o) => ({
+          value: String(o.value),
+          label: o.label,
+        }))}
+        selectedValue={String(reminderCount)}
+        onSelect={(v) => {
+          setReminderCount(Number(v));
+          setShowCountPicker(false);
+        }}
+        onClose={() => setShowCountPicker(false)}
+      />
     </View>
   );
 }
@@ -400,22 +394,72 @@ function ToggleRow({ label, value, onChange, disabled }: ToggleRowProps) {
         disabled={disabled}
         trackColor={{ false: 'rgba(255,255,255,0.15)', true: '#577CFB' }}
         thumbColor="#fff"
-        ios_backgroundColor="rgba(255,255,255,0.15)"
       />
     </View>
   );
 }
 
-function PickerWrap({ children }: { children: React.ReactNode }) {
-  return <View style={styles.pickerWrap}>{children}</View>;
+interface OptionSheetProps {
+  visible: boolean;
+  title: string;
+  options: { value: string; label: string }[];
+  selectedValue: string;
+  onSelect: (value: string) => void;
+  onClose: () => void;
 }
 
-function DonePickerButton({ onPress }: { onPress: () => void }) {
+function OptionSheet({
+  visible,
+  title,
+  options,
+  selectedValue,
+  onSelect,
+  onClose,
+}: OptionSheetProps) {
   const { t } = useTranslation();
   return (
-    <TouchableOpacity style={styles.pickerDone} onPress={onPress}>
-      <Text style={styles.pickerDoneText}>{t('notificationsSettings.done')}</Text>
-    </TouchableOpacity>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.sheetBackdrop} onPress={onClose}>
+        <Pressable style={styles.sheetCard} onPress={(e) => e.stopPropagation()}>
+          <Text style={styles.sheetTitle}>{title}</Text>
+          <FlatList
+            data={options}
+            keyExtractor={(item) => item.value}
+            style={styles.sheetList}
+            renderItem={({ item }) => {
+              const selected = item.value === selectedValue;
+              return (
+                <TouchableOpacity
+                  style={[styles.sheetRow, selected && styles.sheetRowSelected]}
+                  onPress={() => onSelect(item.value)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.sheetRowText,
+                      selected && styles.sheetRowTextSelected,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                  {selected ? (
+                    <Ionicons name="checkmark" size={18} color="#B283ED" />
+                  ) : null}
+                </TouchableOpacity>
+              );
+            }}
+          />
+          <TouchableOpacity style={styles.pickerDone} onPress={onClose}>
+            <Text style={styles.pickerDoneText}>{t('notificationsSettings.done')}</Text>
+          </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -509,15 +553,6 @@ const styles = StyleSheet.create({
     fontFamily: 'SFProDisplay-Regular',
     marginBottom: 6,
   },
-  pickerWrap: {
-    backgroundColor: 'rgba(57, 60, 71, 0.5)',
-    borderRadius: 12,
-    marginBottom: 14,
-    overflow: 'hidden',
-  },
-  pickerItem: {
-    color: '#fff',
-  },
   pickerDone: {
     paddingVertical: 12,
     alignItems: 'center',
@@ -527,6 +562,52 @@ const styles = StyleSheet.create({
   pickerDoneText: {
     color: '#fff',
     fontSize: 14,
+    fontFamily: 'Nunito-Bold',
+  },
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+  },
+  sheetCard: {
+    backgroundColor: '#1C1F2A',
+    borderRadius: 16,
+    maxHeight: '70%',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  sheetTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'CooperLtBT-Bold',
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 10,
+  },
+  sheetList: {
+    maxHeight: 360,
+  },
+  sheetRow: {
+    minHeight: 48,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  sheetRowSelected: {
+    backgroundColor: 'rgba(87, 124, 251, 0.18)',
+  },
+  sheetRowText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'SFProDisplay-Regular',
+  },
+  sheetRowTextSelected: {
+    color: '#D3D5FB',
     fontFamily: 'Nunito-Bold',
   },
   spacer: {

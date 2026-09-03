@@ -27,13 +27,7 @@ export async function ensureNotificationPermission() {
   if (settings.canAskAgain === false) {
     return { granted: false, reason: 'denied' };
   }
-  const req = await Notifications.requestPermissionsAsync({
-    ios: {
-      allowAlert: true,
-      allowBadge: true,
-      allowSound: true,
-    },
-  });
+  const req = await Notifications.requestPermissionsAsync();
   return { granted: !!req.granted };
 }
 
@@ -44,7 +38,7 @@ export async function getNativeDevicePushToken() {
     if (!token || typeof token.data !== 'string') return null;
     return {
       token: token.data,
-      platform: Platform.OS === 'ios' ? 'ios' : 'android',
+      platform: 'android',
     };
   } catch (e) {
     console.log('Get device push token failed:', e?.message ?? String(e));

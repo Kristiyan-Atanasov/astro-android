@@ -6,7 +6,7 @@
 //
 // Data comes from getSimilarUsers() (GET /archetypes/similar_users/). To keep
 // sensitive data off this screen we intentionally do NOT show birth date or
-// gender — the avatar is a neutral empty circle for now.
+// gender. Avatars use the signed profile_picture_url from the API when present.
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
@@ -48,6 +48,7 @@ interface CommunityUser {
   sun: string; // zodiac_sign
   moon: string; // moon_sign
   rising: string; // ascendant
+  profilePictureUrl?: string;
   instagram?: string;
   facebook?: string;
 }
@@ -64,12 +65,17 @@ function normalizeUser(raw: any): CommunityUser | null {
   if (!name) return null;
 
   const up = (v: any) => (typeof v === 'string' ? v.toUpperCase() : '');
+  const picture =
+    typeof raw.profile_picture_url === 'string' && raw.profile_picture_url.trim()
+      ? raw.profile_picture_url.trim()
+      : undefined;
   return {
     id: String(raw.id ?? raw.user_id ?? Math.random()),
     name,
     sun: up(raw.zodiac_sign ?? raw.sun_sign ?? raw.sun),
     moon: up(raw.moon_sign ?? raw.moon),
     rising: up(raw.ascendant ?? raw.rising_sign ?? raw.rising),
+    profilePictureUrl: picture,
     instagram: raw.social_acc_instagram || undefined,
     facebook: raw.social_acc_facebook || undefined,
   };
@@ -190,8 +196,14 @@ function UserCard({ user }: { user: CommunityUser }) {
   const hasBigThree = user.sun || user.moon || user.rising;
   return (
     <View style={styles.card}>
-      {/* Neutral avatar placeholder (no photo / gender shown). */}
-      <View style={styles.avatar} />
+      {user.profilePictureUrl ? (
+        <Image
+          source={{ uri: user.profilePictureUrl }}
+          style={styles.avatar}
+        />
+      ) : (
+        <View style={styles.avatar} />
+      )}
 
       <Text style={styles.cardName} numberOfLines={1}>
         {user.name}

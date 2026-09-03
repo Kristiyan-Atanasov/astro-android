@@ -37,11 +37,6 @@ jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-jest.mock("expo-apple-authentication", () => ({
-  isAvailableAsync: jest.fn().mockResolvedValue(false),
-  signInAsync: jest.fn(),
-  AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 },
-}));
 
 jest.mock("../../services/api", () => ({
   getUserProfile: jest.fn().mockResolvedValue(null),

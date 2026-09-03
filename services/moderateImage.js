@@ -8,12 +8,21 @@ import Constants from 'expo-constants';
 
 const LOG = '[ModerateImage]';
 
-const MAX_BYTES = 6 * 1024 * 1024;
-const MIN_SIDE = 96;
-const NSFW_SCORE_LIMIT = 0.65;
+const MAX_BYTES = 5 * 1024 * 1024;
+const MIN_SIDE = 72;
+const DEFAULT_NSFW_SCORE_LIMIT = 0.85;
+const BLOCK_LABELS = new Set(['nsfw', 'porn', 'hentai']);
 
 function extra() {
   return Constants.expoConfig?.extra ?? Constants.manifest?.extra ?? {};
+}
+
+function nsfwScoreLimit() {
+  const configured = Number(extra().nsfwScoreLimit);
+  if (Number.isFinite(configured) && configured > 0 && configured <= 1) {
+    return configured;
+  }
+  return DEFAULT_NSFW_SCORE_LIMIT;
 }
 
 function deepAiKey() {
@@ -26,6 +35,14 @@ function huggingFaceToken() {
   return String(
     extra().huggingFaceToken || process.env.EXPO_PUBLIC_HF_TOKEN || '',
   ).trim();
+}
+
+function isBlockedLabel(label) {
+  const normalized = String(label || '').toLowerCase();
+  for (const blocked of BLOCK_LABELS) {
+    if (normalized.includes(blocked)) return true;
+  }
+  return false;
 }
 
 /**
@@ -60,35 +77,46 @@ export async function moderateProfileImage(uri) {
 
     const nsfw = await classifyNsfw(resized.base64);
     if (nsfw.reason === 'nsfw') return { ok: false, reason: 'nsfw' };
-    if (nsfw.reason === 'check_failed' && nsfw.required) {
-      return { ok: false, reason: 'check_failed' };
-    }
-    // If no moderation provider is configured / reachable, file rules still apply.
+
+    // If moderation is unavailable, allow the upload after basic file checks.
+    // Blocking normal photos because an API timed out is worse than letting
+    // a borderline image through while we rely on manual review/reporting.
     if (nsfw.reason === 'check_failed') {
-      console.log(LOG, 'NSFW provider unavailable — allowing after basic file checks');
+      console.log(
+        LOG,
+        'NSFW provider unavailable — allowing after basic file checks',
+      );
     }
 
     return { ok: true };
   } catch (e) {
     console.log(LOG, 'moderation failed', e?.message ?? e);
-    return { ok: false, reason: 'check_failed' };
+    // Fail open on unexpected processing errors too (e.g. odd HEIC edge cases).
+    return { ok: true };
   }
 }
 
 async function classifyNsfw(base64Jpeg) {
+  const limit = nsfwScoreLimit();
   const deepKey = deepAiKey();
+  const hfToken = huggingFaceToken();
+
   if (deepKey) {
-    const result = await classifyWithDeepAi(base64Jpeg, deepKey);
-    return { ...result, required: true };
+    const deepResult = await classifyWithDeepAi(base64Jpeg, deepKey, limit);
+    if (deepResult.reason === 'ok' || deepResult.reason === 'nsfw') {
+      return deepResult;
+    }
+    console.log(LOG, 'deepai unavailable, trying fallback if configured');
   }
 
-  const token = huggingFaceToken();
-  const result = await classifyWithHuggingFace(base64Jpeg, token);
-  // Token configured → treat failures as hard failures.
-  return { ...result, required: Boolean(token) };
+  if (hfToken || !deepKey) {
+    return classifyWithHuggingFace(base64Jpeg, hfToken, limit);
+  }
+
+  return { reason: 'check_failed' };
 }
 
-async function classifyWithDeepAi(base64Jpeg, apiKey) {
+async function classifyWithDeepAi(base64Jpeg, apiKey, limit) {
   try {
     const form = new FormData();
     form.append('image', `data:image/jpeg;base64,${base64Jpeg}`);
@@ -106,9 +134,9 @@ async function classifyWithDeepAi(base64Jpeg, apiKey) {
 
     const json = await res.json();
     const score = Number(json?.output?.nsfw_score);
-    console.log(LOG, 'deepai score', score);
+    console.log(LOG, 'deepai score', score, 'limit', limit);
     if (!Number.isFinite(score)) return { reason: 'check_failed' };
-    if (score >= NSFW_SCORE_LIMIT) return { reason: 'nsfw' };
+    if (score >= limit) return { reason: 'nsfw' };
     return { reason: 'ok' };
   } catch (e) {
     console.log(LOG, 'deepai failed', e?.message ?? e);
@@ -116,7 +144,7 @@ async function classifyWithDeepAi(base64Jpeg, apiKey) {
   }
 }
 
-async function classifyWithHuggingFace(base64Jpeg, token) {
+async function classifyWithHuggingFace(base64Jpeg, token, limit) {
   try {
     // Convert base64 → binary for the inference API.
     const binary = Uint8Array.from(atob(base64Jpeg), (c) => c.charCodeAt(0));
@@ -144,32 +172,15 @@ async function classifyWithHuggingFace(base64Jpeg, token) {
     const json = await res.json();
     // Expected: [{ label: 'nsfw' | 'normal', score: number }, ...]
     const rows = Array.isArray(json) ? json : [];
-    const nsfwRow = rows.find(
-      (row) =>
-        String(row?.label || '').toLowerCase().includes('nsfw') ||
-        String(row?.label || '').toLowerCase() === 'porn' ||
-        String(row?.label || '').toLowerCase() === 'hentai',
-    );
-    const score = Number(nsfwRow?.score);
-    console.log(LOG, 'hf scores', rows);
-    if (Number.isFinite(score) && score >= NSFW_SCORE_LIMIT) {
-      return { reason: 'nsfw' };
+    console.log(LOG, 'hf scores', rows, 'limit', limit);
+
+    let blockedScore = 0;
+    for (const row of rows) {
+      if (!isBlockedLabel(row?.label)) continue;
+      blockedScore = Math.max(blockedScore, Number(row.score) || 0);
     }
 
-    // Some model versions use labels like "nsfw" vs "normal" — also check max adult-ish label.
-    let adult = 0;
-    for (const row of rows) {
-      const label = String(row?.label || '').toLowerCase();
-      if (
-        label.includes('nsfw') ||
-        label.includes('porn') ||
-        label.includes('hentai') ||
-        label.includes('sexy')
-      ) {
-        adult = Math.max(adult, Number(row.score) || 0);
-      }
-    }
-    if (adult >= NSFW_SCORE_LIMIT) return { reason: 'nsfw' };
+    if (blockedScore >= limit) return { reason: 'nsfw' };
 
     if (!rows.length) return { reason: 'check_failed' };
     return { reason: 'ok' };

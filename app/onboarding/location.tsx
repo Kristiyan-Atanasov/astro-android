@@ -205,7 +205,7 @@ export default function LocationScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={undefined}
     >
       <Image source={backgroundImg} style={styles.bg} resizeMode="cover" />
       <Image source={starsImg} style={styles.stars} resizeMode="cover" />

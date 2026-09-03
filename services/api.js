@@ -2,6 +2,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { notifySessionExpired } from './sessionEvents';
 import { setReadProgressUser } from './readProgress';
+import { getAppLanguageCode } from './i18n';
 
 export const API_BASE = 'https://yrfz6x9dl1.execute-api.eu-central-1.amazonaws.com/dev';
 
@@ -134,7 +135,7 @@ export async function getRefreshToken() {
 //   -> { "access": "...", "refresh": "..." }
 //
 // We always send the provider's token in the `id_token` field per the
-// backend's API guide. For Google and Apple this is the OIDC id_token; for
+// backend's API guide. For Google this is the OIDC id_token; for
 // Facebook the value is whatever Facebook returned (access_token), and the
 // backend validates it against the Graph API.
 //
@@ -381,6 +382,115 @@ export async function patchUserProfile(patch) {
   }
 
   return data;
+}
+
+// PUT multipart/form-data with field name "image". Do not set Content-Type
+// manually — fetch must attach the multipart boundary itself.
+export async function uploadProfilePicture(image) {
+  const token = await getAccessToken();
+  if (!token) throw new Error('Missing access token. Please sign in again.');
+  if (!image?.uri) throw new Error('Missing image file');
+
+  const form = new FormData();
+  form.append('image', {
+    uri: image.uri,
+    name: image.name || 'avatar.jpg',
+    type: image.type || 'image/jpeg',
+  });
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/authentication/user_profile/picture/`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      },
+      body: form,
+    });
+  } catch (e) {
+    console.log(
+      '🌐 profile_picture upload network error:',
+      e?.message ?? String(e),
+    );
+    throw new Error('Network request failed');
+  }
+
+  console.log('🌐 profile_picture upload status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await handleSessionExpired();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  const { raw, data } = await readResponse(res);
+
+  if (!res.ok) {
+    const message =
+      data?.message ||
+      data?.detail ||
+      data?.image?.[0] ||
+      raw ||
+      `Profile picture upload failed (${res.status})`;
+    console.log('❌ profile_picture upload body:', raw);
+    const err = new Error(
+      typeof message === 'string' ? message : JSON.stringify(message),
+    );
+    err.status = res.status;
+    throw err;
+  }
+
+  return data;
+}
+
+export async function deleteProfilePicture() {
+  const token = await getAccessToken();
+  if (!token) throw new Error('Missing access token. Please sign in again.');
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/authentication/user_profile/picture/`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      },
+    });
+  } catch (e) {
+    console.log(
+      '🌐 profile_picture delete network error:',
+      e?.message ?? String(e),
+    );
+    throw new Error('Network request failed');
+  }
+
+  console.log('🌐 profile_picture delete status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await handleSessionExpired();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  // Already gone is fine.
+  if (res.status === 404 || res.status === 410) {
+    return { profile_picture_url: null };
+  }
+
+  const { raw, data } = await readResponse(res);
+
+  if (!res.ok) {
+    const message =
+      data?.message ||
+      data?.detail ||
+      raw ||
+      `Profile picture delete failed (${res.status})`;
+    console.log('❌ profile_picture delete body:', raw);
+    throw new Error(
+      typeof message === 'string' ? message : JSON.stringify(message),
+    );
+  }
+
+  return data || { profile_picture_url: null };
 }
 
 export async function getUserArchetypes() {
@@ -782,18 +892,43 @@ export async function recordQualityShare(qualityId, platform) {
   return data || null;
 }
 
+export async function syncUserLanguageToBackend() {
+  const token = await getAccessToken();
+  if (!token) return false;
+
+  try {
+    await patchUserProfile({
+      user_settings: { language: getAppLanguageCode() },
+    });
+    await clearDailyVibeCache();
+    return true;
+  } catch (e) {
+    console.log(
+      '🌐 language sync failed:',
+      e?.message ?? String(e),
+    );
+    return false;
+  }
+}
+
 export async function getDailyVibe() {
   const token = await getAccessToken();
   if (!token) return null;
 
   const todayKey = getLocalDateKey();
+  const language = getAppLanguageCode();
 
   // Serve today's vibe from the local cache so it stays stable across
   // re-renders, navigation and re-logins within the same calendar day.
-  // A new day invalidates the cache and we fetch a fresh vibe.
+  // A new day or language change invalidates the cache.
   const cached = await readDailyVibeCache();
-  if (cached && cached.date === todayKey && cached.data) {
-    console.log('🌐 daily_vibe cache hit for', todayKey);
+  if (
+    cached &&
+    cached.date === todayKey &&
+    cached.language === language &&
+    cached.data
+  ) {
+    console.log('🌐 daily_vibe cache hit for', todayKey, language);
     return cached.data;
   }
 
@@ -828,7 +963,7 @@ export async function getDailyVibe() {
 
   const { data } = await readResponse(res);
   if (data) {
-    await writeDailyVibeCache({ date: todayKey, data });
+    await writeDailyVibeCache({ date: todayKey, language, data });
     return data;
   }
   return null;
@@ -928,7 +1063,7 @@ export async function deleteAccount() {
 }
 
 // Tells the backend "the user has subscription purchase data, please
-// verify it with Apple/Google and update its state accordingly".
+// verify it with Google Play and update its state accordingly".
 //
 // `provider` must be 'apple' or 'google'.
 // `receiptData` is the raw payload received from the native store SDK;
@@ -1176,6 +1311,10 @@ export async function postOnboarding(payload) {
 
     throw new Error(friendly);
   }
+
+  // Onboarding may have changed the user's language; drop any vibe that
+  // was fetched before user_settings.language was saved.
+  await clearDailyVibeCache();
 
   return data;
 }

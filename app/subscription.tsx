@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -59,7 +58,7 @@ type PlanKey = 'monthly' | 'yearly';
 // react-native-iap module (so the page can't freeze on
 // `RNIap.initConnection()` while StoreKit / the products aren't set up
 // yet) and the CTA opens a support email instead of purchasing. Set to
-// `true` once the subscription products exist in App Store Connect and
+// `true` once the subscription products exist in Play Console and
 // the `/payments/verify/` backend endpoint is live end-to-end.
 const IAP_ENABLED = true;
 
@@ -78,7 +77,7 @@ export default function SubscriptionScreen() {
   // immediately with fallback prices, and the store load just upgrades
   // them in the background when (and if) it returns. This keeps the
   // upgrade page usable even when `react-native-iap` hangs (common on
-  // iOS simulators without a StoreKit configuration file).
+  // devices without Play Billing).
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>('monthly');
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -380,9 +379,7 @@ export default function SubscriptionScreen() {
         <View style={styles.spacer} />
 
         <Text style={styles.secureText}>
-          {Platform.OS === 'ios'
-            ? t('subscription.securedAppStore')
-            : t('subscription.securedPlayStore')}
+          {t('subscription.securedPlayStore')}
         </Text>
 
         <TouchableOpacity
