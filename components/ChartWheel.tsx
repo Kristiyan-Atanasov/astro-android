@@ -1,16 +1,19 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useMemo } from 'react';
 import {
-  Animated,
   View,
   StyleSheet,
   Image,
   Text,
   ImageSourcePropType,
 } from 'react-native';
-import Svg, { Circle, Line } from 'react-native-svg';
+import Svg, { G, Line, Path } from 'react-native-svg';
 import ChartWheelSvg from '../assets/images/astro-wheel-chart.svg';
 
 import { ZODIAC_SIGNS } from './Astrowheel';
+import {
+  ZODIAC_SIGN_ANCHORS,
+  ZODIAC_SIGN_PATHS,
+} from './zodiacSignPaths';
 
 export type ChartPlanet = {
   id: string;
@@ -226,7 +229,9 @@ function wheelRadii(size: number, outerFill = 0.495) {
   // Keep natal glyphs clearly inside the inner ring (not on the stroke)
   const planetR = zodiacInnerR * 0.55;
   const bandWidth = outerR - zodiacInnerR;
-  const zodiacIconSize = bandWidth * 0.55;
+  // Keep glyphs clearly inside the zodiac band (Android PNG overlays
+  // were oversized and looked like they sat on the inner ring).
+  const zodiacIconSize = bandWidth * 0.42;
   return { outerR, zodiacInnerR, zodiacIconR, planetR, zodiacIconSize };
 }
 
@@ -237,31 +242,6 @@ function isAxisHouse(index: number) {
   return index === 1 || index === 4 || index === 7 || index === 10;
 }
 
-function useWheelGlow() {
-  const glowAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, {
-          toValue: 1,
-          duration: 1300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(glowAnim, {
-          toValue: 0,
-          duration: 1300,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [glowAnim]);
-
-  return glowAnim;
-}
-
 function buildZodiacSlots(
   cx: number,
   cy: number,
@@ -269,7 +249,7 @@ function buildZodiacSlots(
   ascendant: number,
 ) {
   return Array.from({ length: 12 }, (_, i) => ({
-    icon: ZODIAC_SIGNS[i].icon,
+    code: ZODIAC_SIGNS[i].code,
     iconPos: polar(cx, cy, zodiacIconR, i * 30 + 15, ascendant),
     spokeDeg: i * 30,
   }));
@@ -328,7 +308,9 @@ function ChartWheelOverlay({
   showHouseCusps?: boolean;
   outerFill?: number;
 }) {
-  const { outerR, zodiacInnerR } = wheelRadii(size, outerFill);
+  const { outerR, zodiacInnerR, zodiacIconR } = wheelRadii(size, outerFill);
+  const ringScale = outerR / CHART_WHEEL_OUTER_R;
+  const zodiacSlots = buildZodiacSlots(cx, cy, zodiacIconR, ascendant);
 
   return (
     <>
@@ -382,85 +364,26 @@ function ChartWheelOverlay({
               />
             );
           })}
+
+        {/*
+          Zodiac glyphs as SVG paths (same art as the home wheel). Drawn in
+          this Svg so they share the spoke coordinate system — absolute PNG
+          overlays were double-drawn with a glow and drifted on Android.
+        */}
+        {zodiacSlots.map((slot) => {
+          const paths = ZODIAC_SIGN_PATHS[slot.code];
+          const anchor = ZODIAC_SIGN_ANCHORS[slot.code];
+          if (!paths || !anchor) return null;
+          const transform = `translate(${slot.iconPos.x}, ${slot.iconPos.y}) scale(${ringScale}) translate(${-anchor.x}, ${-anchor.y})`;
+          return (
+            <G key={`zodiac-${slot.code}`} transform={transform}>
+              {paths.map((d, i) => (
+                <Path key={`${slot.code}-${i}`} d={d} fill="#FFFFFF" />
+              ))}
+            </G>
+          );
+        })}
       </Svg>
-    </>
-  );
-}
-
-function MonochromeZodiacGlyphs({
-  cx,
-  cy,
-  size,
-  ascendant,
-  glowAnim,
-  outerFill = 0.495,
-}: {
-  cx: number;
-  cy: number;
-  size: number;
-  ascendant: number;
-  glowAnim: Animated.Value;
-  outerFill?: number;
-}) {
-  const { zodiacIconR, zodiacIconSize } = wheelRadii(size, outerFill);
-  const zodiacSlots = buildZodiacSlots(cx, cy, zodiacIconR, ascendant);
-
-  return (
-    <>
-      {zodiacSlots.map((slot, i) => (
-        <View
-          key={`zodiac-${i}`}
-          style={{
-            position: 'absolute',
-            left: slot.iconPos.x - zodiacIconSize / 2,
-            top: slot.iconPos.y - zodiacIconSize / 2,
-            width: zodiacIconSize,
-            height: zodiacIconSize,
-          }}
-        >
-          <Animated.View
-            style={[
-              styles.birthZodiacGlowOuter,
-              {
-                opacity: glowAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.35, 0.78],
-                }),
-                transform: [
-                  {
-                    scale: glowAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [1.02, 1.14],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <Image
-              source={slot.icon}
-              style={{
-                width: zodiacIconSize,
-                height: zodiacIconSize,
-                tintColor: '#FFFFFF',
-                opacity: 0.55,
-              }}
-              resizeMode="contain"
-            />
-          </Animated.View>
-
-          <Image
-            source={slot.icon}
-            style={{
-              width: zodiacIconSize,
-              height: zodiacIconSize,
-              tintColor: '#FFFFFF',
-              opacity: 1,
-            }}
-            resizeMode="contain"
-          />
-        </View>
-      ))}
     </>
   );
 }
@@ -544,7 +467,6 @@ function BirthChartWheel({
   model: ChartModel;
   size: number;
 }) {
-  const glowAnim = useWheelGlow();
   const cx = size / 2;
   const cy = size / 2;
   const { planetR } = wheelRadii(size, BIRTH_OUTER_FILL);
@@ -560,14 +482,6 @@ function BirthChartWheel({
         size={size}
         ascendant={ascendant}
         houses={houses}
-        outerFill={BIRTH_OUTER_FILL}
-      />
-      <MonochromeZodiacGlyphs
-        cx={cx}
-        cy={cy}
-        size={size}
-        ascendant={ascendant}
-        glowAnim={glowAnim}
         outerFill={BIRTH_OUTER_FILL}
       />
       {natalPlanets.map((planet) =>
@@ -1098,7 +1012,6 @@ function TransitChartWheel({
   model: ChartModel;
   size: number;
 }) {
-  const glowAnim = useWheelGlow();
   const { ascendant, houses } = model;
 
   const natalPlanets = useMemo(
@@ -1207,14 +1120,6 @@ function TransitChartWheel({
         showHouseCusps
       />
 
-      <MonochromeZodiacGlyphs
-        cx={cx}
-        cy={cy}
-        size={size}
-        ascendant={ascendant}
-        glowAnim={glowAnim}
-      />
-
       {innerGlyphLayouts.map((layout) =>
         renderNatalInnerGlyph(layout, cx, cy, ascendant, size),
       )}
@@ -1239,16 +1144,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     backgroundColor: 'transparent',
-  },
-  zodiacGlow: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  birthZodiacGlowOuter: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   planetGlow: {
     position: 'absolute',

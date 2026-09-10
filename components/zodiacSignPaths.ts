@@ -48,3 +48,19 @@ export const ZODIAC_SIGN_PATHS: Record<string, string[]> = {
 
 export const SVG_VIEWBOX_W = 393;
 export const SVG_VIEWBOX_H = 456;
+
+/** Optical centers of each sign glyph inside the wheel SVG viewBox. */
+export const ZODIAC_SIGN_ANCHORS: Record<string, { x: number; y: number }> = {
+  ARIES: { x: 227.15, y: 112.42 },
+  TAURUS: { x: 284.44, y: 141.37 },
+  GEMINI: { x: 312.17, y: 197.29 },
+  CANCER: { x: 310.83, y: 258.81 },
+  LEO: { x: 278.46, y: 311.21 },
+  VIRGO: { x: 225.98, y: 342.19 },
+  LIBRA: { x: 168.01, y: 340.67 },
+  SCORPIO: { x: 115.17, y: 309.89 },
+  SAGITTARIUS: { x: 82.64, y: 256.44 },
+  CAPRICORN: { x: 81.45, y: 198.35 },
+  AQUARIUS: { x: 113.9, y: 146.38 },
+  PISCES: { x: 164.67, y: 114.65 },
+};

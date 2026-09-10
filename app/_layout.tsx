@@ -6,6 +6,7 @@ import { useFonts } from 'expo-font';
 import { useTranslation } from 'react-i18next';
 import { onSessionExpired } from '../services/sessionEvents';
 import { initI18n } from '../services/i18n';
+import { startNotificationAutoDismiss } from '../services/notifications';
 
 const backgroundImg = require('../assets/images/background.png');
 const starsImg = require('../assets/images/stars.png');
@@ -43,6 +44,11 @@ export default function RootLayout() {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     }
+  }, []);
+
+  // Best-effort 1h tray cleanup even before Home mounts.
+  useEffect(() => {
+    return startNotificationAutoDismiss();
   }, []);
 
   useEffect(() => {

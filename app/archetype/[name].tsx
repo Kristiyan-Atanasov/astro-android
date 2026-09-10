@@ -24,6 +24,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ZODIAC_SIGNS } from '../../components/Astrowheel';
@@ -788,6 +789,34 @@ function ProgressRow({
   );
 }
 
+function LockedBlurText({
+  children,
+  style,
+  numberOfLines,
+}: {
+  children: string;
+  style?: object;
+  numberOfLines?: number;
+}) {
+  return (
+    <View style={styles.lockedTextWrap}>
+      <Text style={style} numberOfLines={numberOfLines}>
+        {children}
+      </Text>
+      <BlurView
+        intensity={48}
+        tint="dark"
+        style={StyleSheet.absoluteFillObject}
+        {...(Platform.OS === 'android'
+          ? { experimentalBlurMethod: 'dimezisBlurView' as const }
+          : null)}
+      />
+      {/* Scrim so text stays unreadable even if platform blur is weak. */}
+      <View style={styles.lockedTextScrim} pointerEvents="none" />
+    </View>
+  );
+}
+
 function QualityRow({
   quality,
   onToggle,
@@ -877,7 +906,13 @@ function QualityRow({
 
       <View style={styles.qualityTextCol}>
         <View style={styles.qualityTitleRow}>
-          <Text style={styles.qualityTitle}>{quality.title}</Text>
+          {isLocked ? (
+            <LockedBlurText style={styles.qualityTitle} numberOfLines={1}>
+              {quality.title}
+            </LockedBlurText>
+          ) : (
+            <Text style={styles.qualityTitle}>{quality.title}</Text>
+          )}
           {isLearned ? (
             <View style={styles.learnedPill}>
               <Ionicons name="checkmark" size={10} color="#7DE2A8" />
@@ -890,11 +925,16 @@ function QualityRow({
             </View>
           ) : null}
         </View>
-        {!!quality.text && (
-          <Text style={styles.qualitySubtitle} numberOfLines={1}>
-            {quality.text}
-          </Text>
-        )}
+        {!!quality.text &&
+          (isLocked ? (
+            <LockedBlurText style={styles.qualitySubtitle} numberOfLines={1}>
+              {quality.text}
+            </LockedBlurText>
+          ) : (
+            <Text style={styles.qualitySubtitle} numberOfLines={1}>
+              {quality.text}
+            </Text>
+          ))}
       </View>
 
       {isLocked ? (
@@ -1337,6 +1377,15 @@ const styles = StyleSheet.create({
   },
   qualityTextCol: {
     flex: 1,
+  },
+  lockedTextWrap: {
+    flexShrink: 1,
+    overflow: 'hidden',
+    borderRadius: 4,
+  },
+  lockedTextScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(20, 18, 28, 0.45)',
   },
   qualityTitleRow: {
     flexDirection: 'row',

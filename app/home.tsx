@@ -420,20 +420,23 @@ export default function HomeScreen() {
                   onPress={() => goToArchetype(sign)}
                 >
                   {/*
-                    Android: LinearGradient with % size + overflow:hidden often
-                    paints nothing (active Leo/Capricorn tiles vanished). Use an
-                    absolute-fill gradient over an opaque fallback color.
+                    Keep the gradient behind the icon. On Android, absolute-fill
+                    LinearGradient siblings were painting over the Image and
+                    left blank purple tiles.
                   */}
-                  <View style={styles.symbolBoxActiveFallback} />
                   <LinearGradient
                     colors={['#577CFB', '#B283ED']}
                     locations={[0, 0.9451]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
-                    style={StyleSheet.absoluteFillObject}
+                    pointerEvents="none"
+                    style={styles.symbolBoxActiveGradient}
                   />
-                  <View style={styles.symbolBoxActiveContent}>
-                    <Image source={sign.icon} style={styles.symbolImageActive} />
+                  <View style={styles.symbolBoxActiveIconWrap} pointerEvents="none">
+                    <Image
+                      source={sign.icon}
+                      style={styles.symbolImageActive}
+                    />
                   </View>
                 </TouchableOpacity>
               );
@@ -745,14 +748,19 @@ const styles = StyleSheet.create({
   symbolBoxActiveWrap: {
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#577CFB',
+    // Mid-gradient fallback so active tiles stay purple even if the
+    // native gradient view fails to composite.
+    backgroundColor: '#7B80F4',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  symbolBoxActiveFallback: {
+  symbolBoxActiveGradient: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#577CFB',
+    zIndex: 0,
   },
-  symbolBoxActiveContent: {
-    ...StyleSheet.absoluteFillObject,
+  symbolBoxActiveIconWrap: {
+    zIndex: 2,
+    elevation: 3,
     justifyContent: 'center',
     alignItems: 'center',
   },
