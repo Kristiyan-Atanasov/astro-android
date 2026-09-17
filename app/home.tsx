@@ -16,6 +16,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   getUserProfile,
@@ -39,6 +40,10 @@ import {
 } from '../services/iap';
 import { rememberScroll, takeScrollRestore } from '../services/scrollRestore';
 import Astrowheel, { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
+import {
+  ZODIAC_SIGN_ANCHORS,
+  ZODIAC_SIGN_PATHS,
+} from '../components/zodiacSignPaths';
 import {
   backendCodeToLocale,
   getAppLanguageCode,
@@ -64,7 +69,27 @@ const KEYS_GRID_SIGNS: ZodiacSign[] = KEYS_GRID_ORDER
   .map((code) => ZODIAC_BY_CODE[code])
   .filter((s): s is ZodiacSign => !!s);
 
-const homeBg = require('../assets/images/home-bg.png');
+function ActiveZodiacGlyph({ code }: { code: string }) {
+  const paths = ZODIAC_SIGN_PATHS[code];
+  const anchor = ZODIAC_SIGN_ANCHORS[code];
+  if (!paths || !anchor) return null;
+
+  const viewBoxSize = 36;
+  return (
+    <Svg
+      width={52}
+      height={52}
+      viewBox={`${anchor.x - viewBoxSize / 2} ${anchor.y - viewBoxSize / 2} ${viewBoxSize} ${viewBoxSize}`}
+    >
+      {paths.map((d, index) => (
+        <Path key={`${code}-${index}`} d={d} fill="#FFFFFF" />
+      ))}
+    </Svg>
+  );
+}
+
+const homeBg = require('../assets/images/home-bg-test.jpg');
+// const homeBg = require('../assets/images/home-bg.png'); // previous
 const vibeIcon = require('../assets/images/vibe-icon.png');
 const menuIcon = require('../assets/images/burger.png');
 const subBg = require('../assets/images/sub-background.png');
@@ -419,25 +444,15 @@ export default function HomeScreen() {
                   activeOpacity={0.85}
                   onPress={() => goToArchetype(sign)}
                 >
-                  {/*
-                    Keep the gradient behind the icon. On Android, absolute-fill
-                    LinearGradient siblings were painting over the Image and
-                    left blank purple tiles.
-                  */}
                   <LinearGradient
                     colors={['#577CFB', '#B283ED']}
                     locations={[0, 0.9451]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
-                    pointerEvents="none"
-                    style={styles.symbolBoxActiveGradient}
-                  />
-                  <View style={styles.symbolBoxActiveIconWrap} pointerEvents="none">
-                    <Image
-                      source={sign.icon}
-                      style={styles.symbolImageActive}
-                    />
-                  </View>
+                    style={styles.symbolBoxActive}
+                  >
+                    <ActiveZodiacGlyph code={sign.code} />
+                  </LinearGradient>
                 </TouchableOpacity>
               );
             }
@@ -748,19 +763,12 @@ const styles = StyleSheet.create({
   symbolBoxActiveWrap: {
     borderRadius: 18,
     overflow: 'hidden',
-    // Mid-gradient fallback so active tiles stay purple even if the
-    // native gradient view fails to composite.
     backgroundColor: '#7B80F4',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  symbolBoxActiveGradient: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 0,
-  },
-  symbolBoxActiveIconWrap: {
-    zIndex: 2,
-    elevation: 3,
+  symbolBoxActive: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -769,12 +777,6 @@ const styles = StyleSheet.create({
     height: 48,
     resizeMode: 'contain',
     tintColor: '#D3D5FB',
-  },
-  symbolImageActive: {
-    width: 52,
-    height: 52,
-    resizeMode: 'contain',
-    tintColor: '#FFFFFF',
   },
   communityCard: {
     borderRadius: 16,

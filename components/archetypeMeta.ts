@@ -16,6 +16,318 @@ export const ELEMENT_BACKGROUNDS: Record<ZodiacElement, any> = {
   water: require('../assets/images/water.jpg'),
 };
 
+// Pisces-only reading backgrounds. Picked at random when opening a quality
+// reader for PISCES (not used on the archetype list screen).
+export const PISCES_READING_BACKGROUNDS = [
+  require('../assets/images/pisces/pisces-01.jpg'),
+  require('../assets/images/pisces/pisces-02.jpg'),
+  require('../assets/images/pisces/pisces-03.jpg'),
+  require('../assets/images/pisces/pisces-04.jpg'),
+  require('../assets/images/pisces/pisces-05.jpg'),
+  require('../assets/images/pisces/pisces-06.jpg'),
+  require('../assets/images/pisces/pisces-07.jpg'),
+  require('../assets/images/pisces/pisces-08.jpg'),
+  require('../assets/images/pisces/pisces-09.jpg'),
+  require('../assets/images/pisces/pisces-10.jpg'),
+  require('../assets/images/pisces/pisces-11.jpg'),
+  require('../assets/images/pisces/pisces-12.jpg'),
+  require('../assets/images/pisces/pisces-13.jpg'),
+  require('../assets/images/pisces/pisces-14.jpg'),
+];
+
+export function pickPiscesReadingBackground() {
+  const list = PISCES_READING_BACKGROUNDS;
+  if (!list.length) return ELEMENT_BACKGROUNDS.water;
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
+
+// Libra-only reading backgrounds. Picked at random when opening a quality
+// reader for LIBRA (not used on the archetype list screen).
+export const LIBRA_READING_BACKGROUNDS = [
+  require('../assets/images/libra/libra-01.jpg'),
+  require('../assets/images/libra/libra-02.jpg'),
+  require('../assets/images/libra/libra-03.jpg'),
+  require('../assets/images/libra/libra-04.jpg'),
+  require('../assets/images/libra/libra-05.jpg'),
+  require('../assets/images/libra/libra-06.jpg'),
+  require('../assets/images/libra/libra-07.jpg'),
+  require('../assets/images/libra/libra-08.jpg'),
+  require('../assets/images/libra/libra-09.jpg'),
+  require('../assets/images/libra/libra-10.jpg'),
+  require('../assets/images/libra/libra-11.jpg'),
+  require('../assets/images/libra/libra-12.jpg'),
+  require('../assets/images/libra/libra-13.jpg'),
+  require('../assets/images/libra/libra-14.jpg'),
+];
+
+export function pickLibraReadingBackground() {
+  const list = LIBRA_READING_BACKGROUNDS;
+  if (!list.length) return ELEMENT_BACKGROUNDS.air;
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
+
+// Aquarius-only reading backgrounds. Picked at random when opening a quality
+// reader for AQUARIUS (not used on the archetype list screen).
+export const AQUARIUS_READING_BACKGROUNDS = [
+  require('../assets/images/aquarius/aquarius-01.jpg'),
+  require('../assets/images/aquarius/aquarius-02.jpg'),
+  require('../assets/images/aquarius/aquarius-03.jpg'),
+  require('../assets/images/aquarius/aquarius-04.jpg'),
+  require('../assets/images/aquarius/aquarius-05.jpg'),
+  require('../assets/images/aquarius/aquarius-06.jpg'),
+  require('../assets/images/aquarius/aquarius-07.jpg'),
+  require('../assets/images/aquarius/aquarius-08.jpg'),
+  require('../assets/images/aquarius/aquarius-09.jpg'),
+  require('../assets/images/aquarius/aquarius-10.jpg'),
+  require('../assets/images/aquarius/aquarius-11.jpg'),
+  require('../assets/images/aquarius/aquarius-12.jpg'),
+  require('../assets/images/aquarius/aquarius-13.jpg'),
+  require('../assets/images/aquarius/aquarius-14.jpg'),
+];
+
+export function pickAquariusReadingBackground() {
+  const list = AQUARIUS_READING_BACKGROUNDS;
+  if (!list.length) return ELEMENT_BACKGROUNDS.air;
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
+
+// Capricorn-only reading backgrounds. Picked at random when opening a quality
+// reader for CAPRICORN (not used on the archetype list screen).
+export const CAPRICORN_READING_BACKGROUNDS = [
+  require('../assets/images/capricorn/capricorn-01.jpg'),
+  require('../assets/images/capricorn/capricorn-02.jpg'),
+  require('../assets/images/capricorn/capricorn-03.jpg'),
+  require('../assets/images/capricorn/capricorn-04.jpg'),
+  require('../assets/images/capricorn/capricorn-05.jpg'),
+  require('../assets/images/capricorn/capricorn-06.jpg'),
+  require('../assets/images/capricorn/capricorn-07.jpg'),
+  require('../assets/images/capricorn/capricorn-08.jpg'),
+  require('../assets/images/capricorn/capricorn-09.jpg'),
+  require('../assets/images/capricorn/capricorn-10.jpg'),
+  require('../assets/images/capricorn/capricorn-11.jpg'),
+  require('../assets/images/capricorn/capricorn-12.jpg'),
+  require('../assets/images/capricorn/capricorn-13.jpg'),
+  require('../assets/images/capricorn/capricorn-14.jpg'),
+];
+
+export function pickCapricornReadingBackground() {
+  const list = CAPRICORN_READING_BACKGROUNDS;
+  if (!list.length) return ELEMENT_BACKGROUNDS.earth;
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
+
+// Sagittarius-only reading backgrounds. Picked at random when opening a quality
+// reader for SAGITTARIUS (not used on the archetype list screen).
+export const SAGITTARIUS_READING_BACKGROUNDS = [
+  require('../assets/images/sagittarius/sagittarius-01.jpg'),
+  require('../assets/images/sagittarius/sagittarius-02.jpg'),
+  require('../assets/images/sagittarius/sagittarius-03.jpg'),
+  require('../assets/images/sagittarius/sagittarius-04.jpg'),
+  require('../assets/images/sagittarius/sagittarius-05.jpg'),
+  require('../assets/images/sagittarius/sagittarius-06.jpg'),
+  require('../assets/images/sagittarius/sagittarius-07.jpg'),
+  require('../assets/images/sagittarius/sagittarius-08.jpg'),
+  require('../assets/images/sagittarius/sagittarius-09.jpg'),
+  require('../assets/images/sagittarius/sagittarius-10.jpg'),
+  require('../assets/images/sagittarius/sagittarius-11.jpg'),
+  require('../assets/images/sagittarius/sagittarius-12.jpg'),
+  require('../assets/images/sagittarius/sagittarius-13.jpg'),
+  require('../assets/images/sagittarius/sagittarius-14.jpg'),
+];
+
+export function pickSagittariusReadingBackground() {
+  const list = SAGITTARIUS_READING_BACKGROUNDS;
+  if (!list.length) return ELEMENT_BACKGROUNDS.fire;
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
+
+// Scorpio-only reading backgrounds. Picked at random when opening a quality
+// reader for SCORPIO (not used on the archetype list screen).
+export const SCORPIO_READING_BACKGROUNDS = [
+  require('../assets/images/scorpio/scorpio-01.jpg'),
+  require('../assets/images/scorpio/scorpio-02.jpg'),
+  require('../assets/images/scorpio/scorpio-03.jpg'),
+  require('../assets/images/scorpio/scorpio-04.jpg'),
+  require('../assets/images/scorpio/scorpio-05.jpg'),
+  require('../assets/images/scorpio/scorpio-06.jpg'),
+  require('../assets/images/scorpio/scorpio-07.jpg'),
+  require('../assets/images/scorpio/scorpio-08.jpg'),
+  require('../assets/images/scorpio/scorpio-09.jpg'),
+  require('../assets/images/scorpio/scorpio-10.jpg'),
+  require('../assets/images/scorpio/scorpio-11.jpg'),
+  require('../assets/images/scorpio/scorpio-12.jpg'),
+  require('../assets/images/scorpio/scorpio-13.jpg'),
+  require('../assets/images/scorpio/scorpio-14.jpg'),
+];
+
+export function pickScorpioReadingBackground() {
+  const list = SCORPIO_READING_BACKGROUNDS;
+  if (!list.length) return ELEMENT_BACKGROUNDS.water;
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
+
+// Virgo-only reading backgrounds. Picked at random when opening a quality
+// reader for VIRGO (not used on the archetype list screen).
+export const VIRGO_READING_BACKGROUNDS = [
+  require('../assets/images/virgo/virgo-01.jpg'),
+  require('../assets/images/virgo/virgo-02.jpg'),
+  require('../assets/images/virgo/virgo-03.jpg'),
+  require('../assets/images/virgo/virgo-04.jpg'),
+  require('../assets/images/virgo/virgo-05.jpg'),
+  require('../assets/images/virgo/virgo-06.jpg'),
+  require('../assets/images/virgo/virgo-07.jpg'),
+  require('../assets/images/virgo/virgo-08.jpg'),
+  require('../assets/images/virgo/virgo-09.jpg'),
+  require('../assets/images/virgo/virgo-10.jpg'),
+  require('../assets/images/virgo/virgo-11.jpg'),
+  require('../assets/images/virgo/virgo-12.jpg'),
+  require('../assets/images/virgo/virgo-13.jpg'),
+  require('../assets/images/virgo/virgo-14.jpg'),
+];
+
+export function pickVirgoReadingBackground() {
+  const list = VIRGO_READING_BACKGROUNDS;
+  if (!list.length) return ELEMENT_BACKGROUNDS.earth;
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
+
+// Leo-only reading backgrounds. Picked at random when opening a quality
+// reader for LEO (not used on the archetype list screen).
+export const LEO_READING_BACKGROUNDS = [
+  require('../assets/images/leo/leo-01.jpg'),
+  require('../assets/images/leo/leo-02.jpg'),
+  require('../assets/images/leo/leo-03.jpg'),
+  require('../assets/images/leo/leo-04.jpg'),
+  require('../assets/images/leo/leo-05.jpg'),
+  require('../assets/images/leo/leo-06.jpg'),
+  require('../assets/images/leo/leo-07.jpg'),
+  require('../assets/images/leo/leo-08.jpg'),
+  require('../assets/images/leo/leo-09.jpg'),
+  require('../assets/images/leo/leo-10.jpg'),
+  require('../assets/images/leo/leo-11.jpg'),
+  require('../assets/images/leo/leo-12.jpg'),
+  require('../assets/images/leo/leo-13.jpg'),
+  require('../assets/images/leo/leo-14.jpg'),
+];
+
+export function pickLeoReadingBackground() {
+  const list = LEO_READING_BACKGROUNDS;
+  if (!list.length) return ELEMENT_BACKGROUNDS.fire;
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
+
+// Cancer-only reading backgrounds. Picked at random when opening a quality
+// reader for CANCER (not used on the archetype list screen).
+export const CANCER_READING_BACKGROUNDS = [
+  require('../assets/images/cancer/cancer-01.jpg'),
+  require('../assets/images/cancer/cancer-02.jpg'),
+  require('../assets/images/cancer/cancer-03.jpg'),
+  require('../assets/images/cancer/cancer-04.jpg'),
+  require('../assets/images/cancer/cancer-05.jpg'),
+  require('../assets/images/cancer/cancer-06.jpg'),
+  require('../assets/images/cancer/cancer-07.jpg'),
+  require('../assets/images/cancer/cancer-08.jpg'),
+  require('../assets/images/cancer/cancer-09.jpg'),
+  require('../assets/images/cancer/cancer-10.jpg'),
+  require('../assets/images/cancer/cancer-11.jpg'),
+  require('../assets/images/cancer/cancer-12.jpg'),
+  require('../assets/images/cancer/cancer-13.jpg'),
+  require('../assets/images/cancer/cancer-14.jpg'),
+];
+
+export function pickCancerReadingBackground() {
+  const list = CANCER_READING_BACKGROUNDS;
+  if (!list.length) return ELEMENT_BACKGROUNDS.water;
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
+
+// Gemini-only reading backgrounds. Picked at random when opening a quality
+// reader for GEMINI (not used on the archetype list screen).
+export const GEMINI_READING_BACKGROUNDS = [
+  require('../assets/images/gemini/gemini-01.jpg'),
+  require('../assets/images/gemini/gemini-02.jpg'),
+  require('../assets/images/gemini/gemini-03.jpg'),
+  require('../assets/images/gemini/gemini-04.jpg'),
+  require('../assets/images/gemini/gemini-05.jpg'),
+  require('../assets/images/gemini/gemini-06.jpg'),
+  require('../assets/images/gemini/gemini-07.jpg'),
+  require('../assets/images/gemini/gemini-08.jpg'),
+  require('../assets/images/gemini/gemini-09.jpg'),
+  require('../assets/images/gemini/gemini-10.jpg'),
+  require('../assets/images/gemini/gemini-11.jpg'),
+  require('../assets/images/gemini/gemini-12.jpg'),
+  require('../assets/images/gemini/gemini-13.jpg'),
+  require('../assets/images/gemini/gemini-14.jpg'),
+];
+
+export function pickGeminiReadingBackground() {
+  const list = GEMINI_READING_BACKGROUNDS;
+  if (!list.length) return ELEMENT_BACKGROUNDS.air;
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
+
+// Taurus-only reading backgrounds. Picked at random when opening a quality
+// reader for TAURUS (not used on the archetype list screen).
+export const TAURUS_READING_BACKGROUNDS = [
+  require('../assets/images/taurus/taurus-01.jpg'),
+  require('../assets/images/taurus/taurus-02.jpg'),
+  require('../assets/images/taurus/taurus-03.jpg'),
+  require('../assets/images/taurus/taurus-04.jpg'),
+  require('../assets/images/taurus/taurus-05.jpg'),
+  require('../assets/images/taurus/taurus-06.jpg'),
+  require('../assets/images/taurus/taurus-07.jpg'),
+  require('../assets/images/taurus/taurus-08.jpg'),
+  require('../assets/images/taurus/taurus-09.jpg'),
+  require('../assets/images/taurus/taurus-10.jpg'),
+  require('../assets/images/taurus/taurus-11.jpg'),
+  require('../assets/images/taurus/taurus-12.jpg'),
+  require('../assets/images/taurus/taurus-13.jpg'),
+  require('../assets/images/taurus/taurus-14.jpg'),
+];
+
+export function pickTaurusReadingBackground() {
+  const list = TAURUS_READING_BACKGROUNDS;
+  if (!list.length) return ELEMENT_BACKGROUNDS.earth;
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
+
+// Aries-only reading backgrounds. Picked at random when opening a quality
+// reader for ARIES (not used on the archetype list screen).
+export const ARIES_READING_BACKGROUNDS = [
+  require('../assets/images/aries/aries-01.jpg'),
+  require('../assets/images/aries/aries-02.jpg'),
+  require('../assets/images/aries/aries-03.jpg'),
+  require('../assets/images/aries/aries-04.jpg'),
+  require('../assets/images/aries/aries-05.jpg'),
+  require('../assets/images/aries/aries-06.jpg'),
+  require('../assets/images/aries/aries-07.jpg'),
+  require('../assets/images/aries/aries-08.jpg'),
+  require('../assets/images/aries/aries-09.jpg'),
+  require('../assets/images/aries/aries-10.jpg'),
+  require('../assets/images/aries/aries-11.jpg'),
+  require('../assets/images/aries/aries-12.jpg'),
+  require('../assets/images/aries/aries-13.jpg'),
+  require('../assets/images/aries/aries-14.jpg'),
+];
+
+export function pickAriesReadingBackground() {
+  const list = ARIES_READING_BACKGROUNDS;
+  if (!list.length) return ELEMENT_BACKGROUNDS.fire;
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
+
 export interface ArchetypeMeta {
   code: string;
   label: string;

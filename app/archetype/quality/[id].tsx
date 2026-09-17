@@ -3,7 +3,7 @@
 // Full-page reader for a single archetype quality. Reached by tapping a
 // quality on the archetype detail screen. Shows the zodiac glyph, an
 // element banner and the quality's heading + full text.
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -26,6 +26,18 @@ import { ZODIAC_SIGNS } from '../../../components/Astrowheel';
 import {
   ELEMENT_BACKGROUNDS,
   getArchetypeMeta,
+  pickAquariusReadingBackground,
+  pickCapricornReadingBackground,
+  pickLibraReadingBackground,
+  pickPiscesReadingBackground,
+  pickSagittariusReadingBackground,
+  pickScorpioReadingBackground,
+  pickVirgoReadingBackground,
+  pickLeoReadingBackground,
+  pickCancerReadingBackground,
+  pickGeminiReadingBackground,
+  pickTaurusReadingBackground,
+  pickAriesReadingBackground,
 } from '../../../components/archetypeMeta';
 
 function findSign(code: string) {
@@ -47,7 +59,32 @@ export default function QualityReaderScreen() {
   const code = (typeof params.name === 'string' ? params.name : '').toUpperCase();
   const sign = findSign(code);
   const meta = getArchetypeMeta(code);
-  const background = meta ? ELEMENT_BACKGROUNDS[meta.element] : null;
+  const background = useMemo(() => {
+    if (code === 'PISCES') return pickPiscesReadingBackground();
+    if (code === 'LIBRA') return pickLibraReadingBackground();
+    if (code === 'AQUARIUS') return pickAquariusReadingBackground();
+    if (code === 'CAPRICORN') return pickCapricornReadingBackground();
+    if (code === 'SAGITTARIUS') return pickSagittariusReadingBackground();
+    if (code === 'SCORPIO') return pickScorpioReadingBackground();
+    if (code === 'VIRGO') return pickVirgoReadingBackground();
+    if (code === 'LEO') return pickLeoReadingBackground();
+    if (code === 'CANCER') return pickCancerReadingBackground();
+    if (code === 'GEMINI') return pickGeminiReadingBackground();
+    if (code === 'TAURUS') return pickTaurusReadingBackground();
+    if (code === 'ARIES') return pickAriesReadingBackground();
+    return meta ? ELEMENT_BACKGROUNDS[meta.element] : null;
+  }, [code, meta]);
+
+  // Decode the chosen asset before first paint of a new source when possible.
+  useEffect(() => {
+    if (!background) return;
+    try {
+      const resolved = Image.resolveAssetSource(background);
+      if (resolved?.uri) Image.prefetch(resolved.uri);
+    } catch {
+      // best-effort
+    }
+  }, [background]);
 
   const title = typeof params.title === 'string' ? params.title : '';
   const text = typeof params.text === 'string' ? params.text : '';
@@ -93,6 +130,17 @@ export default function QualityReaderScreen() {
 
   return (
     <View style={styles.wrapper}>
+      {background ? (
+        <Image
+          key={String(background)}
+          source={background}
+          style={styles.pageBackground}
+          resizeMode="cover"
+          fadeDuration={0}
+        />
+      ) : null}
+      <View style={styles.pageOverlay} />
+
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
@@ -127,63 +175,58 @@ export default function QualityReaderScreen() {
           </View>
         </View>
 
-        {background ? (
-          <View style={styles.banner}>
-            <Image source={background} style={styles.bannerImage} resizeMode="cover" />
-          </View>
-        ) : null}
+        <View style={styles.glassCard}>
+          <BlurView
+            intensity={20}
+            tint="dark"
+            style={StyleSheet.absoluteFillObject}
+          />
+          <View style={styles.glassCardTint} />
 
-        <View style={styles.moonRow}>
-          <View style={styles.moonDot} />
-          <Ionicons name="moon" size={16} color="#AEB4E8" style={styles.moonFlip} />
-          <Ionicons name="sparkles" size={14} color="#D3D5FB" />
-          <Ionicons name="moon" size={16} color="#AEB4E8" />
-          <View style={styles.moonDot} />
-        </View>
+          <View style={styles.cardContent}>
+            {sign?.icon ? (
+              <Image source={sign.icon} style={styles.cardGlyph} />
+            ) : null}
 
-        {!!title && <Text style={styles.title}>{title}</Text>}
+            {!!title && <Text style={styles.title}>{title}</Text>}
 
-        {paragraphs.length > 0 ? (
-          paragraphs.map((p, i) => (
-            <Text key={i} style={styles.body}>
-              {p}
-            </Text>
-          ))
-        ) : (
-          <Text style={styles.body}>{text}</Text>
-        )}
-
-        {/* Share */}
-        <Text style={styles.shareLabel}>{t('quality.shareTitle')}</Text>
-        <View style={styles.shareRow}>
-          <TouchableOpacity
-            style={styles.shareButton}
-            activeOpacity={0.85}
-            onPress={() => handleShare('instagram')}
-            disabled={sharing}
-          >
-            <LinearGradient
-              colors={['#577CFB', '#B283ED']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.shareButtonInner}
-            >
-              <FontAwesome5 name="instagram" size={18} color="#fff" brand />
-              <Text style={styles.shareButtonText}>Instagram</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.shareButton}
-            activeOpacity={0.85}
-            onPress={() => handleShare('facebook')}
-            disabled={sharing}
-          >
-            <View style={styles.shareButtonFb}>
-              <FontAwesome5 name="facebook-f" size={18} color="#fff" brand />
-              <Text style={styles.shareButtonText}>Facebook</Text>
+            <View style={styles.bodyGroup}>
+              {paragraphs.length > 0 ? (
+                paragraphs.map((p, i) => (
+                  <Text key={i} style={styles.body}>
+                    {p}
+                  </Text>
+                ))
+              ) : (
+                <Text style={styles.body}>{text}</Text>
+              )}
             </View>
-          </TouchableOpacity>
+
+            <View style={styles.divider} />
+            <Text style={styles.shareLabel}>{t('quality.shareTitle')}</Text>
+
+            <View style={styles.shareRow}>
+              <TouchableOpacity
+                style={styles.shareButton}
+                activeOpacity={0.75}
+                onPress={() => handleShare('instagram')}
+                disabled={sharing}
+              >
+                <FontAwesome5 name="instagram" size={19} color="#fff" brand />
+                <Text style={styles.shareButtonText}>Instagram</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.shareButton}
+                activeOpacity={0.75}
+                onPress={() => handleShare('facebook')}
+                disabled={sharing}
+              >
+                <FontAwesome5 name="facebook-f" size={19} color="#fff" brand />
+                <Text style={styles.shareButtonText}>Facebook</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </ScrollView>
 
@@ -217,113 +260,126 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0F1014',
   },
+  pageBackground: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  pageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10, 7, 13, 0.36)',
+  },
   scroll: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 76,
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(57, 60, 71, 0.6)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.55)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconButtonPlaceholder: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerGlyph: {
-    width: 34,
-    height: 34,
-    resizeMode: 'contain',
-    tintColor: '#D3D5FB',
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
-  banner: {
-    height: 150,
-    borderRadius: 22,
+  glassCard: {
+    borderRadius: 42,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.55)',
     overflow: 'hidden',
-    marginBottom: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
   },
-  bannerImage: {
-    width: '100%',
-    height: '100%',
+  glassCardTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(34, 22, 32, 0.13)',
   },
-  moonRow: {
-    flexDirection: 'row',
+  cardContent: {
+    paddingTop: 62,
+    paddingHorizontal: 34,
+    paddingBottom: 42,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
-    marginBottom: 26,
   },
-  moonDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#AEB4E8',
-  },
-  moonFlip: {
-    transform: [{ scaleX: -1 }],
+  cardGlyph: {
+    width: 58,
+    height: 58,
+    resizeMode: 'contain',
+    tintColor: '#FFFFFF',
+    opacity: 0.95,
+    marginBottom: 28,
   },
   title: {
     color: '#fff',
-    fontSize: 22,
+    fontSize: 27,
     fontFamily: 'Nunito-Bold',
+    fontWeight: '600',
+    textAlign: 'center',
     marginBottom: 18,
+  },
+  bodyGroup: {
+    width: '100%',
+    alignItems: 'center',
   },
   body: {
-    color: '#C9CBD6',
-    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.78)',
+    fontSize: 16,
     lineHeight: 24,
     fontFamily: 'SFProDisplay-Regular',
-    marginBottom: 18,
-  },
-
-  // Share controls
-  shareLabel: {
-    color: '#fff',
-    fontSize: 15,
-    fontFamily: 'Nunito-Bold',
-    marginTop: 14,
+    fontWeight: '400',
+    textAlign: 'center',
     marginBottom: 12,
   },
+  divider: {
+    width: 64,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.32)',
+    marginTop: 18,
+    marginBottom: 24,
+  },
+  shareLabel: {
+    color: 'rgba(255, 255, 255, 0.92)',
+    fontSize: 16,
+    fontFamily: 'Nunito-Regular',
+    marginBottom: 20,
+  },
   shareRow: {
+    width: '100%',
     flexDirection: 'row',
     gap: 12,
   },
   shareButton: {
     flex: 1,
-    borderRadius: 26,
-    overflow: 'hidden',
-  },
-  shareButtonInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 13,
-    borderRadius: 26,
-  },
-  shareButtonFb: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 13,
-    borderRadius: 26,
-    backgroundColor: '#1877F2',
+    minHeight: 50,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.72)',
+    backgroundColor: 'rgba(255, 255, 255, 0.025)',
   },
   shareButtonText: {
     color: '#fff',
     fontSize: 14,
-    fontFamily: 'Nunito-Bold',
+    fontFamily: 'Nunito-Regular',
   },
 
   // Off-screen card that becomes the shared image

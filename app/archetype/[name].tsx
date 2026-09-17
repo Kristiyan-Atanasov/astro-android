@@ -31,6 +31,18 @@ import { ZODIAC_SIGNS } from '../../components/Astrowheel';
 import {
   ELEMENT_BACKGROUNDS,
   getArchetypeMeta,
+  pickAquariusReadingBackground,
+  pickAriesReadingBackground,
+  pickCancerReadingBackground,
+  pickCapricornReadingBackground,
+  pickGeminiReadingBackground,
+  pickLeoReadingBackground,
+  pickLibraReadingBackground,
+  pickPiscesReadingBackground,
+  pickSagittariusReadingBackground,
+  pickScorpioReadingBackground,
+  pickTaurusReadingBackground,
+  pickVirgoReadingBackground,
   type ZodiacElement,
 } from '../../components/archetypeMeta';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -245,6 +257,31 @@ export default function ArchetypeDetailScreen() {
     setAllQualities(null);
     setServerPercent(null);
     setLoading(true);
+  }, [code]);
+
+  // Decode a pack image early so the first quality open doesn't hitch.
+  useEffect(() => {
+    if (!code) return;
+    let src: any = null;
+    if (code === 'PISCES') src = pickPiscesReadingBackground();
+    else if (code === 'LIBRA') src = pickLibraReadingBackground();
+    else if (code === 'AQUARIUS') src = pickAquariusReadingBackground();
+    else if (code === 'CAPRICORN') src = pickCapricornReadingBackground();
+    else if (code === 'SAGITTARIUS') src = pickSagittariusReadingBackground();
+    else if (code === 'SCORPIO') src = pickScorpioReadingBackground();
+    else if (code === 'VIRGO') src = pickVirgoReadingBackground();
+    else if (code === 'LEO') src = pickLeoReadingBackground();
+    else if (code === 'CANCER') src = pickCancerReadingBackground();
+    else if (code === 'GEMINI') src = pickGeminiReadingBackground();
+    else if (code === 'TAURUS') src = pickTaurusReadingBackground();
+    else if (code === 'ARIES') src = pickAriesReadingBackground();
+    if (!src) return;
+    try {
+      const resolved = Image.resolveAssetSource(src);
+      if (resolved?.uri) Image.prefetch(resolved.uri);
+    } catch {
+      // best-effort
+    }
   }, [code]);
 
   const loadQualities = useCallback(async (options?: { silent?: boolean }) => {
