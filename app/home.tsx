@@ -897,7 +897,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   subscriptionOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFill as object),
     backgroundColor: 'rgba(8, 10, 18, 0.28)',
     borderRadius: 16,
   },

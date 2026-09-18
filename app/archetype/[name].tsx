@@ -843,7 +843,7 @@ function LockedBlurText({
       <BlurView
         intensity={48}
         tint="dark"
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         {...(Platform.OS === 'android'
           ? { experimentalBlurMethod: 'dimezisBlurView' as const }
           : null)}
@@ -1421,7 +1421,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   lockedTextScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFill as object),
     backgroundColor: 'rgba(20, 18, 28, 0.45)',
   },
   qualityTitleRow: {

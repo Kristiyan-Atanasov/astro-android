@@ -179,7 +179,7 @@ export default function QualityReaderScreen() {
           <BlurView
             intensity={20}
             tint="dark"
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
           />
           <View style={styles.glassCardTint} />
 
@@ -261,12 +261,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F1014',
   },
   pageBackground: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFill as object),
     width: '100%',
     height: '100%',
   },
   pageOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFill as object),
     backgroundColor: 'rgba(10, 7, 13, 0.36)',
   },
   scroll: {
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.055)',
   },
   glassCardTint: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFill as object),
     backgroundColor: 'rgba(34, 22, 32, 0.13)',
   },
   cardContent: {
