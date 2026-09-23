@@ -88,8 +88,9 @@ function ActiveZodiacGlyph({ code }: { code: string }) {
   );
 }
 
-const homeBg = require('../assets/images/home-bg-test.jpg');
-// const homeBg = require('../assets/images/home-bg.png'); // previous
+const homeBg = require('../assets/images/home-bg-horizon.jpg');
+// const homeBg = require('../assets/images/home-bg-test.jpg'); // previous test
+// const homeBg = require('../assets/images/home-bg.png'); // original
 const vibeIcon = require('../assets/images/vibe-icon.png');
 const menuIcon = require('../assets/images/burger.png');
 const subBg = require('../assets/images/sub-background.png');
@@ -690,10 +691,10 @@ const styles = StyleSheet.create({
     fontFamily: 'CooperLtBT-Bold',
   },
   vibeCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(100,100,255,0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.22)',
     padding: 16,
     marginBottom: 30,
   },

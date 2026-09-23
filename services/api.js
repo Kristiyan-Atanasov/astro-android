@@ -10,6 +10,55 @@ const ACCESS_TOKEN_KEY = 'accessToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';
 const DAILY_VIBE_CACHE_KEY = 'dailyVibeCache';
 
+const DEFAULT_FETCH_TIMEOUT_MS = 20000;
+const LOGIN_FETCH_TIMEOUT_MS = 20000;
+const VERIFY_FETCH_TIMEOUT_MS = 25000;
+const UPLOAD_FETCH_TIMEOUT_MS = 45000;
+const DELETE_FETCH_TIMEOUT_MS = 20000;
+const REGISTER_FETCH_TIMEOUT_MS = 15000;
+
+async function fetchWithTimeout(
+  url,
+  options = {},
+  timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+  label = 'request',
+) {
+  const controller =
+    typeof AbortController !== 'undefined' ? new AbortController() : null;
+  let timer;
+
+  const timeoutError = () => {
+    const err = new Error(`${label} timed out after ${timeoutMs}ms`);
+    err.code = 'E_TIMEOUT';
+    return err;
+  };
+
+  try {
+    if (!controller) {
+      return await Promise.race([
+        fetch(url, options),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(timeoutError()), timeoutMs);
+        }),
+      ]);
+    }
+
+    timer = setTimeout(() => controller.abort(), timeoutMs);
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (e) {
+    if (
+      e?.name === 'AbortError' ||
+      e?.code === 'E_TIMEOUT' ||
+      /aborted|timed out/i.test(String(e?.message || ''))
+    ) {
+      throw timeoutError();
+    }
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 // Returns the user's local calendar day as a YYYY-MM-DD string. We use the
 // local date (rather than UTC) so the vibe rolls over at the user's own
 // midnight rather than at a server timezone they don't see.
@@ -151,13 +200,19 @@ export async function socialLogin(provider, idToken) {
 
   let res;
   try {
-    res = await fetch(`${API_BASE}/authentication/social_login/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, id_token: idToken }),
-    });
+    res = await fetchWithTimeout(
+      `${API_BASE}/authentication/social_login/`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, id_token: idToken }),
+      },
+      LOGIN_FETCH_TIMEOUT_MS,
+      'social_login',
+    );
   } catch (e) {
     console.log('🌐 social_login network error:', e?.message ?? String(e));
+    if (e?.code === 'E_TIMEOUT') throw e;
     throw new Error('Network request failed');
   }
 
@@ -400,19 +455,25 @@ export async function uploadProfilePicture(image) {
 
   let res;
   try {
-    res = await fetch(`${API_BASE}/authentication/user_profile/picture/`, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json',
+    res = await fetchWithTimeout(
+      `${API_BASE}/authentication/user_profile/picture/`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+        body: form,
       },
-      body: form,
-    });
+      UPLOAD_FETCH_TIMEOUT_MS,
+      'profile_picture_upload',
+    );
   } catch (e) {
     console.log(
       '🌐 profile_picture upload network error:',
       e?.message ?? String(e),
     );
+    if (e?.code === 'E_TIMEOUT') throw e;
     throw new Error('Network request failed');
   }
 
@@ -852,46 +913,6 @@ export async function setQualityCompletion(qualityId, isCompleted) {
   return data;
 }
 
-// Records that the user shared a quality (analytics / backend share card).
-//   POST /archetypes/user_qualities/share/  { quality_id, platform? }
-// Returns the backend payload when available (may include a share image URL).
-export async function recordQualityShare(qualityId, platform) {
-  const token = await getAccessToken();
-  if (!token) return null;
-
-  if (typeof qualityId !== 'number') return null;
-
-  const body = { quality_id: qualityId };
-  if (platform) body.platform = platform;
-
-  let res;
-  try {
-    res = await fetch(`${API_BASE}/archetypes/user_qualities/share/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
-  } catch (e) {
-    console.log('🌐 user_qualities share network error:', e?.message ?? String(e));
-    return null;
-  }
-
-  console.log('🌐 user_qualities share status:', res.status);
-
-  if (res.status === 401 || res.status === 403) {
-    await handleSessionExpired();
-    return null;
-  }
-
-  if (!res.ok) return null;
-
-  const { data } = await readResponse(res);
-  return data || null;
-}
-
 export async function syncUserLanguageToBackend() {
   const token = await getAccessToken();
   if (!token) return false;
@@ -969,97 +990,52 @@ export async function getDailyVibe() {
   return null;
 }
 
-// Backends differ on what the "delete my account" endpoint is called.
-// Try the most common patterns in order. The first 2xx wins; the first
-// non-not-implemented error (i.e. anything that isn't a 404 / 405) is
-// surfaced as the real failure.
-const DELETE_ACCOUNT_CANDIDATES = [
-  { method: 'DELETE', path: '/authentication/user_profile/' },
-  { method: 'DELETE', path: '/authentication/me/' },
-  { method: 'DELETE', path: '/authentication/user/' },
-  { method: 'POST', path: '/authentication/delete_account/' },
-  { method: 'POST', path: '/authentication/user_profile/delete/' },
-];
-
+// Backend contract: DELETE /authentication/delete_account/ → 204 No Content.
+// No request body. Do not probe alternate routes; do not parse JSON on 204.
 export async function deleteAccount() {
   const token = await getAccessToken();
   if (!token) throw new Error('Missing access token. Please sign in again.');
 
-  let firstRealError = null;
-  let lastNotFoundDetail = null;
-
-  for (const candidate of DELETE_ACCOUNT_CANDIDATES) {
-    let res;
-    try {
-      res = await fetch(`${API_BASE}${candidate.path}`, {
-        method: candidate.method,
+  let res;
+  try {
+    res = await fetchWithTimeout(
+      `${API_BASE}/authentication/delete_account/`,
+      {
+        method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
         },
-        body: candidate.method === 'POST' ? JSON.stringify({}) : undefined,
-      });
-    } catch (e) {
-      console.log(
-        `🌐 delete account network error (${candidate.method} ${candidate.path}):`,
-        e?.message ?? String(e),
-      );
-      if (!firstRealError) firstRealError = new Error('Network request failed');
-      continue;
-    }
-
-    console.log(
-      `🌐 delete account ${candidate.method} ${candidate.path} status:`,
-      res.status,
+      },
+      DELETE_FETCH_TIMEOUT_MS,
+      'delete_account',
     );
-
-    if (res.status === 401 || res.status === 403) {
-      await handleSessionExpired();
-      throw new Error('Session expired. Please sign in again.');
-    }
-
-    // 410 Gone = already deleted on this backend, treat as success.
-    if (res.status === 410) {
-      await clearAccessToken();
-      return { status: 'gone' };
-    }
-
-    // 404 / 405 mean "this backend doesn't expose this URL/verb",
-    // not "the user is gone" — try the next candidate.
-    if (res.status === 404 || res.status === 405) {
-      try {
-        const { raw } = await readResponse(res);
-        lastNotFoundDetail = raw || `HTTP ${res.status}`;
-      } catch {
-        lastNotFoundDetail = `HTTP ${res.status}`;
-      }
-      continue;
-    }
-
-    const { raw, data } = await readResponse(res);
-
-    if (!res.ok) {
-      const message =
-        data?.message ||
-        data?.detail ||
-        raw ||
-        `Account deletion failed (${res.status})`;
-      console.log('❌ delete account server error body:', raw);
-      if (!firstRealError) firstRealError = new Error(message);
-      // Real backend error (not "endpoint missing") — stop trying further URLs.
-      break;
-    }
-
-    await clearAccessToken();
-    return data || { status: 'success' };
+  } catch (e) {
+    console.log('🌐 delete account network error:', e?.message ?? String(e));
+    if (e?.code === 'E_TIMEOUT') throw e;
+    throw new Error('Network request failed');
   }
 
-  if (firstRealError) throw firstRealError;
-  throw new Error(
-    lastNotFoundDetail
-      ? `Account deletion is not available on the server (${lastNotFoundDetail}).`
-      : 'Account deletion endpoint is not available on the server.',
-  );
+  console.log('🌐 delete account status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await handleSessionExpired();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  // 204 No Content (or 410 Gone = already deleted) — clear local session.
+  if (res.status === 204 || res.status === 410 || res.ok) {
+    await clearAccessToken();
+    return { status: res.status === 410 ? 'gone' : 'success' };
+  }
+
+  let detail = `Account deletion failed (${res.status})`;
+  try {
+    const { raw, data } = await readResponse(res);
+    detail = data?.message || data?.detail || raw || detail;
+    console.log('❌ delete account server error body:', raw);
+  } catch {}
+  throw new Error(detail);
 }
 
 // Tells the backend "the user has subscription purchase data, please
@@ -1086,16 +1062,28 @@ export async function verifySubscription(provider, receiptData) {
 
   let res;
   try {
-    res = await fetch(`${API_BASE}/payments/verify/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
+    res = await fetchWithTimeout(
+      `${API_BASE}/payments/verify/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ provider, receipt_data: receiptData }),
       },
-      body: JSON.stringify({ provider, receipt_data: receiptData }),
-    });
+      VERIFY_FETCH_TIMEOUT_MS,
+      'verify_subscription',
+    );
   } catch (e) {
     console.log('🌐 verify subscription network error:', e?.message ?? String(e));
+    if (e?.code === 'E_TIMEOUT') {
+      const err = new Error(
+        'Verification timed out. Your purchase may still be processing — try Restore purchases.',
+      );
+      err.code = 'E_VERIFY_TIMEOUT';
+      throw err;
+    }
     throw new Error('Network request failed');
   }
 
@@ -1139,14 +1127,19 @@ export async function registerDeviceToken(token, platform) {
 
   let res;
   try {
-    res = await fetch(`${API_BASE}/notifications/register/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
+    res = await fetchWithTimeout(
+      `${API_BASE}/notifications/register/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ token, platform }),
       },
-      body: JSON.stringify({ token, platform }),
-    });
+      REGISTER_FETCH_TIMEOUT_MS,
+      'register_device',
+    );
   } catch (e) {
     console.log('🌐 register device network error:', e?.message ?? String(e));
     return null;

@@ -365,6 +365,9 @@ const en = {
     verificationFailedTitle: 'Verification failed',
     verificationFailedBody:
       'We couldn’t verify your subscription yet. Please try again.',
+    verifyTimeoutTitle: 'Verification timed out',
+    verifyTimeoutBody:
+      'Your purchase went through, but we couldn’t confirm it in time. Tap Restore purchases — you won’t be charged again.',
     notAvailableTitle: 'Not available here',
     notAvailableBody:
       'In-app purchases aren’t available on this device. Try on a real device with the Google Play.',
@@ -605,6 +608,9 @@ const en = {
     premiumQualityTitle: 'Premium quality',
     premiumQualityBody:
       'This quality is part of the premium plan. Start your free trial to unlock it.',
+    progressionLockTitle: 'Not unlocked yet',
+    progressionLockBody:
+      'New qualities unlock as you learn — keep going with your active lessons, and more will open soon.',
     qualityUpdateFailed: 'Update failed',
     qualityUpdateFailedBody:
       'We couldn’t update this quality. Please try again.',

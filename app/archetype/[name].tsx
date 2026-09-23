@@ -52,7 +52,12 @@ import {
   getArchetypeCompletedPercentage,
   setQualityActivation,
   setQualityCompletion,
+  getUserProfile,
 } from '../../services/api';
+import {
+  isUserPremiumFromProfile,
+  isUserPremiumFromQualities,
+} from '../../services/iap';
 import { rememberScroll, takeScrollRestore } from '../../services/scrollRestore';
 
 type QualityStatus = 'ACTIVE' | 'INACTIVE' | 'LOCKED';
@@ -71,6 +76,7 @@ interface QualityItem {
   is_recently_unlocked?: boolean;
   can_activate: boolean;
   can_deactivate: boolean;
+  lock_reason?: string | null;
 }
 
 const TAB_TYPES = {
@@ -213,6 +219,7 @@ export default function ArchetypeDetailScreen() {
   // (user_archetypes.completed_percentage). null until first loaded; we fall
   // back to a local optimistic estimate so the bar moves instantly.
   const [serverPercent, setServerPercent] = useState<number | null>(null);
+  const [isPremium, setIsPremium] = useState(false);
 
   // Optimistically patches a single quality in local state by id.
   const patchQuality = useCallback((id: number, patch: Partial<QualityItem>) => {
@@ -298,6 +305,11 @@ export default function ArchetypeDetailScreen() {
         return;
       }
 
+      const fromQualities = isUserPremiumFromQualities(userList);
+      if (fromQualities === true && isMounted.current) {
+        setIsPremium(true);
+      }
+
       const userForArchetype = userList
         .map(normalizeQualityRow)
         .filter(
@@ -321,6 +333,27 @@ export default function ArchetypeDetailScreen() {
       if (isMounted.current) setLoading(false);
     }
   }, [code]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const profile = await getUserProfile();
+        if (cancelled || !profile) return;
+        if (isUserPremiumFromProfile(profile)) {
+          setIsPremium(true);
+        }
+      } catch (e) {
+        console.log(
+          'premium profile check failed:',
+          (e as any)?.message ?? String(e),
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const refreshProgress = useCallback(async () => {
     try {
@@ -436,11 +469,55 @@ export default function ArchetypeDetailScreen() {
     );
   }, [router, t]);
 
+  const showProgressionLock = useCallback(() => {
+    Alert.alert(
+      t('archetype.progressionLockTitle'),
+      t('archetype.progressionLockBody'),
+      [{ text: t('common.ok') }],
+    );
+  }, [t]);
+
+  // LOCKED alone is not proof the user needs a subscription. Prefer
+  // lock_reason when present; otherwise subscribers get a progression
+  // message and free users get the paywall.
+  const handleLockedQuality = useCallback(
+    (quality?: QualityItem) => {
+      const reason = String(
+        quality?.lock_reason || (quality as any)?.lockReason || '',
+      ).toLowerCase();
+      if (
+        reason === 'subscription' ||
+        reason === 'premium' ||
+        reason === 'paywall' ||
+        reason === 'not_subscribed'
+      ) {
+        showPaywall();
+        return;
+      }
+      if (
+        reason === 'progression' ||
+        reason === 'daily_limit' ||
+        reason === 'quota' ||
+        reason === 'daily' ||
+        reason === 'enrollment'
+      ) {
+        showProgressionLock();
+        return;
+      }
+      if (isPremium) {
+        showProgressionLock();
+        return;
+      }
+      showPaywall();
+    },
+    [isPremium, showPaywall, showProgressionLock],
+  );
+
   // Chevron opens the reading page only — activation is via row tap.
   const openQuality = useCallback(
     (quality: QualityItem) => {
       if (quality.status === 'LOCKED') {
-        showPaywall();
+        handleLockedQuality(quality);
         return;
       }
 
@@ -455,14 +532,14 @@ export default function ArchetypeDetailScreen() {
         },
       } as any);
     },
-    [router, code, showPaywall, scrollRestoreKey],
+    [router, code, handleLockedQuality, scrollRestoreKey],
   );
 
   // Tap: toggle notification activation (purple = active in daily insights).
   const toggleActive = useCallback(
     async (quality: QualityItem) => {
       if (quality.status === 'LOCKED') {
-        showPaywall();
+        handleLockedQuality(quality);
         return;
       }
       if (quality.is_completed) return;
@@ -483,11 +560,11 @@ export default function ArchetypeDetailScreen() {
       } catch (e) {
         const msg = (e as any)?.message ?? String(e);
         console.log('toggle active failed:', msg);
-        if (/locked/i.test(msg)) showPaywall();
+        if (/locked/i.test(msg)) handleLockedQuality(quality);
         await syncFromServer();
       }
     },
-    [patchQuality, showPaywall, animateList, syncFromServer],
+    [patchQuality, handleLockedQuality, animateList, syncFromServer],
   );
 
   // Swipe right: mark as learned (turns green, sinks to bottom).

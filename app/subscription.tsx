@@ -189,89 +189,6 @@ export default function SubscriptionScreen() {
     );
   }, [openSupportMail, t]);
 
-  const handleStart = useCallback(async () => {
-    if (purchasing || restoring) return;
-    if (!IAP_ENABLED) {
-      showUnavailableAlert();
-      return;
-    }
-    setPurchasing(true);
-    try {
-      const result = await purchaseSubscription(selectedSku);
-
-      try {
-        await getUserQualities();
-      } catch (e) {
-        console.log('refresh qualities after purchase error:', e);
-      }
-
-      if (!isMounted.current) return;
-
-      if (isPremiumStatus(result?.status)) {
-        Alert.alert(
-          t('subscription.welcomeTitle'),
-          t('subscription.welcomeBody'),
-          [
-            {
-              text: t('subscription.continue'),
-              onPress: () => router.replace('/home'),
-            },
-          ],
-        );
-      } else {
-        Alert.alert(
-          t('subscription.notActiveTitle'),
-          t('subscription.notActiveBody'),
-        );
-      }
-    } catch (e: any) {
-      const code = e?.code;
-      const msg = String(e?.message ?? '');
-      const userCancelled =
-        code === 'E_USER_CANCELLED' ||
-        code === 'E_DEFERRED_PAYMENT' ||
-        msg.toLowerCase().includes('cancel');
-
-      console.log('purchase failure raw:', JSON.stringify({ code, msg }));
-
-      if (!userCancelled) {
-        let title = t('subscription.purchaseFailedTitle');
-        let body = msg || t('subscription.purchaseFailedBody');
-
-        if (code === 'verification-failed') {
-          title = t('subscription.verificationFailedTitle');
-          body = t('subscription.verificationFailedBody');
-        } else if (
-          code === 'E_IAP_NOT_AVAILABLE' ||
-          msg.includes('not available on this device')
-        ) {
-          title = t('subscription.notAvailableTitle');
-          body = t('subscription.notAvailableBody');
-        } else if (
-          code === 'E_ITEM_UNAVAILABLE' ||
-          code === 'E_SKU_NOT_FOUND' ||
-          msg.toLowerCase().includes('not found')
-        ) {
-          title = t('subscription.notConfiguredTitle');
-          body = t('subscription.notConfiguredBody', { sku: selectedSku });
-        } else if (code === 'E_NOT_PREPARED' || code === 'E_SERVICE_ERROR') {
-          title = t('subscription.notReadyTitle');
-          body = t('subscription.notReadyBody');
-        } else if (
-          msg.includes('access token') ||
-          msg.includes('Session expired')
-        ) {
-          title = t('subscription.signInRequiredTitle');
-          body = t('subscription.signInRequiredBody');
-        }
-
-        Alert.alert(`${title}${code ? ` (${code})` : ''}`, body);
-      }
-    } finally {
-      if (isMounted.current) setPurchasing(false);
-    }
-  }, [selectedSku, purchasing, restoring, router, t, showUnavailableAlert, selectedPlan]);
-
   const handleRestore = useCallback(async () => {
     if (purchasing || restoring) return;
     if (!IAP_ENABLED) {
@@ -324,6 +241,117 @@ export default function SubscriptionScreen() {
       if (isMounted.current) setRestoring(false);
     }
   }, [purchasing, restoring, router, t, showUnavailableAlert]);
+
+  const handleStart = useCallback(async () => {
+    if (purchasing || restoring) return;
+    if (!IAP_ENABLED) {
+      showUnavailableAlert();
+      return;
+    }
+    setPurchasing(true);
+    try {
+      const result = await purchaseSubscription(selectedSku);
+
+      try {
+        await getUserQualities();
+      } catch (e) {
+        console.log('refresh qualities after purchase error:', e);
+      }
+
+      if (!isMounted.current) return;
+
+      if (isPremiumStatus(result?.status)) {
+        Alert.alert(
+          t('subscription.welcomeTitle'),
+          t('subscription.welcomeBody'),
+          [
+            {
+              text: t('subscription.continue'),
+              onPress: () => router.replace('/home'),
+            },
+          ],
+        );
+      } else {
+        Alert.alert(
+          t('subscription.notActiveTitle'),
+          t('subscription.notActiveBody'),
+        );
+      }
+    } catch (e: any) {
+      const code = e?.code;
+      const msg = String(e?.message ?? '');
+      const userCancelled =
+        code === 'E_USER_CANCELLED' ||
+        code === 'E_DEFERRED_PAYMENT' ||
+        msg.toLowerCase().includes('cancel');
+
+      console.log('purchase failure raw:', JSON.stringify({ code, msg }));
+
+      if (!userCancelled) {
+        if (
+          code === 'E_VERIFY_TIMEOUT' ||
+          code === 'E_TIMEOUT' ||
+          /timed out/i.test(msg)
+        ) {
+          Alert.alert(
+            t('subscription.verifyTimeoutTitle'),
+            t('subscription.verifyTimeoutBody'),
+            [
+              { text: t('common.cancel'), style: 'cancel' },
+              {
+                text: t('subscription.restore'),
+                onPress: () => {
+                  void handleRestore();
+                },
+              },
+            ],
+          );
+        } else {
+          let title = t('subscription.purchaseFailedTitle');
+          let body = msg || t('subscription.purchaseFailedBody');
+
+          if (code === 'verification-failed') {
+            title = t('subscription.verificationFailedTitle');
+            body = t('subscription.verificationFailedBody');
+          } else if (
+            code === 'E_IAP_NOT_AVAILABLE' ||
+            msg.includes('not available on this device')
+          ) {
+            title = t('subscription.notAvailableTitle');
+            body = t('subscription.notAvailableBody');
+          } else if (
+            code === 'E_ITEM_UNAVAILABLE' ||
+            code === 'E_SKU_NOT_FOUND' ||
+            msg.toLowerCase().includes('not found')
+          ) {
+            title = t('subscription.notConfiguredTitle');
+            body = t('subscription.notConfiguredBody', { sku: selectedSku });
+          } else if (code === 'E_NOT_PREPARED' || code === 'E_SERVICE_ERROR') {
+            title = t('subscription.notReadyTitle');
+            body = t('subscription.notReadyBody');
+          } else if (
+            msg.includes('access token') ||
+            msg.includes('Session expired')
+          ) {
+            title = t('subscription.signInRequiredTitle');
+            body = t('subscription.signInRequiredBody');
+          }
+
+          Alert.alert(`${title}${code ? ` (${code})` : ''}`, body);
+        }
+      }
+    } finally {
+      if (isMounted.current) setPurchasing(false);
+    }
+  }, [
+    selectedSku,
+    purchasing,
+    restoring,
+    router,
+    t,
+    showUnavailableAlert,
+    handleRestore,
+  ]);
 
   return (
     <View style={styles.container}>

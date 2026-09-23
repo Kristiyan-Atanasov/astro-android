@@ -180,10 +180,10 @@ export default function ProfileScreen() {
     [profile],
   );
 
-  const chartModel = useMemo(() => {
+  const chartModel = useMemo((): ChartModel | null => {
     if (!profile) return null;
     console.log(LOG, 'computing natal + transit chart (memo)…');
-    return buildTransitChartModel(profile);
+    return buildTransitChartModel(profile) as ChartModel | null;
   }, [profile]);
 
   const birthLine = useMemo(() => {
@@ -258,7 +258,10 @@ export default function ProfileScreen() {
       const result = await pickAndSaveProfilePhoto();
       if (result.ok) {
         if (result.profile) {
-          setProfile((prev) => ({ ...(prev || {}), ...result.profile }));
+          setProfile((prev: Record<string, unknown> | null) => ({
+            ...(prev || {}),
+            ...result.profile,
+          }));
         }
         setPhotoUri(
           typeof result.uri === 'string' && result.uri.trim()
@@ -279,7 +282,7 @@ export default function ProfileScreen() {
       const result = await removeProfilePhoto();
       if (result.ok) {
         if (result.profile) {
-          setProfile((prev) => ({
+          setProfile((prev: Record<string, unknown> | null) => ({
             ...(prev || {}),
             ...result.profile,
             profile_picture_url: result.profile.profile_picture_url ?? null,

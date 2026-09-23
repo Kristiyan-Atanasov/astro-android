@@ -373,6 +373,9 @@ const bg: Translations = {
     verificationFailedTitle: 'Верификацията не успя',
     verificationFailedBody:
       'Все още не успяхме да потвърдим абонамента ти. Моля, опитай отново.',
+    verifyTimeoutTitle: 'Верификацията изтече',
+    verifyTimeoutBody:
+      'Покупката мина, но не успяхме да я потвърдим навреме. Докосни „Възстанови покупки“ — няма да бъдеш таксуван отново.',
     notAvailableTitle: 'Не е налично тук',
     notAvailableBody:
       'Покупките в приложението не са достъпни на това устройство. Опитай на реално устройство с Google Play.',
@@ -613,6 +616,9 @@ const bg: Translations = {
     premiumQualityTitle: 'Премиум качество',
     premiumQualityBody:
       'Това качество е част от премиум плана. Започни безплатния си пробен период, за да го отключиш.',
+    progressionLockTitle: 'Все още е заключено',
+    progressionLockBody:
+      'Нови качества се отключват докато учиш — продължи с активните уроци и скоро ще се отворят още.',
     qualityUpdateFailed: 'Обновяването не успя',
     qualityUpdateFailedBody:
       'Не успяхме да обновим това качество. Моля, опитай отново.',

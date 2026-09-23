@@ -438,7 +438,7 @@ function extractChartModel(horoscope, mode) {
   planets.push(...extractAngles(horoscope, mode));
 
   return {
-    kind: mode,
+    kind: mode === 'transit' ? 'transit' : 'natal',
     ascendant: ascDeg,
     houses,
     planets,

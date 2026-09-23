@@ -21,7 +21,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 
-import { recordQualityShare } from '../../../services/api';
 import { ZODIAC_SIGNS } from '../../../components/Astrowheel';
 import {
   ELEMENT_BACKGROUNDS,
@@ -88,7 +87,6 @@ export default function QualityReaderScreen() {
 
   const title = typeof params.title === 'string' ? params.title : '';
   const text = typeof params.text === 'string' ? params.text : '';
-  const qualityId = Number(params.id);
   const paragraphs = text.split(/\n{1,}/).map((p) => p.trim()).filter(Boolean);
 
   // Off-screen branded card that gets rendered to an image for sharing.
@@ -99,12 +97,6 @@ export default function QualityReaderScreen() {
     if (sharing) return;
     setSharing(true);
     try {
-      if (Number.isFinite(qualityId)) {
-        recordQualityShare(qualityId, platform).catch((e) =>
-          console.log('share notify failed:', (e as any)?.message ?? String(e)),
-        );
-      }
-
       const uri = await captureRef(shareCardRef, {
         format: 'png',
         quality: 1,
