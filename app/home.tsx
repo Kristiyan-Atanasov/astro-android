@@ -94,7 +94,7 @@ const homeBg = require('../assets/images/home-bg-horizon.jpg');
 const vibeIcon = require('../assets/images/vibe-icon.png');
 const menuIcon = require('../assets/images/burger.png');
 const subBg = require('../assets/images/sub-background.png');
-const communityBg = require('../assets/images/socials.jpg');
+const communityBg = require('../assets/images/community-space.jpg');
 
 // Icons
 const icons = {

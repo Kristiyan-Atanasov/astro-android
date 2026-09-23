@@ -903,31 +903,31 @@ function ProgressRow({
   );
 }
 
-function LockedBlurText({
-  children,
-  style,
-  numberOfLines,
-}: {
-  children: string;
-  style?: object;
-  numberOfLines?: number;
-}) {
+/**
+ * Frosts a whole locked row. Sits above the row content but below the PRO
+ * badge, so the badge stays sharp while everything behind it is obscured.
+ */
+function LockedFrost() {
   return (
-    <View style={styles.lockedTextWrap}>
-      <Text style={style} numberOfLines={numberOfLines}>
-        {children}
-      </Text>
+    <>
       <BlurView
-        intensity={48}
+        intensity={28}
         tint="dark"
         style={StyleSheet.absoluteFill}
+        pointerEvents="none"
         {...(Platform.OS === 'android'
           ? { experimentalBlurMethod: 'dimezisBlurView' as const }
           : null)}
       />
-      {/* Scrim so text stays unreadable even if platform blur is weak. */}
-      <View style={styles.lockedTextScrim} pointerEvents="none" />
-    </View>
+      {/* Keeps the row unreadable where the platform blur is weak. */}
+      <LinearGradient
+        colors={['rgba(14,16,32,0.58)', 'rgba(14,16,32,0.30)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+    </>
   );
 }
 
@@ -988,6 +988,54 @@ function QualityRow({
     });
   };
 
+  const iconBubble = isLearned ? (
+    <View style={[styles.qualityIconBubble, styles.qualityIconBubbleLearned]}>
+      <Ionicons name="checkmark" size={18} color="#fff" />
+    </View>
+  ) : isActive ? (
+    <LinearGradient
+      colors={['#577CFB', '#B283ED']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={styles.qualityIconBubble}
+    >
+      <Ionicons name="flash" size={18} color="#fff" />
+    </LinearGradient>
+  ) : (
+    <View style={[styles.qualityIconBubble, styles.qualityIconBubbleInactive]}>
+      <Ionicons name="flash" size={18} color="#D3D5FB" />
+    </View>
+  );
+
+  const textCol = (
+    <View style={styles.qualityTextCol}>
+      <View style={styles.qualityTitleRow}>
+        <Text
+          style={styles.qualityTitle}
+          numberOfLines={isLocked ? 1 : undefined}
+        >
+          {quality.title}
+        </Text>
+        {isLearned ? (
+          <View style={styles.learnedPill}>
+            <Ionicons name="checkmark" size={10} color="#7DE2A8" />
+            <Text style={styles.learnedPillText}>{learnedLabel}</Text>
+          </View>
+        ) : isNew ? (
+          <View style={styles.newPill}>
+            <Ionicons name="sparkles" size={10} color="#FFD56B" />
+            <Text style={styles.newPillText}>{newLabel}</Text>
+          </View>
+        ) : null}
+      </View>
+      {!!quality.text && (
+        <Text style={styles.qualitySubtitle} numberOfLines={1}>
+          {quality.text}
+        </Text>
+      )}
+    </View>
+  );
+
   const content = (
     <TouchableOpacity
       style={[
@@ -995,61 +1043,15 @@ function QualityRow({
         isActive && styles.qualityRowActive,
         isLearned && styles.qualityRowLearned,
         isNew && styles.qualityRowNew,
+        isLocked && styles.qualityRowLocked,
       ]}
       onPress={() => onToggle(quality)}
       activeOpacity={0.85}
     >
-      {isLearned ? (
-        <View style={[styles.qualityIconBubble, styles.qualityIconBubbleLearned]}>
-          <Ionicons name="checkmark" size={18} color="#fff" />
-        </View>
-      ) : isActive ? (
-        <LinearGradient
-          colors={['#577CFB', '#B283ED']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.qualityIconBubble}
-        >
-          <Ionicons name="flash" size={18} color="#fff" />
-        </LinearGradient>
-      ) : (
-        <View style={[styles.qualityIconBubble, styles.qualityIconBubbleInactive]}>
-          <Ionicons name="flash" size={18} color="#D3D5FB" />
-        </View>
-      )}
+      {iconBubble}
+      {textCol}
 
-      <View style={styles.qualityTextCol}>
-        <View style={styles.qualityTitleRow}>
-          {isLocked ? (
-            <LockedBlurText style={styles.qualityTitle} numberOfLines={1}>
-              {quality.title}
-            </LockedBlurText>
-          ) : (
-            <Text style={styles.qualityTitle}>{quality.title}</Text>
-          )}
-          {isLearned ? (
-            <View style={styles.learnedPill}>
-              <Ionicons name="checkmark" size={10} color="#7DE2A8" />
-              <Text style={styles.learnedPillText}>{learnedLabel}</Text>
-            </View>
-          ) : isNew ? (
-            <View style={styles.newPill}>
-              <Ionicons name="sparkles" size={10} color="#FFD56B" />
-              <Text style={styles.newPillText}>{newLabel}</Text>
-            </View>
-          ) : null}
-        </View>
-        {!!quality.text &&
-          (isLocked ? (
-            <LockedBlurText style={styles.qualitySubtitle} numberOfLines={1}>
-              {quality.text}
-            </LockedBlurText>
-          ) : (
-            <Text style={styles.qualitySubtitle} numberOfLines={1}>
-              {quality.text}
-            </Text>
-          ))}
-      </View>
+      {isLocked ? <LockedFrost /> : null}
 
       {isLocked ? (
         <LinearGradient
@@ -1426,6 +1428,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: 'rgba(140,140,200,0.14)',
+    // Clips the locked-row frost overlay to the rounded corners.
+    overflow: 'hidden',
   },
   qualityRowActive: {
     backgroundColor: 'rgba(122, 140, 255, 0.16)',
@@ -1492,14 +1496,9 @@ const styles = StyleSheet.create({
   qualityTextCol: {
     flex: 1,
   },
-  lockedTextWrap: {
-    flexShrink: 1,
-    overflow: 'hidden',
-    borderRadius: 4,
-  },
-  lockedTextScrim: {
-    ...(StyleSheet.absoluteFill as object),
-    backgroundColor: 'rgba(20, 18, 28, 0.45)',
+  qualityRowLocked: {
+    backgroundColor: 'rgba(122, 140, 255, 0.07)',
+    borderColor: 'rgba(140, 140, 200, 0.22)',
   },
   qualityTitleRow: {
     flexDirection: 'row',
@@ -1555,6 +1554,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     gap: 4,
+    // Keeps the badge above the frost overlay on both platforms.
+    zIndex: 1,
   },
   qualityProBadgeText: {
     color: '#fff',

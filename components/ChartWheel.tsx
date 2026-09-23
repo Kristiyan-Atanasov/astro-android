@@ -105,16 +105,16 @@ const CHART_WHEEL_OUTER_R = 141.5;
 const CHART_WHEEL_INNER_R = 96.9;
 
 const TRANSIT_LABEL_COLORS: Record<string, string> = {
-  sun: '#FFFFFF',
+  sun: '#D4A017',
   moon: '#FFFFFF',
-  mercury: '#8DD4F0',
-  venus: '#8DD4F0',
+  mercury: '#FFE14D',
+  venus: '#FF8FC5',
   mars: '#FF4D4D',
-  jupiter: '#5FD97A',
-  saturn: '#5FD97A',
-  uranus: '#5FD97A',
+  jupiter: '#FF9F45',
+  saturn: '#9AA0A6',
+  uranus: '#B283ED',
   neptune: '#8DD4F0',
-  pluto: '#FF4D4D',
+  pluto: '#B02A2A',
   ascendant: '#FFFFFF',
   descendant: '#FFFFFF',
   midheaven: '#FF4D4D',
@@ -888,22 +888,43 @@ function innerGlyphPoint(
   );
 }
 
-function innerGlyphsCollide(
-  a: InnerGlyphLayout,
-  b: InnerGlyphLayout,
-  cx: number,
-  cy: number,
-  ascendant: number,
-  glyphSize: number,
-) {
-  const pa = innerGlyphPoint(a, cx, cy, ascendant);
-  const pb = innerGlyphPoint(b, cx, cy, ascendant);
-  const minDist = glyphSize * 1.2;
-  const dx = pa.x - pb.x;
-  const dy = pa.y - pb.y;
-  return dx * dx + dy * dy < minDist * minDist;
+/** Angular width a cluster may occupy before it is split onto two rings. */
+const MAX_CLUSTER_SPREAD_DEG = 110;
+
+/** Minimum angular gap two glyphs need at `radius` so they don't touch. */
+function glyphSepDeg(glyphSize: number, radius: number) {
+  return Math.min(40, ((glyphSize * 1.15) / radius) * (180 / Math.PI));
 }
 
+type GlyphEntry = { planet: ChartPlanet; angle: number };
+
+/**
+ * Places a run of overlapping glyphs at even spacing centred on the run's
+ * midpoint, storing the offset from each planet's true angle as `angleNudge`.
+ */
+function spreadCluster(
+  cluster: GlyphEntry[],
+  midAngle: number,
+  radius: number,
+  sepDeg: number,
+  out: InnerGlyphLayout[],
+) {
+  const first = midAngle - ((cluster.length - 1) * sepDeg) / 2;
+  cluster.forEach((entry, i) => {
+    out.push({
+      planet: entry.planet,
+      radius,
+      angleNudge: first + i * sepDeg - entry.angle,
+    });
+  });
+}
+
+/**
+ * Natal glyphs sit on one ring at `baseR`. Overlapping planets are fanned
+ * apart along that ring rather than being pushed to arbitrary radii, so the
+ * glyphs read as a single band instead of drifting around the inner disc.
+ * Only a cluster too dense for one ring borrows a second, slightly inner ring.
+ */
 function computeInnerGlyphLayouts(
   planets: ChartPlanet[],
   ascendant: number,
@@ -912,55 +933,80 @@ function computeInnerGlyphLayouts(
   maxR: number,
   size: number,
 ): InnerGlyphLayout[] {
+  if (planets.length === 0) return [];
+
   const glyphSize = size * 0.058;
-  const layoutCx = 1000;
-  const layoutCy = 1000;
-  const sorted = [...planets].sort(
-    (a, b) => a.eclipticDeg - b.eclipticDeg || a.id.localeCompare(b.id),
-  );
-  const placed: InnerGlyphLayout[] = [];
-  const nudgeOrder = [0, 5, -5, 10, -10, 15, -15, 20, -20];
-  const radialDeltas = [
-    0,
-    -size * 0.04,
-    size * 0.04,
-    -size * 0.08,
-    size * 0.08,
-    -size * 0.12,
-  ];
+  const ringR = Math.max(minR, Math.min(maxR, baseR));
+  const sepDeg = glyphSepDeg(glyphSize, ringR);
 
-  for (const planet of sorted) {
-    let found = false;
+  const byAngle: GlyphEntry[] = planets
+    .map((planet) => ({
+      planet,
+      angle: normalizeDeg(chartAngleDeg(planet.eclipticDeg, ascendant)),
+    }))
+    .sort((a, b) => a.angle - b.angle || a.planet.id.localeCompare(b.planet.id));
 
-    for (const radialDelta of radialDeltas) {
-      const radius = Math.max(minR, Math.min(maxR, baseR + radialDelta));
-      for (const angleNudge of nudgeOrder) {
-        const candidate: InnerGlyphLayout = { planet, radius, angleNudge };
-        const conflict = placed.some((p) =>
-          innerGlyphsCollide(
-            candidate,
-            p,
-            layoutCx,
-            layoutCy,
-            ascendant,
-            glyphSize,
-          ),
-        );
-        if (!conflict) {
-          placed.push(candidate);
-          found = true;
-          break;
-        }
-      }
-      if (found) break;
-    }
-
-    if (!found) {
-      placed.push({ planet, radius: baseR, angleNudge: 0 });
+  // Start the sweep at the widest empty gap so no cluster straddles 0°/360°.
+  let seam = 0;
+  let widestGap = -1;
+  for (let i = 0; i < byAngle.length; i++) {
+    const next = byAngle[(i + 1) % byAngle.length];
+    const gap = normalizeDeg(next.angle - byAngle[i].angle);
+    if (gap > widestGap) {
+      widestGap = gap;
+      seam = (i + 1) % byAngle.length;
     }
   }
 
-  return placed;
+  // Unwrap to a monotonically increasing sweep starting at the seam.
+  const ordered: GlyphEntry[] = [];
+  for (let i = 0; i < byAngle.length; i++) {
+    const entry = byAngle[(seam + i) % byAngle.length];
+    let angle = entry.angle;
+    const prev = ordered[ordered.length - 1];
+    if (prev && angle < prev.angle) angle += 360;
+    ordered.push({ planet: entry.planet, angle });
+  }
+
+  const layouts: InnerGlyphLayout[] = [];
+  let i = 0;
+
+  while (i < ordered.length) {
+    let end = i + 1;
+    while (
+      end < ordered.length &&
+      ordered[end].angle - ordered[end - 1].angle < sepDeg
+    ) {
+      end += 1;
+    }
+
+    const cluster = ordered.slice(i, end);
+    const midAngle = (cluster[0].angle + cluster[cluster.length - 1].angle) / 2;
+
+    if (cluster.length * sepDeg > MAX_CLUSTER_SPREAD_DEG) {
+      const innerR = Math.max(minR, ringR - glyphSize * 1.15);
+      spreadCluster(
+        cluster.filter((_, k) => k % 2 === 0),
+        midAngle,
+        ringR,
+        sepDeg,
+        layouts,
+      );
+      spreadCluster(
+        cluster.filter((_, k) => k % 2 === 1),
+        midAngle,
+        innerR,
+        glyphSepDeg(glyphSize, innerR),
+        layouts,
+      );
+    } else {
+      spreadCluster(cluster, midAngle, ringR, sepDeg, layouts);
+    }
+
+    i = end;
+  }
+
+  return layouts;
 }
 
 function renderNatalInnerGlyph(

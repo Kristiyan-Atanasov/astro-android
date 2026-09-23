@@ -26,7 +26,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
 import { getSimilarUsers } from '../services/api';
 
-const communityBanner = require('../assets/images/community-banner.png');
+const communityBanner = require('../assets/images/community-space.jpg');
 
 // Render order for the zodiac sections.
 const SECTION_ORDER = [

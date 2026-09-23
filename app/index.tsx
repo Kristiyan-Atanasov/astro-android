@@ -36,7 +36,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   );
 }
 
-type LaunchMode = 'checking' | 'welcome' | 'locked';
+type LaunchMode = 'checking' | 'locked';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -47,7 +47,7 @@ export default function WelcomeScreen() {
 
   // Decide where a signed-in user should land. Returns false when the stored
   // session turns out to be dead (even after a silent refresh), so the caller
-  // can fall back to the welcome screen.
+  // can fall through to sign-in.
   const routeBySession = React.useCallback(async () => {
     const profile = await getUserProfile();
     if (cancelledRef.current) return true;
@@ -72,7 +72,7 @@ export default function WelcomeScreen() {
     try {
       const token = await getAccessToken();
       if (!token) {
-        if (!cancelledRef.current) setMode('welcome');
+        if (!cancelledRef.current) router.replace('/signin');
         return;
       }
 
@@ -95,12 +95,12 @@ export default function WelcomeScreen() {
 
       const routed = await routeBySession();
       if (cancelledRef.current) return;
-      if (!routed) setMode('welcome');
+      if (!routed) router.replace('/signin');
     } catch (e) {
       console.log('Auto-route check failed:', (e as any)?.message ?? String(e));
-      if (!cancelledRef.current) setMode('welcome');
+      if (!cancelledRef.current) router.replace('/signin');
     }
-  }, [routeBySession, t]);
+  }, [routeBySession, router, t]);
 
   React.useEffect(() => {
     cancelledRef.current = false;
@@ -112,8 +112,8 @@ export default function WelcomeScreen() {
 
   const handleUseDifferentAccount = React.useCallback(async () => {
     await clearAccessToken();
-    setMode('welcome');
-  }, []);
+    router.replace('/signin');
+  }, [router]);
 
   if (mode === 'checking') {
     return (
@@ -165,33 +165,8 @@ export default function WelcomeScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Image
-        source={require('../assets/images/planet.png')}
-        style={styles.planet}
-        resizeMode="contain"
-      />
-
-      <Text style={styles.title}>{t('welcome.title')}</Text>
-      <Text style={styles.subtitle}>{t('welcome.subtitle')}</Text>
-
-      <TouchableOpacity style={styles.button} onPress={() => router.push('/signin')}>
-        <Text style={styles.buttonText}>{t('welcome.button')}</Text>
-      </TouchableOpacity>
-
-      <View style={styles.linksContainer}>
-        <TouchableOpacity onPress={() => router.push('/terms')}>
-          <Text style={styles.link}>{t('legalLinks.terms')}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => router.push('/privacy')}>
-          <Text style={styles.link}>{t('legalLinks.privacy')}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => router.push('/subscription')}>
-          <Text style={styles.link}>{t('legalLinks.subscription')}</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={[styles.container, { justifyContent: 'center' }]}>
+      <ActivityIndicator color="#fff" />
     </View>
   );
 }

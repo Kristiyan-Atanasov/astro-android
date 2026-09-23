@@ -34,6 +34,8 @@ import {
 } from '../services/profilePhoto';
 const LOG = '[Profile]';
 
+const profileBg = require('../assets/images/profile-bg.jpg');
+
 const ZODIAC_BY_CODE: Record<string, ZodiacSign> = ZODIAC_SIGNS.reduce(
   (acc, sign) => {
     acc[sign.code] = sign;
@@ -410,6 +412,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.wrapper}>
+      <Image source={profileBg} style={styles.bg} resizeMode="cover" />
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
@@ -494,8 +497,6 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            <Text style={styles.dividerText}>•  ☽  ✦  ☾  •</Text>
-
             <View style={styles.chartSectionHeading}>
               <Text style={styles.chartSectionTitle}>
                 {t('profilePage.natalChartAndTransits')}
@@ -528,6 +529,12 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
+    backgroundColor: '#000',
+  },
+  bg: {
+    ...(StyleSheet.absoluteFill as object),
+    width: '100%',
+    height: '100%',
   },
   scroll: {
     paddingHorizontal: 24,
@@ -635,15 +642,6 @@ const styles = StyleSheet.create({
     color: '#B283ED',
     fontSize: 13,
     fontFamily: 'Nunito-Bold',
-  },
-  dividerText: {
-    textAlign: 'center',
-    color: '#577CFB',
-    fontSize: 14,
-    letterSpacing: 6,
-    marginBottom: 14,
-    opacity: 0.85,
-    fontFamily: 'SFProDisplay-Regular',
   },
   chartSectionHeading: {
     alignItems: 'center',
