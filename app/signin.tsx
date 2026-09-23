@@ -51,6 +51,8 @@ if (Platform.OS !== "web") {
   });
 }
 
+const signinBg = require("../assets/images/signin-bg.jpg");
+
 type ProviderId = "google";
 
 type WebGoogleButtonProps = {
@@ -234,6 +236,8 @@ export default function SignInScreen() {
 
   return (
     <View style={styles.container}>
+      <Image source={signinBg} style={styles.bg} resizeMode="cover" />
+
       <View style={styles.content}>
         <Image
           source={require("../assets/images/logo-signin.png")}
@@ -287,15 +291,20 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 60,
-    paddingHorizontal: 30,
-    backgroundColor: "transparent",
+    backgroundColor: "#000",
+  },
+  bg: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
   },
   content: {
     alignItems: "center",
     flexGrow: 1,
     justifyContent: "center",
+    paddingTop: 60,
     paddingBottom: 72,
+    paddingHorizontal: 30,
     overflow: "visible",
   },
   logo: {

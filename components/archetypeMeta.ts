@@ -9,11 +9,14 @@
 export type ZodiacElement = 'fire' | 'earth' | 'air' | 'water';
 
 // Per-element background photo shown behind the archetype + reading screens.
+// Each is the same planet-horizon scene tinted to its element: fire orange,
+// earth green, air purple, water blue. PNG keeps the dark gradient free of
+// the banding JPEG introduces.
 export const ELEMENT_BACKGROUNDS: Record<ZodiacElement, any> = {
-  fire: require('../assets/images/fire.jpg'),
-  earth: require('../assets/images/earth.jpg'),
-  air: require('../assets/images/air.jpg'),
-  water: require('../assets/images/water.jpg'),
+  fire: require('../assets/images/fire.png'),
+  earth: require('../assets/images/earth.png'),
+  air: require('../assets/images/air.png'),
+  water: require('../assets/images/water.png'),
 };
 
 // Pisces-only reading backgrounds. Picked at random when opening a quality
