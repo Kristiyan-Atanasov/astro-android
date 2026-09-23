@@ -694,6 +694,165 @@ export async function getSimilarUsers() {
   return data || null;
 }
 
+// Flat, privacy-aware community directory. The backend owns visibility:
+// callers only send the supported zodiac filters and pagination value.
+export async function getCommunityUsers(filtersOrNextUrl = {}) {
+  const token = await getAccessToken();
+  if (!token) {
+    const err = new Error('Missing access token. Please sign in again.');
+    err.code = 'missing-access-token';
+    throw err;
+  }
+
+  const endpoint = `${API_BASE}/archetypes/community/users/`;
+  const zodiacCodes = new Set([
+    'ARIES',
+    'TAURUS',
+    'GEMINI',
+    'CANCER',
+    'LEO',
+    'VIRGO',
+    'LIBRA',
+    'SCORPIO',
+    'SAGITTARIUS',
+    'CAPRICORN',
+    'AQUARIUS',
+    'PISCES',
+  ]);
+  const allowedParams = new Set([
+    'sun',
+    'moon',
+    'ascendant',
+    'learning',
+    'page',
+  ]);
+  let url = endpoint;
+
+  if (typeof filtersOrNextUrl === 'string') {
+    let parsed;
+    try {
+      parsed = new URL(filtersOrNextUrl);
+    } catch {
+      parsed = null;
+    }
+
+    const apiBase = new URL(API_BASE);
+    const endpointUrl = new URL(endpoint);
+    const hasOnlySafeParams =
+      !!parsed &&
+      Array.from(parsed.searchParams.keys()).every(
+        (key) =>
+          allowedParams.has(key) &&
+          parsed.searchParams.getAll(key).length === 1,
+      ) &&
+      ['sun', 'moon', 'ascendant', 'learning'].every((key) => {
+        const value = parsed.searchParams.get(key);
+        return (
+          value == null ||
+          (value === value.trim().toUpperCase() && zodiacCodes.has(value))
+        );
+      }) &&
+      (() => {
+        const value = parsed.searchParams.get('page');
+        const page = Number(value);
+        return value == null || (Number.isInteger(page) && page > 0);
+      })();
+    const isTrustedNext =
+      parsed?.protocol === endpointUrl.protocol &&
+      parsed?.host === endpointUrl.host &&
+      parsed?.pathname === endpointUrl.pathname &&
+      !parsed.username &&
+      !parsed.password &&
+      !parsed.hash &&
+      hasOnlySafeParams &&
+      endpointUrl.pathname.startsWith(
+        `${apiBase.pathname.replace(/\/$/, '')}/`,
+      );
+
+    if (isTrustedNext) {
+      url = parsed.toString();
+    } else {
+      const page = Number(parsed?.searchParams.get('page'));
+      if (Number.isInteger(page) && page > 0) {
+        const safeUrl = new URL(endpoint);
+        safeUrl.searchParams.set('page', String(page));
+        url = safeUrl.toString();
+      }
+    }
+  } else if (
+    filtersOrNextUrl &&
+    typeof filtersOrNextUrl === 'object' &&
+    !Array.isArray(filtersOrNextUrl)
+  ) {
+    const safeUrl = new URL(endpoint);
+    for (const key of ['sun', 'moon', 'ascendant', 'learning']) {
+      const value = filtersOrNextUrl[key];
+      if (typeof value !== 'string') continue;
+      const normalized = value.trim().toUpperCase();
+      if (zodiacCodes.has(normalized)) {
+        safeUrl.searchParams.set(key, normalized);
+      }
+    }
+    const page = Number(filtersOrNextUrl.page);
+    if (Number.isInteger(page) && page > 0) {
+      safeUrl.searchParams.set('page', String(page));
+    }
+    url = safeUrl.toString();
+  }
+
+  const requestCommunity = (bearer) =>
+    fetchWithTimeout(
+      url,
+      {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${bearer}`,
+        },
+      },
+      DEFAULT_FETCH_TIMEOUT_MS,
+      'community_users',
+    );
+
+  let res;
+  try {
+    res = await requestCommunity(token);
+    if (res.status === 401 || res.status === 403) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) res = await requestCommunity(refreshed);
+    }
+  } catch (e) {
+    if (e?.code === 'E_TIMEOUT') throw e;
+    const err = new Error(e?.message || 'Network request failed');
+    err.code = e?.code || 'network-error';
+    throw err;
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    await handleSessionExpired();
+  }
+
+  const { raw, data } = await readResponse(res);
+  if (!res.ok) {
+    // Never surface `raw` here: a missing route returns a full Django HTML
+    // error page, which would otherwise be rendered as the error message.
+    console.log('🌐 community_users error body:', raw ? raw.slice(0, 300) : '(empty)');
+    const message = formatApiError(
+      data,
+      null,
+      `Community request failed (${res.status})`,
+    );
+    const err = new Error(message);
+    err.status = res.status;
+    err.code =
+      (data && typeof data === 'object' && data.code) ||
+      `http-${res.status}`;
+    throw err;
+  }
+
+  return data || {};
+}
+
 export async function recalculateAstro() {
   const token = await getAccessToken();
   if (!token) return false;

@@ -159,15 +159,52 @@ const en = {
   },
 
   community: {
-    headerTitle: 'People in common',
-    bannerTitle: 'Explore people like you',
+    headerTitle: 'Community',
+    bannerTitle: 'Explore the community',
     bannerText:
-      'Find exclusive content and connect with other people with similar wheels.',
+      'Search for people by the astrological categories they choose to share.',
     sectionSubtitle:
       'Each person has 12 archetypes in their birth chart, but some are weak and others are well positioned.',
     male: 'Male',
     female: 'Female',
     empty: 'No community members to show yet. Check back soon!',
+    loading: 'Loading community members…',
+    error: 'We couldn’t load the community. Please try again.',
+    unavailable:
+      'Community search isn’t live yet. It will start working as soon as the backend update is deployed.',
+    back: 'Go back',
+    refresh: 'Refresh community',
+    filtersTitle: 'Search filters',
+    clearFilters: 'Clear filters',
+    anySign: 'Any sign',
+    filters: {
+      sun: 'Sun',
+      moon: 'Moon',
+      ascendant: 'Ascendant',
+      learning: 'Learning',
+    },
+    filterAccessibility: 'Choose {{filter}} filter',
+    sun: 'Sun',
+    moon: 'Moon',
+    ascendant: 'Ascendant',
+    learning: 'Learning',
+    total: '{{count}} community members',
+    loadMore: 'Load more',
+    memberFallback: 'Community member',
+    avatarLabel: '{{name}} profile photo',
+    open_instagram: 'Open {{name}} on Instagram',
+    open_facebook: 'Open {{name}} on Facebook',
+    linkErrorTitle: 'Couldn’t open link',
+    linkError: 'We couldn’t open that profile. Please try again.',
+    avatarPlaceholder: '{{name}} profile photo placeholder',
+    participationTitle: 'Participate in the community',
+    participationText:
+      'Turn this on to appear in community search and to see other members. Your Sun, Moon, Ascendant, and Learning stay private until you share each one in Account settings.',
+    participationLocked:
+      'Community is closed until you participate. Turn the switch on to search and see other members.',
+    participationErrorTitle: 'Couldn’t update participation',
+    participationError:
+      'Your previous choice has been restored. Please try again or change this later in Account settings.',
   },
 
   menu: {
@@ -305,6 +342,35 @@ const en = {
     supportEmailRequired: 'Please enter a valid email address.',
     supportMessageRequired: 'Please describe the change you need.',
     supportSubject: 'Profile change request',
+    communityPrivacyTitle: 'Community privacy',
+    communityPrivacyDescription:
+      'Choose whether your profile participates in Community search and which astrology categories other members may see.',
+    communityPrivacyHint:
+      'Participation and every astrological category are private by default. Choose exactly what other community members can see.',
+    communityParticipation: 'Participate in community search',
+    communityParticipationHint:
+      'When off, your profile is hidden but you can still browse and search.',
+    communityParticipationDescription:
+      'Lets your profile appear in community results. Browsing remains available while this is off.',
+    communitySharingTitle: 'Shared categories',
+    communityShareSun: 'Share Sun sign',
+    communityShareMoon: 'Share Moon sign',
+    communityShareAscendant: 'Share Ascendant',
+    communityShareSocials: 'Facebook and Instagram',
+    communityShareLearning: 'Share Learning archetypes',
+    shareSun: 'Share Sun sign',
+    shareMoon: 'Share Moon sign',
+    shareAscendant: 'Share Ascendant',
+    shareLearning: 'Share learning archetypes',
+    shareSocials: 'Share Facebook and Instagram',
+    sharingDisabledHint:
+      'Sharing choices are saved and will take effect only when participation is on.',
+    communityPrivacyErrorTitle: 'Couldn’t save privacy setting',
+    communityPrivacyError:
+      'Your previous setting was restored. Please try again.',
+    communityUpdateFailedTitle: 'Privacy update failed',
+    communityUpdateFailed:
+      'We couldn’t save that privacy setting. Your previous choice has been restored.',
   },
 
   notificationsSettings: {

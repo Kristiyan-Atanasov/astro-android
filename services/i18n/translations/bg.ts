@@ -165,15 +165,52 @@ const bg: Translations = {
   },
 
   community: {
-    headerTitle: 'Общи хора',
-    bannerTitle: 'Открий хора като теб',
+    headerTitle: 'Общност',
+    bannerTitle: 'Разгледай общността',
     bannerText:
-      'Открий ексклузивно съдържание и се свържи с други хора с подобни колела.',
+      'Търси хора според астрологичните категории, които са избрали да споделят.',
     sectionSubtitle:
       'Всеки човек има 12 архетипа в наталната си карта, но някои са слаби, а други – добре позиционирани.',
     male: 'Мъж',
     female: 'Жена',
     empty: 'Все още няма членове на общността. Провери отново скоро!',
+    loading: 'Зареждаме членовете на общността…',
+    error: 'Не успяхме да заредим общността. Моля, опитай отново.',
+    unavailable:
+      'Търсенето в общността още не е активно. Ще заработи веднага щом бъде качена новата версия на бекенда.',
+    back: 'Назад',
+    refresh: 'Обнови общността',
+    filtersTitle: 'Филтри за търсене',
+    clearFilters: 'Изчисти филтрите',
+    anySign: 'Всички знаци',
+    filters: {
+      sun: 'Слънце',
+      moon: 'Луна',
+      ascendant: 'Асцендент',
+      learning: 'Развиване',
+    },
+    filterAccessibility: 'Избери филтър {{filter}}',
+    sun: 'Слънце',
+    moon: 'Луна',
+    ascendant: 'Асцендент',
+    learning: 'Развиване',
+    total: '{{count}} членове на общността',
+    loadMore: 'Зареди още',
+    memberFallback: 'Член на общността',
+    avatarLabel: 'Профилна снимка на {{name}}',
+    open_instagram: 'Отвори {{name}} в Instagram',
+    open_facebook: 'Отвори {{name}} във Facebook',
+    linkErrorTitle: 'Връзката не се отвори',
+    linkError: 'Не успяхме да отворим този профил. Моля, опитай отново.',
+    avatarPlaceholder: 'Заместваща профилна снимка на {{name}}',
+    participationTitle: 'Участвай в общността',
+    participationText:
+      'Включи това, за да се появиш в търсенето и да виждаш други членове. Слънце, Луна, Асцендент и Развиване остават скрити, докато не ги споделиш поотделно в настройките на акаунта.',
+    participationLocked:
+      'Общността е затворена, докато не участваш. Включи превключвателя, за да търсиш и виждаш други членове.',
+    participationErrorTitle: 'Участието не беше обновено',
+    participationError:
+      'Предишният избор е възстановен. Опитай отново или промени това по-късно в настройките на акаунта.',
   },
 
   menu: {
@@ -312,6 +349,35 @@ const bg: Translations = {
     supportEmailRequired: 'Моля, въведи валиден имейл адрес.',
     supportMessageRequired: 'Моля, опиши какво искаш да променим.',
     supportSubject: 'Заявка за промяна на профила',
+    communityPrivacyTitle: 'Поверителност в общността',
+    communityPrivacyDescription:
+      'Избери дали профилът ти да участва в търсенето и кои астрологични категории да виждат другите членове.',
+    communityPrivacyHint:
+      'Участието и всяка астрологична категория са скрити по подразбиране. Избери точно какво могат да виждат другите членове.',
+    communityParticipation: 'Участвай в търсенето в общността',
+    communityParticipationHint:
+      'Когато е изключено, профилът ти е скрит, но можеш да разглеждаш и търсиш.',
+    communityParticipationDescription:
+      'Позволява профилът ти да се показва в резултатите. Можеш да разглеждаш и когато е изключено.',
+    communitySharingTitle: 'Споделени категории',
+    communityShareSun: 'Споделяй слънчев знак',
+    communityShareMoon: 'Споделяй лунен знак',
+    communityShareAscendant: 'Споделяй асцендент',
+    communityShareSocials: 'Facebook и Instagram',
+    communityShareLearning: 'Споделяй архетипи за развиване',
+    shareSun: 'Споделяй слънчев знак',
+    shareMoon: 'Споделяй лунен знак',
+    shareAscendant: 'Споделяй асцендент',
+    shareLearning: 'Споделяй архетипи за развиване',
+    shareSocials: 'Споделяй Facebook и Instagram',
+    sharingDisabledHint:
+      'Изборите се запазват и ще действат само когато участието е включено.',
+    communityPrivacyErrorTitle: 'Настройката не може да се запази',
+    communityPrivacyError:
+      'Предишната настройка беше възстановена. Моля, опитай отново.',
+    communityUpdateFailedTitle: 'Обновяването не успя',
+    communityUpdateFailed:
+      'Не успяхме да запазим тази настройка. Предишният избор е възстановен.',
   },
 
   notificationsSettings: {

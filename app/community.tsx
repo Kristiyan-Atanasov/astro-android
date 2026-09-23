@@ -1,275 +1,382 @@
-// app/community.tsx
-//
-// "People in common" — community hub reached from the home screen banner.
-// Shows users with a similar wheel, grouped by zodiac archetype, with each
-// person's big-three signs (sun / moon / rising) and social links.
-//
-// Data comes from getSimilarUsers() (GET /archetypes/similar_users/). To keep
-// sensitive data off this screen we intentionally do NOT show birth date or
-// gender. Avatars use the signed profile_picture_url from the API when present.
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
   Image,
   ImageBackground,
   Linking,
-  ActivityIndicator,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
-import { getSimilarUsers } from '../services/api';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { ZODIAC_SIGNS } from '../components/Astrowheel';
+import {
+  getCommunityUsers,
+  getUserProfile,
+  patchUserProfile,
+} from '../services/api';
 
 const communityBanner = require('../assets/images/community-space.jpg');
 
-// Render order for the zodiac sections.
-const SECTION_ORDER = [
-  'ARIES', 'TAURUS', 'GEMINI', 'CANCER', 'LEO', 'VIRGO',
-  'LIBRA', 'SCORPIO', 'SAGITTARIUS', 'CAPRICORN', 'AQUARIUS', 'PISCES',
-];
+type FilterKey = 'sun' | 'moon' | 'ascendant' | 'learning';
+type Filters = Record<FilterKey, string>;
 
-const ZODIAC_BY_CODE: Record<string, ZodiacSign> = ZODIAC_SIGNS.reduce(
-  (acc, sign) => {
-    acc[sign.code] = sign;
-    return acc;
-  },
-  {} as Record<string, ZodiacSign>,
-);
-
-interface CommunityUser {
-  id: string;
+interface CommunityMember {
+  id: string | number;
   name: string;
-  sun: string; // zodiac_sign
-  moon: string; // moon_sign
-  rising: string; // ascendant
-  profilePictureUrl?: string;
-  instagram?: string;
-  facebook?: string;
+  profile_picture_url: string | null;
+  sun_sign: string | null;
+  moon_sign: string | null;
+  ascendant: string | null;
+  learning_archetypes: string[] | null;
+  social_acc_facebook: string | null;
+  social_acc_instagram: string | null;
 }
 
-interface CommunityGroup {
-  code: string; // zodiac archetype code
-  users: CommunityUser[];
+const SOCIAL_BASE_URL = {
+  instagram: 'https://instagram.com/',
+  facebook: 'https://facebook.com/',
+} as const;
+
+type SocialPlatform = keyof typeof SOCIAL_BASE_URL;
+
+// Handles are free text at onboarding, so people type "@name", "name",
+// "instagram.com/name" or a full URL. Reduce all of those to the username
+// so we can build one predictable profile link. Links that carry a query
+// (facebook.com/profile.php?id=123 has no username) are kept whole instead,
+// because truncating them would point at the wrong page.
+function normalizeHandle(value: any): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const path = trimmed
+    .replace(/^https?:\/\//i, '')
+    .replace(/^www\.|^m\./i, '')
+    .replace(/^(?:instagram|facebook|fb)\.com\/?/i, '')
+    .replace(/^@+/, '');
+  if (/[?=]/.test(path)) {
+    return /^https?:\/\//i.test(trimmed) ? trimmed : null;
+  }
+  return path.split(/[/#]/)[0].trim() || null;
 }
 
-// ── Backend normalization ──────────────────────────────────────────────────
-function normalizeUser(raw: any): CommunityUser | null {
-  if (!raw) return null;
-  const name = String(raw.name ?? raw.full_name ?? '').trim();
-  if (!name) return null;
+const isProfileUrl = (handle: string) => /^https?:\/\//i.test(handle);
 
-  const up = (v: any) => (typeof v === 'string' ? v.toUpperCase() : '');
-  const picture =
-    typeof raw.profile_picture_url === 'string' && raw.profile_picture_url.trim()
-      ? raw.profile_picture_url.trim()
-      : undefined;
+const EMPTY_FILTERS: Filters = {
+  sun: '',
+  moon: '',
+  ascendant: '',
+  learning: '',
+};
+
+// How many members are on screen at once. The backend decides its own page
+// size, so we window the loaded list as well: "Load more" first reveals more
+// of what we already have and only fetches another page once it runs out.
+const PAGE_SIZE = 12;
+
+function normalizeMember(raw: any, index: number): CommunityMember {
+  const nullableCode = (value: any) =>
+    typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : null;
   return {
-    id: String(raw.id ?? raw.user_id ?? Math.random()),
-    name,
-    sun: up(raw.zodiac_sign ?? raw.sun_sign ?? raw.sun),
-    moon: up(raw.moon_sign ?? raw.moon),
-    rising: up(raw.ascendant ?? raw.rising_sign ?? raw.rising),
-    profilePictureUrl: picture,
-    instagram: raw.social_acc_instagram || undefined,
-    facebook: raw.social_acc_facebook || undefined,
-  };
-}
-
-function sortByWheel(groups: CommunityGroup[]): CommunityGroup[] {
-  return [...groups].sort((a, b) => {
-    const ia = SECTION_ORDER.indexOf(a.code);
-    const ib = SECTION_ORDER.indexOf(b.code);
-    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-  });
-}
-
-// Builds groups from a flat list of users by spreading each user under every
-// archetype they're learning (fallback when the backend returns a flat list
-// instead of pre-grouped data).
-function groupFlatUsers(list: any[]): CommunityGroup[] {
-  const byCode = new Map<string, CommunityUser[]>();
-  list.forEach((raw) => {
-    const user = normalizeUser(raw);
-    if (!user) return;
-    const codes: string[] = Array.isArray(raw?.learning_archetypes)
+    id: raw?.id ?? `member-${index}`,
+    name:
+      typeof raw?.name === 'string' && raw.name.trim()
+        ? raw.name.trim()
+        : '',
+    profile_picture_url:
+      typeof raw?.profile_picture_url === 'string' &&
+      raw.profile_picture_url.trim()
+        ? raw.profile_picture_url.trim()
+        : null,
+    sun_sign: nullableCode(raw?.sun_sign),
+    moon_sign: nullableCode(raw?.moon_sign),
+    ascendant: nullableCode(raw?.ascendant),
+    learning_archetypes: Array.isArray(raw?.learning_archetypes)
       ? raw.learning_archetypes
-          .map((c: any) => (typeof c === 'string' ? c.toUpperCase() : ''))
-          .filter(Boolean)
-      : [];
-    // If a user has no learning_archetypes, fall back to their sun sign so
-    // they still show up somewhere.
-    const targets = codes.length ? codes : user.sun ? [user.sun] : [];
-    targets.forEach((code) => {
-      if (!byCode.has(code)) byCode.set(code, []);
-      byCode.get(code)!.push(user);
-    });
-  });
-  return Array.from(byCode.entries()).map(([code, users]) => ({ code, users }));
-}
-
-function normalizeResponse(data: any): CommunityGroup[] {
-  // Preferred shape: { groups: [ { archetype, users: [...] } ] }
-  if (Array.isArray(data?.groups)) {
-    const parsed: CommunityGroup[] = data.groups
-      .map((g: any) => {
-        const code = typeof g?.archetype === 'string' ? g.archetype.toUpperCase() : '';
-        const users = (Array.isArray(g?.users) ? g.users : [])
-          .map(normalizeUser)
-          .filter(Boolean) as CommunityUser[];
-        return { code, users };
-      })
-      .filter((g: CommunityGroup) => g.code && g.users.length > 0);
-    return sortByWheel(parsed);
-  }
-
-  // Fallback: a flat list under a few common keys, or a bare array.
-  const flat = Array.isArray(data)
-    ? data
-    : Array.isArray(data?.users)
-      ? data.users
-      : Array.isArray(data?.results)
-        ? data.results
-        : [];
-  if (flat.length) {
-    return sortByWheel(groupFlatUsers(flat).filter((g) => g.code && g.users.length > 0));
-  }
-
-  return [];
-}
-
-// Social handle/url -> openable URL.
-function toUrl(base: string, handle: string): string {
-  const h = handle.trim();
-  if (/^https?:\/\//i.test(h)) return h;
-  return `${base}${h.replace(/^@/, '')}`;
-}
-
-function BigThreeItem({ code }: { code: string }) {
-  const sign = ZODIAC_BY_CODE[code];
-  if (!sign) return null;
-  return (
-    <View style={styles.bigThreeItem}>
-      <Image source={sign.icon} style={styles.bigThreeIcon} />
-      <Text style={styles.bigThreeLabel} numberOfLines={1}>
-        {sign.label}
-      </Text>
-    </View>
-  );
-}
-
-function SocialPill({
-  icon,
-  label,
-  url,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  url: string;
-}) {
-  return (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={() => Linking.openURL(url).catch(() => {})}
-    >
-      <LinearGradient
-        colors={['#577CFB', '#B283ED']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.socialPill}
-      >
-        <Ionicons name={icon} size={12} color="#fff" />
-        <Text style={styles.socialPillText} numberOfLines={1}>
-          {label}
-        </Text>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
-}
-
-function UserCard({ user }: { user: CommunityUser }) {
-  const hasBigThree = user.sun || user.moon || user.rising;
-  return (
-    <View style={styles.card}>
-      {user.profilePictureUrl ? (
-        <Image
-          source={{ uri: user.profilePictureUrl }}
-          style={styles.avatar}
-        />
-      ) : (
-        <View style={styles.avatar} />
-      )}
-
-      <Text style={styles.cardName} numberOfLines={1}>
-        {user.name}
-      </Text>
-
-      {hasBigThree ? (
-        <View style={styles.bigThreeRow}>
-          <BigThreeItem code={user.sun} />
-          <BigThreeItem code={user.moon} />
-          <BigThreeItem code={user.rising} />
-        </View>
-      ) : null}
-
-      {(user.instagram || user.facebook) && (
-        <View style={styles.socialRow}>
-          {user.instagram ? (
-            <SocialPill
-              icon="logo-instagram"
-              label="Insta"
-              url={toUrl('https://instagram.com/', user.instagram)}
-            />
-          ) : null}
-          {user.facebook ? (
-            <SocialPill
-              icon="logo-facebook"
-              label="Fb"
-              url={toUrl('https://facebook.com/', user.facebook)}
-            />
-          ) : null}
-        </View>
-      )}
-    </View>
-  );
+          .map(nullableCode)
+          .filter((code: string | null): code is string => !!code)
+      : null,
+    social_acc_facebook: normalizeHandle(raw?.social_acc_facebook),
+    social_acc_instagram: normalizeHandle(raw?.social_acc_instagram),
+  };
 }
 
 export default function CommunityScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const [groups, setGroups] = useState<CommunityGroup[]>([]);
+  const requestId = useRef(0);
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [selector, setSelector] = useState<FilterKey | null>(null);
+  const [members, setMembers] = useState<CommunityMember[]>([]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [next, setNext] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [profileReady, setProfileReady] = useState(false);
+  const [participating, setParticipating] = useState(false);
+  const [participationSaving, setParticipationSaving] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await getSimilarUsers();
-        if (cancelled) return;
-        const parsed = normalizeResponse(data);
-        console.log(
-          '[Community] groups:',
-          parsed.length,
-          parsed.map((g) => `${g.code}:${g.users.length}`).join(', '),
-        );
-        setGroups(parsed);
-      } catch (e) {
-        console.log('Community load failed:', (e as any)?.message ?? String(e));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const clearDirectory = useCallback(() => {
+    requestId.current += 1;
+    setMembers([]);
+    setVisibleCount(PAGE_SIZE);
+    setNext(null);
+    setTotal(0);
+    setError(null);
+    setLoading(false);
+    setRefreshing(false);
+    setLoadingMore(false);
   }, []);
 
-  const sections = useMemo(() => groups, [groups]);
+  const load = useCallback(
+    async (
+      mode: 'replace' | 'append' | 'refresh' = 'replace',
+      nextUrl?: string,
+    ) => {
+      if (!participating) return;
+      const id = ++requestId.current;
+      if (mode === 'append') setLoadingMore(true);
+      else if (mode === 'replace') setLoading(true);
+      setError(null);
+      try {
+        const data: any = await getCommunityUsers(nextUrl || filters);
+        if (id !== requestId.current) return;
+        const incoming: CommunityMember[] = (
+          Array.isArray(data?.results) ? data.results : []
+        ).map(normalizeMember);
+        setMembers((current) => {
+          const combined = mode === 'append' ? [...current, ...incoming] : incoming;
+          const seen = new Set<string>();
+          return combined.filter((member) => {
+            const key = String(member.id);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        });
+        setVisibleCount((current) =>
+          mode === 'append' ? current + PAGE_SIZE : PAGE_SIZE,
+        );
+        setNext(typeof data?.next === 'string' ? data.next : null);
+        setTotal(typeof data?.count === 'number' ? data.count : incoming.length);
+      } catch (e: any) {
+        if (id !== requestId.current) return;
+        console.log('[Community] load failed:', e?.status ?? '', e?.message ?? String(e));
+        const status = Number(e?.status);
+        const endpointMissing = status === 404 || status === 501;
+        // Show our own copy rather than whatever the server returned, so a
+        // missing route can't render an HTML error page into the screen.
+        setError(
+          endpointMissing ? t('community.unavailable') : t('community.error'),
+        );
+      } finally {
+        if (id === requestId.current) {
+          setLoading(false);
+          setRefreshing(false);
+          setLoadingMore(false);
+        }
+      }
+    },
+    [filters, participating, t],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void (async () => {
+        let visible = false;
+        try {
+          const profile: any = await getUserProfile();
+          visible = profile?.is_profile_visible === true;
+        } catch (e) {
+          console.log('[Community] profile load failed:', (e as any)?.message ?? String(e));
+        }
+        if (!active) return;
+        setParticipating(visible);
+        setProfileReady(true);
+        if (!visible) clearDirectory();
+      })();
+      return () => {
+        active = false;
+      };
+    }, [clearDirectory]),
+  );
+
+  useEffect(() => {
+    if (!profileReady) return;
+    if (participating) {
+      void load('replace');
+      return;
+    }
+    clearDirectory();
+  }, [clearDirectory, filters, load, participating, profileReady]);
+
+  const selectFilter = (value: string) => {
+    if (!selector) return;
+    setFilters((current) => ({ ...current, [selector]: value }));
+    setSelector(null);
+  };
+
+  const refresh = () => {
+    setRefreshing(true);
+    void load('refresh');
+  };
+
+  const visibleMembers = members.slice(0, visibleCount);
+  const hasMore = visibleCount < members.length || !!next;
+
+  const showMore = () => {
+    if (loadingMore) return;
+    if (visibleCount < members.length) {
+      setVisibleCount((current) => current + PAGE_SIZE);
+      return;
+    }
+    if (next) void load('append', next);
+  };
+
+  const toggleParticipation = async (value: boolean) => {
+    if (participationSaving) return;
+    const previous = participating;
+    setParticipating(value);
+    try {
+      setParticipationSaving(true);
+      await patchUserProfile({ is_profile_visible: value });
+    } catch {
+      setParticipating(previous);
+      Alert.alert(
+        t('community.participationErrorTitle'),
+        t('community.participationError'),
+      );
+    } finally {
+      setParticipationSaving(false);
+    }
+  };
+
+  const signLabel = (code: string) =>
+    t(`archetypeMeta.${code}.label`, {
+      defaultValue: ZODIAC_SIGNS.find((sign) => sign.code === code)?.label || code,
+    });
+
+  const openSocial = async (platform: SocialPlatform, handle: string) => {
+    const url = isProfileUrl(handle)
+      ? handle
+      : `${SOCIAL_BASE_URL[platform]}${encodeURIComponent(handle)}`;
+    try {
+      await Linking.openURL(url);
+    } catch (e) {
+      console.log('[Community] social link failed:', (e as any)?.message ?? String(e));
+      Alert.alert(t('community.linkErrorTitle'), t('community.linkError'));
+    }
+  };
+
+  const MemberCard = ({ member }: { member: CommunityMember }) => {
+    const displayName = member.name || t('community.memberFallback');
+    const socials = [
+      member.social_acc_instagram && {
+        platform: 'instagram' as const,
+        icon: 'instagram',
+        color: '#E1306C',
+        handle: member.social_acc_instagram,
+        label: isProfileUrl(member.social_acc_instagram)
+          ? 'Instagram'
+          : `@${member.social_acc_instagram}`,
+      },
+      member.social_acc_facebook && {
+        platform: 'facebook' as const,
+        icon: 'facebook-f',
+        color: '#4C8BF5',
+        handle: member.social_acc_facebook,
+        label: isProfileUrl(member.social_acc_facebook)
+          ? 'Facebook'
+          : member.social_acc_facebook,
+      },
+    ].filter(Boolean) as {
+      platform: SocialPlatform;
+      icon: string;
+      color: string;
+      handle: string;
+      label: string;
+    }[];
+    const details = [
+      member.sun_sign && [t('community.sun'), member.sun_sign],
+      member.moon_sign && [t('community.moon'), member.moon_sign],
+      member.ascendant && [t('community.ascendant'), member.ascendant],
+    ].filter(Boolean) as string[][];
+    return (
+      <View style={styles.card}>
+        {member.profile_picture_url ? (
+          <Image
+            source={{ uri: member.profile_picture_url }}
+            style={styles.avatar}
+            accessibilityLabel={t('community.avatarLabel', { name: displayName })}
+          />
+        ) : (
+          <View
+            style={[styles.avatar, styles.avatarPlaceholder]}
+            accessibilityLabel={t('community.avatarPlaceholder', { name: displayName })}
+          >
+            <Ionicons name="person" size={36} color="#A9A9B4" />
+          </View>
+        )}
+        <View style={styles.cardBody}>
+          <Text style={styles.cardName}>{displayName}</Text>
+          {details.map(([label, code]) => (
+            <Text key={label} style={styles.detailText}>
+              {label}: <Text style={styles.detailValue}>{signLabel(code)}</Text>
+            </Text>
+          ))}
+          {member.learning_archetypes && member.learning_archetypes.length > 0 ? (
+            <View style={styles.learningBlock}>
+              <Text style={styles.learningLabel}>{t('community.learning')}</Text>
+              <View style={styles.chips}>
+                {member.learning_archetypes.map((code) => (
+                  <View key={code} style={styles.chip}>
+                    <Text style={styles.chipText}>{signLabel(code)}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+          {socials.length > 0 ? (
+            <View style={styles.socialRow}>
+              {socials.map((social) => (
+                <TouchableOpacity
+                  key={social.platform}
+                  style={styles.socialButton}
+                  onPress={() => void openSocial(social.platform, social.handle)}
+                  accessibilityRole="link"
+                  accessibilityLabel={t(`community.open_${social.platform}`, {
+                    name: displayName,
+                  })}
+                >
+                  <FontAwesome5
+                    name={social.icon}
+                    size={13}
+                    color={social.color}
+                    brand
+                  />
+                  <Text style={styles.socialText} numberOfLines={1}>
+                    {social.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.wrapper}>
@@ -277,7 +384,8 @@ export default function CommunityScreen() {
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('community.back')}
         >
           <Ionicons name="arrow-back" size={20} color="#fff" />
         </TouchableOpacity>
@@ -288,8 +396,16 @@ export default function CommunityScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor="#B283ED"
+            enabled={participating}
+            accessibilityLabel={t('community.refresh')}
+          />
+        }
       >
-        {/* Banner */}
         <ImageBackground
           source={communityBanner}
           style={styles.banner}
@@ -302,121 +418,218 @@ export default function CommunityScreen() {
           </View>
         </ImageBackground>
 
-        {loading ? (
+        <View style={styles.participationRow}>
+          <View style={styles.participationCopy}>
+            <Text style={styles.participationTitle}>
+              {t('community.participationTitle')}
+            </Text>
+            <Text style={styles.participationText}>
+              {t('community.participationText')}
+            </Text>
+          </View>
+          {profileReady ? (
+            <Switch
+              value={participating}
+              onValueChange={(value) => void toggleParticipation(value)}
+              disabled={participationSaving}
+              trackColor={{ false: '#3A3C45', true: '#7667E8' }}
+              thumbColor="#fff"
+              accessibilityRole="switch"
+              accessibilityLabel={t('community.participationTitle')}
+            />
+          ) : (
+            <ActivityIndicator color="#B283ED" />
+          )}
+        </View>
+
+        {!profileReady ? (
           <View style={styles.stateBox}>
             <ActivityIndicator color="#B283ED" />
           </View>
-        ) : sections.length === 0 ? (
+        ) : !participating ? (
+          <View style={styles.stateBox}>
+            <Ionicons name="lock-closed-outline" size={28} color="#B283ED" />
+            <Text style={styles.stateText}>{t('community.participationLocked')}</Text>
+          </View>
+        ) : (
+          <>
+        <View style={styles.filtersHeader}>
+          <Text style={styles.filtersTitle}>{t('community.filtersTitle')}</Text>
+          {Object.values(filters).some(Boolean) ? (
+            <TouchableOpacity
+              onPress={() => setFilters(EMPTY_FILTERS)}
+              accessibilityRole="button"
+              accessibilityLabel={t('community.clearFilters')}
+            >
+              <Text style={styles.clearText}>{t('community.clearFilters')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        <View style={styles.filters}>
+          {(Object.keys(EMPTY_FILTERS) as FilterKey[]).map((key) => (
+            <TouchableOpacity
+              key={key}
+              style={styles.filterButton}
+              onPress={() => setSelector(key)}
+              accessibilityRole="button"
+              accessibilityLabel={t('community.filterAccessibility', {
+                filter: t(`community.filters.${key}`),
+              })}
+            >
+              <Text style={styles.filterLabel}>{t(`community.filters.${key}`)}</Text>
+              <Text style={styles.filterValue} numberOfLines={1}>
+                {filters[key] ? signLabel(filters[key]) : t('community.anySign')}
+              </Text>
+              <Ionicons name="chevron-down" size={15} color="#B283ED" />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {!loading && !error ? (
+          <Text style={styles.totalText}>
+            {t('community.total', { count: total })}
+          </Text>
+        ) : null}
+
+        {loading ? (
+          <View style={styles.stateBox}>
+            <ActivityIndicator color="#B283ED" />
+            <Text style={styles.stateText}>{t('community.loading')}</Text>
+          </View>
+        ) : error && members.length === 0 ? (
+          <View style={styles.stateBox}>
+            <Text style={styles.stateText}>{error}</Text>
+            <TouchableOpacity
+              onPress={() => void load('replace')}
+              style={styles.retryButton}
+              accessibilityRole="button"
+            >
+              <Text style={styles.retryText}>{t('common.tryAgain')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : members.length === 0 ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateText}>{t('community.empty')}</Text>
           </View>
         ) : (
-          sections.map((group) => {
-            const sign = ZODIAC_BY_CODE[group.code];
-            return (
-              <View key={group.code} style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  {sign ? (
-                    <Image source={sign.icon} style={styles.sectionGlyph} />
-                  ) : null}
-                  <Text style={styles.sectionTitle}>
-                    {sign ? sign.label : group.code}
-                  </Text>
-                </View>
-                <Text style={styles.sectionSubtitle}>
-                  {t('community.sectionSubtitle')}
-                </Text>
-
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.cardsRow}
+          <>
+            {error ? (
+              <View style={styles.inlineError}>
+                <Text style={styles.inlineErrorText}>{error}</Text>
+                <TouchableOpacity
+                  onPress={() => void load('replace')}
+                  accessibilityRole="button"
                 >
-                  {group.users.map((user) => (
-                    <UserCard key={`${group.code}-${user.id}`} user={user} />
-                  ))}
-                </ScrollView>
+                  <Text style={styles.clearText}>{t('common.tryAgain')}</Text>
+                </TouchableOpacity>
               </View>
-            );
-          })
+            ) : null}
+            <View style={styles.grid}>
+              {visibleMembers.map((member) => (
+                <MemberCard key={String(member.id)} member={member} />
+              ))}
+            </View>
+            {hasMore ? (
+              <TouchableOpacity
+                style={styles.loadMore}
+                disabled={loadingMore}
+                onPress={showMore}
+                accessibilityRole="button"
+                accessibilityLabel={t('community.loadMore')}
+              >
+                {loadingMore ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.loadMoreText}>{t('community.loadMore')}</Text>
+                )}
+              </TouchableOpacity>
+            ) : null}
+          </>
         )}
-
-        {/* Footer */}
-        <View style={styles.footerLinks}>
-          <TouchableOpacity onPress={() => router.push('/terms')}>
-            <Text style={styles.footerLink}>{t('legalLinks.terms')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/privacy')}>
-            <Text style={styles.footerLink}>{t('legalLinks.privacy')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/subscription')}>
-            <Text style={styles.footerLink}>{t('legalLinks.subscription')}</Text>
-          </TouchableOpacity>
-        </View>
+          </>
+        )}
       </ScrollView>
+
+      <Modal
+        visible={!!selector && participating}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelector(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              {selector ? t(`community.filters.${selector}`) : ''}
+            </Text>
+            <ScrollView style={styles.optionsList}>
+              <TouchableOpacity
+                style={styles.option}
+                onPress={() => selectFilter('')}
+                accessibilityRole="button"
+              >
+                <Text style={styles.optionText}>{t('community.anySign')}</Text>
+              </TouchableOpacity>
+              {ZODIAC_SIGNS.map((sign) => (
+                <TouchableOpacity
+                  key={sign.code}
+                  style={styles.option}
+                  onPress={() => selectFilter(sign.code)}
+                  accessibilityRole="button"
+                >
+                  <Image source={sign.icon} style={styles.optionIcon} />
+                  <Text style={styles.optionText}>{signLabel(sign.code)}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              onPress={() => setSelector(null)}
+              style={styles.closeButton}
+              accessibilityRole="button"
+            >
+              <Text style={styles.closeText}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
-const CARD_WIDTH = 150;
-
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: '#0F1014',
-  },
+  wrapper: { flex: 1, backgroundColor: '#0F1014' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingTop: 60,
     paddingBottom: 16,
     paddingHorizontal: 20,
   },
-  headerSpacer: {
-    width: 40,
-  },
   backButton: {
-    backgroundColor: 'rgba(57, 60, 71, 0.4)',
+    backgroundColor: 'rgba(57,60,71,0.4)',
     borderRadius: 999,
     padding: 10,
   },
   headerTitle: {
-    fontSize: 20,
+    flex: 1,
     color: '#fff',
+    fontSize: 20,
     fontFamily: 'CooperLtBT-Bold',
     textAlign: 'center',
-    flex: 1,
   },
-  content: {
-    paddingBottom: 40,
-  },
-
-  // Banner
+  headerSpacer: { width: 40 },
+  content: { paddingHorizontal: 20, paddingBottom: 44 },
   banner: {
-    marginHorizontal: 20,
     height: 150,
     borderRadius: 18,
     overflow: 'hidden',
-    justifyContent: 'flex-start',
-    marginBottom: 28,
+    marginBottom: 24,
   },
-  bannerImage: {
-    borderRadius: 18,
-    resizeMode: 'cover',
-  },
+  bannerImage: { borderRadius: 18, resizeMode: 'cover' },
   bannerOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: 'rgba(10, 8, 26, 0.28)',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10,8,26,0.35)',
   },
-  bannerContent: {
-    paddingHorizontal: 18,
-    paddingTop: 18,
-  },
+  bannerContent: { padding: 18 },
   bannerTitle: {
     color: '#fff',
     fontSize: 22,
@@ -427,141 +640,146 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.9)',
     fontSize: 13,
     lineHeight: 18,
-    fontFamily: 'SFProDisplay-Regular',
-    maxWidth: '88%',
+    maxWidth: '90%',
   },
-
-  // State boxes
-  stateBox: {
-    paddingVertical: 40,
+  filtersHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 12,
   },
-  stateText: {
-    color: '#9C9CA6',
-    fontSize: 14,
-    fontFamily: 'SFProDisplay-Regular',
-    textAlign: 'center',
-    paddingHorizontal: 30,
-  },
-
-  // Sections
-  section: {
-    marginBottom: 26,
-  },
-  sectionHeader: {
+  filtersTitle: { color: '#fff', fontSize: 18, fontFamily: 'CooperLtBT-Bold' },
+  clearText: { color: '#B283ED', fontSize: 13 },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  filterButton: {
+    width: '48%',
+    minHeight: 62,
+    padding: 11,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  filterLabel: { position: 'absolute', top: 7, left: 11, color: '#8E8E99', fontSize: 10 },
+  filterValue: { flex: 1, color: '#fff', fontSize: 14, marginTop: 12, marginRight: 4 },
+  totalText: { color: '#9C9CA6', marginTop: 20, marginBottom: 12, fontSize: 13 },
+  stateBox: { paddingVertical: 46, alignItems: 'center', gap: 14 },
+  stateText: { color: '#AAAAB4', textAlign: 'center', lineHeight: 20 },
+  retryButton: {
+    backgroundColor: '#665FE8',
+    borderRadius: 18,
     paddingHorizontal: 20,
-    marginBottom: 8,
+    paddingVertical: 10,
   },
-  sectionGlyph: {
-    width: 24,
-    height: 24,
-    resizeMode: 'contain',
-    tintColor: '#D3D5FB',
-    marginRight: 10,
+  retryText: { color: '#fff', fontFamily: 'Nunito-Bold' },
+  inlineError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: 'rgba(220,90,100,0.12)',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 16,
   },
-  sectionTitle: {
-    color: '#fff',
-    fontSize: 22,
-    fontFamily: 'CooperLtBT-Bold',
-  },
-  sectionSubtitle: {
-    color: '#9C9CA6',
-    fontSize: 13,
-    lineHeight: 18,
-    fontFamily: 'SFProDisplay-Regular',
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-
-  // Cards
-  cardsRow: {
-    paddingHorizontal: 20,
+  inlineErrorText: { flex: 1, color: '#E5B8BC', fontSize: 12, lineHeight: 17 },
+  participationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 14,
-  },
-  card: {
-    width: CARD_WIDTH,
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    paddingVertical: 18,
-    paddingHorizontal: 12,
-    alignItems: 'center',
+    padding: 16,
+    marginBottom: 22,
   },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    marginBottom: 12,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+  participationCopy: { flex: 1 },
+  grid: { gap: 12, marginTop: 8 },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(170, 154, 192, 0.35)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 16,
   },
-  cardName: {
-    color: '#fff',
-    fontSize: 15,
-    fontFamily: 'CooperLtBT-Bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  bigThreeRow: {
-    flexDirection: 'row',
+  cardBody: { flex: 1, minWidth: 0 },
+  avatar: { width: 72, height: 72, borderRadius: 36 },
+  avatarPlaceholder: {
+    backgroundColor: '#292B33',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  bigThreeItem: {
+  cardName: { color: '#fff', fontSize: 17, fontFamily: 'CooperLtBT-Bold', marginBottom: 8 },
+  detailText: { color: '#92929D', fontSize: 13, marginTop: 3 },
+  detailValue: { color: '#D5D6E4' },
+  learningBlock: { marginTop: 12 },
+  learningLabel: { color: '#92929D', fontSize: 12, marginBottom: 7 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { backgroundColor: 'rgba(178,131,237,0.15)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
+  chipText: { color: '#D8C4F4', fontSize: 12 },
+  socialRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  socialButton: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  bigThreeIcon: {
-    width: 12,
-    height: 12,
-    resizeMode: 'contain',
-    tintColor: '#7C8CFF',
-    marginRight: 3,
-  },
-  bigThreeLabel: {
-    color: '#7C8CFF',
-    fontSize: 9,
-    fontFamily: 'SFProDisplay-Regular',
-  },
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  socialPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 5,
+    gap: 6,
+    maxWidth: '100%',
     paddingHorizontal: 10,
-    borderRadius: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
-  socialPillText: {
-    color: '#fff',
-    fontSize: 11,
-    fontFamily: 'SFProDisplay-Regular',
-  },
-
-  // Footer
-  footerLinks: {
-    flexDirection: 'row',
+  socialText: { color: '#D2D2DC', fontSize: 12, flexShrink: 1 },
+  loadMore: {
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#665FE8',
+    alignItems: 'center',
     justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 16,
-    paddingHorizontal: 25,
-    marginTop: 8,
+    marginTop: 20,
   },
-  footerLink: {
-    fontSize: 12,
-    color: '#aaa',
-    fontFamily: 'SFProDisplay-Regular',
-    textDecorationLine: 'underline',
+  loadMoreText: { color: '#fff', fontFamily: 'Nunito-Bold' },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(8,9,14,0.82)',
+    justifyContent: 'center',
+    padding: 24,
   },
+  modalCard: {
+    maxHeight: '82%',
+    backgroundColor: '#1B1D24',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(178,131,237,0.2)',
+  },
+  modalTitle: { color: '#fff', fontSize: 20, fontFamily: 'CooperLtBT-Bold', marginBottom: 12 },
+  optionsList: { maxHeight: 430 },
+  option: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  optionIcon: { width: 22, height: 22, tintColor: '#B283ED', marginRight: 12 },
+  optionText: { color: '#fff', fontSize: 15 },
+  closeButton: { alignItems: 'center', paddingTop: 16 },
+  closeText: { color: '#B283ED', fontFamily: 'Nunito-Bold' },
+  participationTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'CooperLtBT-Bold',
+    marginBottom: 6,
+  },
+  participationText: { color: '#B8B8C2', fontSize: 13, lineHeight: 19 },
 });
