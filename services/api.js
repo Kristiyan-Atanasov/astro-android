@@ -1,5 +1,7 @@
 // services/api.js
+import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { notifySessionExpired } from './sessionEvents';
 import { setReadProgressUser } from './readProgress';
 import { getAppLanguageCode } from './i18n';
@@ -439,65 +441,122 @@ export async function patchUserProfile(patch) {
   return data;
 }
 
-// PUT multipart/form-data with field name "image". Do not set Content-Type
-// manually — fetch must attach the multipart boundary itself.
-export async function uploadProfilePicture(image) {
-  const token = await getAccessToken();
-  if (!token) throw new Error('Missing access token. Please sign in again.');
-  if (!image?.uri) throw new Error('Missing image file');
+async function requestProfilePictureUpload(image, token) {
+  const url = `${API_BASE}/authentication/user_profile/picture/`;
 
+  // React Native's JavaScript FormData bridge can reject Android file URIs
+  // before an HTTP request is created. Expo's native uploader reads the local
+  // file directly and builds the multipart request in OkHttp, avoiding that
+  // bridge while preserving the backend's `image` field contract.
+  if (Platform.OS === 'android') {
+    const result = await FileSystem.uploadAsync(url, image.uri, {
+      httpMethod: 'PUT',
+      uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+      fieldName: 'image',
+      mimeType: image.type || 'image/jpeg',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      },
+    });
+    const status = Number(result?.status || 0);
+    const raw = String(result?.body || '');
+    return {
+      status,
+      ok: status >= 200 && status < 300,
+      raw,
+      data: safeJsonFromText(raw),
+    };
+  }
+
+  // Keep the established fetch path on iOS, where it is already working.
+  // Do not set Content-Type manually; fetch must attach the boundary.
   const form = new FormData();
   form.append('image', {
     uri: image.uri,
     name: image.name || 'avatar.jpg',
     type: image.type || 'image/jpeg',
   });
-
-  let res;
-  try {
-    res = await fetchWithTimeout(
-      `${API_BASE}/authentication/user_profile/picture/`,
-      {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-        },
-        body: form,
+  const response = await fetchWithTimeout(
+    url,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
       },
-      UPLOAD_FETCH_TIMEOUT_MS,
-      'profile_picture_upload',
-    );
+      body: form,
+    },
+    UPLOAD_FETCH_TIMEOUT_MS,
+    'profile_picture_upload',
+  );
+  const { raw, data } = await readResponse(response);
+  return {
+    status: response.status,
+    ok: response.ok,
+    raw,
+    data,
+  };
+}
+
+export async function uploadProfilePicture(image) {
+  let token = await getAccessToken();
+  if (!token) throw new Error('Missing access token. Please sign in again.');
+  if (!image?.uri) throw new Error('Missing image file');
+
+  let result;
+  try {
+    result = await requestProfilePictureUpload(image, token);
   } catch (e) {
     console.log(
-      '🌐 profile_picture upload network error:',
+      '🌐 profile_picture upload transport error:',
       e?.message ?? String(e),
     );
     if (e?.code === 'E_TIMEOUT') throw e;
-    throw new Error('Network request failed');
+    const err = new Error(
+      `Profile picture upload could not start: ${e?.message || 'transport error'}`,
+    );
+    err.code = 'E_UPLOAD_TRANSPORT';
+    throw err;
   }
 
-  console.log('🌐 profile_picture upload status:', res.status);
+  if (result.status === 401 || result.status === 403) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      token = refreshed;
+      try {
+        result = await requestProfilePictureUpload(image, token);
+      } catch (e) {
+        console.log(
+          '🌐 profile_picture upload retry transport error:',
+          e?.message ?? String(e),
+        );
+        throw e;
+      }
+    }
+  }
 
-  if (res.status === 401 || res.status === 403) {
+  console.log('🌐 profile_picture upload status:', result.status);
+
+  if (result.status === 401 || result.status === 403) {
     await handleSessionExpired();
     throw new Error('Session expired. Please sign in again.');
   }
 
-  const { raw, data } = await readResponse(res);
+  const { raw, data } = result;
 
-  if (!res.ok) {
+  if (!result.ok) {
     const message =
       data?.message ||
       data?.detail ||
       data?.image?.[0] ||
       raw ||
-      `Profile picture upload failed (${res.status})`;
+      `Profile picture upload failed (${result.status})`;
     console.log('❌ profile_picture upload body:', raw);
     const err = new Error(
       typeof message === 'string' ? message : JSON.stringify(message),
     );
-    err.status = res.status;
+    err.status = result.status;
     throw err;
   }
 

@@ -131,21 +131,24 @@ async function prepareUploadFile(asset) {
 
   let uploadUri = sourceUri;
   let uploadMime = mime;
-  let uploadName = 'avatar.jpg';
+  let uploadName =
+    mime === 'image/png'
+      ? 'avatar.png'
+      : mime === 'image/webp'
+        ? 'avatar.webp'
+        : 'avatar.jpg';
 
-  if (needsJpegConversion(mime) || mime === 'image/jpeg') {
-    // Always normalize HEIC (and odd formats) to JPEG. Mild recompress for
-    // JPEG keeps most photos under the 5MB backend cap.
-    const converted = await toJpeg(sourceUri, null, 0.85);
-    if (converted) {
-      uploadUri = converted;
-      uploadMime = 'image/jpeg';
-      uploadName = 'avatar.jpg';
-    }
-  } else if (mime === 'image/png') {
-    uploadName = 'avatar.png';
-  } else if (mime === 'image/webp') {
-    uploadName = 'avatar.webp';
+  // Normalize every supported format into an app-owned JPEG file. Besides
+  // keeping uploads small, this prevents Android content-provider URIs from
+  // reaching the multipart layer, where they can fail before any HTTP request
+  // is sent. ImageManipulator writes the result into the app cache as file://.
+  const converted = await toJpeg(sourceUri, null, 0.85);
+  if (converted) {
+    uploadUri = converted;
+    uploadMime = 'image/jpeg';
+    uploadName = 'avatar.jpg';
+  } else if (needsJpegConversion(mime)) {
+    return { ok: false, reason: 'invalid' };
   }
 
   const size = await fileSize(uploadUri);
