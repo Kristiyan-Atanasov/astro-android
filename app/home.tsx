@@ -429,14 +429,20 @@ export default function HomeScreen() {
                     locations={[0, 0.9451]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
-                    style={styles.symbolBoxActive}
+                    pointerEvents="none"
+                    style={styles.symbolBoxActiveGradient}
+                  />
+                  <View
+                    pointerEvents="none"
+                    collapsable={false}
+                    style={styles.symbolBoxActiveGlyph}
                   >
                     <ZodiacGlyph
                       code={sign.code}
                       size={GRID_GLYPH_SIZE}
-                      color="#D3D5FB"
+                      color="#FFFFFF"
                     />
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
               );
             }
@@ -753,13 +759,25 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     backgroundColor: '#7B80F4',
+    position: 'relative',
   },
-  symbolBoxActive: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
+  symbolBoxActiveGradient: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  symbolBoxActiveGlyph: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1,
+    elevation: 1,
   },
   communityCard: {
     borderRadius: 16,
