@@ -167,6 +167,10 @@ const en = {
       'Each person has 12 archetypes in their birth chart, but some are weak and others are well positioned.',
     male: 'Male',
     female: 'Female',
+    otherSection: 'Sun sign not shared',
+    memberLearning: 'Currently Learning',
+    memberNoLearning: 'This member isn’t sharing what they are learning.',
+    archetypeCard: '{{sign}} Archetype',
     empty: 'No community members to show yet. Check back soon!',
     loading: 'Loading community members…',
     error: 'We couldn’t load the community. Please try again.',
@@ -199,12 +203,21 @@ const en = {
     avatarPlaceholder: '{{name}} profile photo placeholder',
     participationTitle: 'Participate in the community',
     participationText:
-      'Turn this on to appear in community search and to see other members. Your Sun, Moon, Ascendant, and Learning stay private until you share each one in Account settings.',
+      'Turn this on to appear in community search and see other members. Everything is shared by default, and you can choose what to hide below.',
     participationLocked:
       'Community is closed until you participate. Turn the switch on to search and see other members.',
     participationErrorTitle: 'Couldn’t update participation',
     participationError:
-      'Your previous choice has been restored. Please try again or change this later in Account settings.',
+      'Your previous choice has been restored. Please try again.',
+    sharingTitle: 'What others can see',
+    sharingSummary: '{{count}} of 5 visible',
+    shareSun: 'Sun sign',
+    shareMoon: 'Moon sign',
+    shareAscendant: 'Ascendant',
+    shareLearning: 'Learning archetypes',
+    shareSocials: 'Facebook and Instagram',
+    sharingErrorTitle: 'Couldn’t update visibility',
+    sharingError: 'Your previous choice has been restored. Please try again.',
   },
 
   menu: {
@@ -342,35 +355,17 @@ const en = {
     supportEmailRequired: 'Please enter a valid email address.',
     supportMessageRequired: 'Please describe the change you need.',
     supportSubject: 'Profile change request',
-    communityPrivacyTitle: 'Community privacy',
-    communityPrivacyDescription:
-      'Choose whether your profile participates in Community search and which astrology categories other members may see.',
-    communityPrivacyHint:
-      'Participation and every astrological category are private by default. Choose exactly what other community members can see.',
-    communityParticipation: 'Participate in community search',
-    communityParticipationHint:
-      'When off, your profile is hidden but you can still browse and search.',
-    communityParticipationDescription:
-      'Lets your profile appear in community results. Browsing remains available while this is off.',
-    communitySharingTitle: 'Shared categories',
-    communityShareSun: 'Share Sun sign',
-    communityShareMoon: 'Share Moon sign',
-    communityShareAscendant: 'Share Ascendant',
-    communityShareSocials: 'Facebook and Instagram',
-    communityShareLearning: 'Share Learning archetypes',
-    shareSun: 'Share Sun sign',
-    shareMoon: 'Share Moon sign',
-    shareAscendant: 'Share Ascendant',
-    shareLearning: 'Share learning archetypes',
-    shareSocials: 'Share Facebook and Instagram',
-    sharingDisabledHint:
-      'Sharing choices are saved and will take effect only when participation is on.',
-    communityPrivacyErrorTitle: 'Couldn’t save privacy setting',
-    communityPrivacyError:
-      'Your previous setting was restored. Please try again.',
-    communityUpdateFailedTitle: 'Privacy update failed',
-    communityUpdateFailed:
-      'We couldn’t save that privacy setting. Your previous choice has been restored.',
+    socialsTitle: 'Facebook and Instagram',
+    socialsHint:
+      'Add or edit your accounts here, then save. To show them on your community card, turn on “Facebook and Instagram” in Community.',
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+    socialsSave: 'Save accounts',
+    socialsSavedTitle: 'Accounts saved',
+    socialsSaved: 'Your Facebook and Instagram have been updated.',
+    socialsUpdateFailedTitle: 'Couldn’t save account',
+    socialsUpdateFailed:
+      'We couldn’t save that social account. Please try again.',
   },
 
   notificationsSettings: {

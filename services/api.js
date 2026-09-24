@@ -850,6 +850,23 @@ export async function getCommunityUsers(filtersOrNextUrl = {}) {
     throw err;
   }
 
+  // Temporary diagnostic: the signs on a community card come straight from the
+  // server, so log just the derived fields (no names or handles) when a card
+  // looks wrong, to tell a bad payload apart from a rendering bug.
+  if (Array.isArray(data?.results)) {
+    console.log(
+      '🌐 community_users signs:',
+      JSON.stringify(
+        data.results.map((u) => ({
+          id: u?.id,
+          sun: u?.sun_sign ?? null,
+          moon: u?.moon_sign ?? null,
+          asc: u?.ascendant ?? null,
+        })),
+      ),
+    );
+  }
+
   return data || {};
 }
 

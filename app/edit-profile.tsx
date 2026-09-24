@@ -13,7 +13,6 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
-  Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -62,15 +61,11 @@ export default function EditProfileScreen() {
   const [birthHour, setBirthHour] = useState<number>(0);
   const [birthMinute, setBirthMinute] = useState<number>(0);
   const [birthCity, setBirthCity] = useState('');
-  const [isProfileVisible, setIsProfileVisible] = useState(false);
-  const [communitySharing, setCommunitySharing] = useState({
-    show_sun_sign: false,
-    show_moon_sign: false,
-    show_ascendant: false,
-    show_learning_archetypes: false,
-    show_socials: false,
-  });
-  const [savingPrivacy, setSavingPrivacy] = useState<string | null>(null);
+  const [facebook, setFacebook] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [savedFacebook, setSavedFacebook] = useState('');
+  const [savedInstagram, setSavedInstagram] = useState('');
+  const [socialSaving, setSocialSaving] = useState(false);
 
   // Contact-support modal state. Profile fields are read-only; any
   // change has to be requested via email to astro.insights.ltd@gmail.com.
@@ -94,15 +89,18 @@ export default function EditProfileScreen() {
         if (typeof profile.birth_hour === 'number') setBirthHour(clamp(profile.birth_hour, 0, 23));
         if (typeof profile.birth_minute === 'number') setBirthMinute(clamp(profile.birth_minute, 0, 59));
         if (typeof profile.birth_city === 'string') setBirthCity(profile.birth_city);
-        setIsProfileVisible(profile.is_profile_visible === true);
-        setCommunitySharing({
-          show_sun_sign: profile.user_settings?.show_sun_sign === true,
-          show_moon_sign: profile.user_settings?.show_moon_sign === true,
-          show_ascendant: profile.user_settings?.show_ascendant === true,
-          show_learning_archetypes:
-            profile.user_settings?.show_learning_archetypes === true,
-          show_socials: profile.user_settings?.show_socials === true,
-        });
+        const fb =
+          typeof profile.social_acc_facebook === 'string'
+            ? profile.social_acc_facebook
+            : '';
+        const ig =
+          typeof profile.social_acc_instagram === 'string'
+            ? profile.social_acc_instagram
+            : '';
+        setFacebook(fb);
+        setInstagram(ig);
+        setSavedFacebook(fb);
+        setSavedInstagram(ig);
         // Prefill the support form with whatever address the user
         // signed up with so most users can just type their request.
         if (typeof profile.email === 'string') setSupportEmail(profile.email);
@@ -121,42 +119,34 @@ export default function EditProfileScreen() {
     setSupportVisible(true);
   };
 
-  const updateParticipation = async (value: boolean) => {
-    if (savingPrivacy) return;
-    const previous = isProfileVisible;
-    setIsProfileVisible(value);
-    setSavingPrivacy('is_profile_visible');
-    try {
-      await patchUserProfile({ is_profile_visible: value });
-    } catch {
-      setIsProfileVisible(previous);
-      Alert.alert(
-        t('editProfile.communityPrivacyErrorTitle'),
-        t('editProfile.communityPrivacyError'),
-      );
-    } finally {
-      setSavingPrivacy(null);
-    }
-  };
+  const nextFacebook = facebook.trim();
+  const nextInstagram = instagram.trim();
+  const socialsDirty =
+    nextFacebook !== savedFacebook || nextInstagram !== savedInstagram;
 
-  const updateSharing = async (
-    key: keyof typeof communitySharing,
-    value: boolean,
-  ) => {
-    if (savingPrivacy) return;
-    const previous = communitySharing[key];
-    setCommunitySharing((current) => ({ ...current, [key]: value }));
-    setSavingPrivacy(key);
+  // Only the edited handles go in the PATCH, so an untouched field can't be
+  // overwritten by a stale value we happen to be holding in state.
+  const saveSocials = async () => {
+    if (socialSaving || !socialsDirty) return;
+    const patch: Record<string, string> = {};
+    if (nextFacebook !== savedFacebook) patch.social_acc_facebook = nextFacebook;
+    if (nextInstagram !== savedInstagram) patch.social_acc_instagram = nextInstagram;
+
+    setSocialSaving(true);
     try {
-      await patchUserProfile({ user_settings: { [key]: value } });
+      await patchUserProfile(patch);
+      setFacebook(nextFacebook);
+      setInstagram(nextInstagram);
+      setSavedFacebook(nextFacebook);
+      setSavedInstagram(nextInstagram);
+      Alert.alert(t('editProfile.socialsSavedTitle'), t('editProfile.socialsSaved'));
     } catch {
-      setCommunitySharing((current) => ({ ...current, [key]: previous }));
       Alert.alert(
-        t('editProfile.communityPrivacyErrorTitle'),
-        t('editProfile.communityPrivacyError'),
+        t('editProfile.socialsUpdateFailedTitle'),
+        t('editProfile.socialsUpdateFailed'),
       );
     } finally {
-      setSavingPrivacy(null);
+      setSocialSaving(false);
     }
   };
 
@@ -387,65 +377,54 @@ export default function EditProfileScreen() {
         </View>
 
         <View style={styles.divider} />
-        <Text style={styles.sectionTitle}>
-          {t('editProfile.communityPrivacyTitle')}
-        </Text>
-        <Text style={styles.privacyDescription}>
-          {t('editProfile.communityPrivacyDescription')}
-        </Text>
-        <View style={styles.privacyCard}>
-          <View style={styles.switchRow}>
-            <View style={styles.switchCopy}>
-              <Text style={styles.switchTitle}>
-                {t('editProfile.communityParticipation')}
-              </Text>
-              <Text style={styles.switchHint}>
-                {t('editProfile.communityParticipationHint')}
-              </Text>
-            </View>
-            <Switch
-              value={isProfileVisible}
-              onValueChange={updateParticipation}
-              disabled={savingPrivacy !== null}
-              trackColor={{ false: '#444650', true: '#7669D8' }}
-              thumbColor="#fff"
-              accessibilityLabel={t('editProfile.communityParticipation')}
-              accessibilityRole="switch"
-            />
-          </View>
-          <View style={styles.privacySeparator} />
-          {([
-            ['show_sun_sign', 'shareSun'],
-            ['show_moon_sign', 'shareMoon'],
-            ['show_ascendant', 'shareAscendant'],
-            ['show_learning_archetypes', 'shareLearning'],
-            ['show_socials', 'shareSocials'],
-          ] as const).map(([key, label]) => (
-            <View
-              key={key}
-              style={[
-                styles.switchRow,
-                !isProfileVisible && styles.switchRowDisabled,
-              ]}
-            >
-              <Text style={styles.switchTitle}>{t(`editProfile.${label}`)}</Text>
-              <Switch
-                value={communitySharing[key]}
-                onValueChange={(value) => updateSharing(key, value)}
-                disabled={!isProfileVisible || savingPrivacy !== null}
-                trackColor={{ false: '#444650', true: '#7669D8' }}
-                thumbColor="#fff"
-                accessibilityLabel={t(`editProfile.${label}`)}
-                accessibilityRole="switch"
-              />
-            </View>
-          ))}
-          {!isProfileVisible ? (
-            <Text style={styles.privacyDisabledHint}>
-              {t('editProfile.sharingDisabledHint')}
+        <Text style={styles.sectionTitle}>{t('editProfile.socialsTitle')}</Text>
+        <Text style={styles.socialsHint}>{t('editProfile.socialsHint')}</Text>
+
+        <Text style={styles.fieldLabel}>{t('editProfile.facebook')}</Text>
+        <TextInput
+          style={styles.socialInput}
+          value={facebook}
+          onChangeText={setFacebook}
+          placeholder={t('onboarding.socials.facebookPlaceholder')}
+          placeholderTextColor="rgba(255,255,255,0.4)"
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!socialSaving}
+          accessibilityLabel={t('editProfile.facebook')}
+        />
+
+        <Text style={styles.fieldLabel}>{t('editProfile.instagram')}</Text>
+        <TextInput
+          style={styles.socialInput}
+          value={instagram}
+          onChangeText={setInstagram}
+          placeholder={t('onboarding.socials.instagramPlaceholder')}
+          placeholderTextColor="rgba(255,255,255,0.4)"
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!socialSaving}
+          accessibilityLabel={t('editProfile.instagram')}
+        />
+
+        <TouchableOpacity
+          style={[
+            styles.socialsSaveButton,
+            (!socialsDirty || socialSaving) && styles.socialsSaveButtonDisabled,
+          ]}
+          onPress={() => void saveSocials()}
+          disabled={!socialsDirty || socialSaving}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !socialsDirty || socialSaving }}
+          accessibilityLabel={t('editProfile.socialsSave')}
+        >
+          {socialSaving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.socialsSaveText}>
+              {t('editProfile.socialsSave')}
             </Text>
-          ) : null}
-        </View>
+          )}
+        </TouchableOpacity>
 
         {/* Save → Contact support: requests are emailed instead of saved. */}
         <TouchableOpacity
@@ -692,58 +671,39 @@ const styles = StyleSheet.create({
     fontFamily: 'CooperLtBT-Bold',
     marginBottom: 14,
   },
-  privacyDescription: {
+  socialsHint: {
     color: 'rgba(255,255,255,0.65)',
     fontSize: 13,
     lineHeight: 19,
     fontFamily: 'SFProDisplay-Regular',
     marginTop: -6,
-    marginBottom: 14,
+    marginBottom: 10,
   },
-  privacyCard: {
-    borderRadius: 16,
-    backgroundColor: 'rgba(57, 60, 71, 0.35)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    marginBottom: 8,
+  socialInput: {
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: 'rgba(57, 60, 71, 0.5)',
+    paddingHorizontal: 18,
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'SFProDisplay-Regular',
+    marginBottom: 16,
   },
-  switchRow: {
-    minHeight: 58,
-    flexDirection: 'row',
+  socialsSaveButton: {
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#665FE8',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    justifyContent: 'center',
+    marginBottom: 4,
   },
-  switchRowDisabled: {
+  socialsSaveButtonDisabled: {
     opacity: 0.45,
   },
-  switchCopy: {
-    flex: 1,
-    paddingVertical: 8,
-  },
-  switchTitle: {
-    flex: 1,
+  socialsSaveText: {
     color: '#fff',
-    fontSize: 14,
-    fontFamily: 'SFProDisplay-Regular',
-  },
-  switchHint: {
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 3,
-  },
-  privacySeparator: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  privacyDisabledHint: {
-    color: '#B9B3C7',
-    fontSize: 12,
-    lineHeight: 17,
-    paddingBottom: 12,
+    fontSize: 15,
+    fontFamily: 'Nunito-Bold',
   },
   field: {
     height: 56,

@@ -23,11 +23,23 @@ import {
   getUserProfile,
   patchUserProfile,
 } from '../services/api';
+import {
+  normalizeHandle,
+  socialProfileUrl,
+  type SocialPlatform,
+} from '../services/socialLinks';
 
 const communityBanner = require('../assets/images/community-space.jpg');
 
 type FilterKey = 'sun' | 'moon' | 'ascendant' | 'learning';
 type Filters = Record<FilterKey, string>;
+type SharingKey =
+  | 'show_sun_sign'
+  | 'show_moon_sign'
+  | 'show_ascendant'
+  | 'show_learning_archetypes'
+  | 'show_socials';
+type SharingSettings = Record<SharingKey, boolean>;
 
 interface CommunityMember {
   id: string | number;
@@ -41,35 +53,6 @@ interface CommunityMember {
   social_acc_instagram: string | null;
 }
 
-const SOCIAL_BASE_URL = {
-  instagram: 'https://instagram.com/',
-  facebook: 'https://facebook.com/',
-} as const;
-
-type SocialPlatform = keyof typeof SOCIAL_BASE_URL;
-
-// Handles are free text at onboarding, so people type "@name", "name",
-// "instagram.com/name" or a full URL. Reduce all of those to the username
-// so we can build one predictable profile link. Links that carry a query
-// (facebook.com/profile.php?id=123 has no username) are kept whole instead,
-// because truncating them would point at the wrong page.
-function normalizeHandle(value: any): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const path = trimmed
-    .replace(/^https?:\/\//i, '')
-    .replace(/^www\.|^m\./i, '')
-    .replace(/^(?:instagram|facebook|fb)\.com\/?/i, '')
-    .replace(/^@+/, '');
-  if (/[?=]/.test(path)) {
-    return /^https?:\/\//i.test(trimmed) ? trimmed : null;
-  }
-  return path.split(/[/#]/)[0].trim() || null;
-}
-
-const isProfileUrl = (handle: string) => /^https?:\/\//i.test(handle);
-
 const EMPTY_FILTERS: Filters = {
   sun: '',
   moon: '',
@@ -81,6 +64,35 @@ const EMPTY_FILTERS: Filters = {
 // size, so we window the loaded list as well: "Load more" first reveals more
 // of what we already have and only fetches another page once it runs out.
 const PAGE_SIZE = 12;
+
+// What we write when someone opts into the community. The API defaults every
+// flag to false, so opting in is the explicit action that turns sharing on.
+const DEFAULT_SHARING: SharingSettings = {
+  show_sun_sign: true,
+  show_moon_sign: true,
+  show_ascendant: true,
+  show_learning_archetypes: true,
+  show_socials: true,
+};
+
+const SHARING_OPTIONS: { key: SharingKey; label: string }[] = [
+  { key: 'show_sun_sign', label: 'shareSun' },
+  { key: 'show_moon_sign', label: 'shareMoon' },
+  { key: 'show_ascendant', label: 'shareAscendant' },
+  { key: 'show_learning_archetypes', label: 'shareLearning' },
+  { key: 'show_socials', label: 'shareSocials' },
+];
+
+function sharingFromProfile(profile: any): SharingSettings {
+  const settings = profile?.user_settings ?? {};
+  return {
+    show_sun_sign: settings.show_sun_sign === true,
+    show_moon_sign: settings.show_moon_sign === true,
+    show_ascendant: settings.show_ascendant === true,
+    show_learning_archetypes: settings.show_learning_archetypes === true,
+    show_socials: settings.show_socials === true,
+  };
+}
 
 function normalizeMember(raw: any, index: number): CommunityMember {
   const nullableCode = (value: any) =>
@@ -109,6 +121,36 @@ function normalizeMember(raw: any, index: number): CommunityMember {
   };
 }
 
+// Members who keep their Sun private still belong in the directory, so they
+// collect under one trailing section instead of disappearing from it.
+const UNGROUPED = 'UNGROUPED';
+
+// The directory reads as one section per Sun sign, in wheel order, so every
+// member appears exactly once under their own sign.
+function groupBySunSign(list: CommunityMember[]) {
+  const buckets = new Map<string, CommunityMember[]>();
+  list.forEach((member) => {
+    const key = member.sun_sign || UNGROUPED;
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(member);
+    else buckets.set(key, [member]);
+  });
+
+  const codes = ZODIAC_SIGNS.map((sign) => sign.code).filter((code) =>
+    buckets.has(code),
+  );
+  // A code the wheel doesn't know about would otherwise be dropped silently.
+  buckets.forEach((_members, key) => {
+    if (key !== UNGROUPED && !codes.includes(key)) codes.push(key);
+  });
+  if (buckets.has(UNGROUPED)) codes.push(UNGROUPED);
+
+  return codes.map((code) => ({
+    code,
+    members: buckets.get(code) as CommunityMember[],
+  }));
+}
+
 export default function CommunityScreen() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -126,6 +168,10 @@ export default function CommunityScreen() {
   const [profileReady, setProfileReady] = useState(false);
   const [participating, setParticipating] = useState(false);
   const [participationSaving, setParticipationSaving] = useState(false);
+  const [sharingExpanded, setSharingExpanded] = useState(false);
+  const [sharingSaving, setSharingSaving] = useState<SharingKey | null>(null);
+  const [sharingSettings, setSharingSettings] =
+    useState<SharingSettings>(DEFAULT_SHARING);
 
   const clearDirectory = useCallback(() => {
     requestId.current += 1;
@@ -196,14 +242,17 @@ export default function CommunityScreen() {
       let active = true;
       void (async () => {
         let visible = false;
+        let settings = DEFAULT_SHARING;
         try {
           const profile: any = await getUserProfile();
           visible = profile?.is_profile_visible === true;
+          settings = sharingFromProfile(profile);
         } catch (e) {
           console.log('[Community] profile load failed:', (e as any)?.message ?? String(e));
         }
         if (!active) return;
         setParticipating(visible);
+        setSharingSettings(settings);
         setProfileReady(true);
         if (!visible) clearDirectory();
       })();
@@ -234,6 +283,7 @@ export default function CommunityScreen() {
   };
 
   const visibleMembers = members.slice(0, visibleCount);
+  const sections = groupBySunSign(visibleMembers);
   const hasMore = visibleCount < members.length || !!next;
 
   const showMore = () => {
@@ -248,12 +298,24 @@ export default function CommunityScreen() {
   const toggleParticipation = async (value: boolean) => {
     if (participationSaving) return;
     const previous = participating;
+    const previousSettings = sharingSettings;
+    const nextSettings = value ? DEFAULT_SHARING : sharingSettings;
     setParticipating(value);
+    if (value) {
+      setSharingSettings(nextSettings);
+      setSharingExpanded(true);
+    } else {
+      setSharingExpanded(false);
+    }
     try {
       setParticipationSaving(true);
-      await patchUserProfile({ is_profile_visible: value });
+      await patchUserProfile({
+        is_profile_visible: value,
+        ...(value ? { user_settings: nextSettings } : {}),
+      });
     } catch {
       setParticipating(previous);
+      setSharingSettings(previousSettings);
       Alert.alert(
         t('community.participationErrorTitle'),
         t('community.participationError'),
@@ -263,15 +325,43 @@ export default function CommunityScreen() {
     }
   };
 
+  const toggleSharing = async (key: SharingKey, value: boolean) => {
+    if (sharingSaving || participationSaving) return;
+    const previous = sharingSettings[key];
+    const nextSettings = { ...sharingSettings, [key]: value };
+    setSharingSettings(nextSettings);
+    setSharingSaving(key);
+    try {
+      await patchUserProfile({ user_settings: { [key]: value } });
+      // The directory is built from these flags, so re-read it once saved.
+      void load('refresh');
+    } catch {
+      setSharingSettings((current) => ({ ...current, [key]: previous }));
+      Alert.alert(
+        t('community.sharingErrorTitle'),
+        t('community.sharingError'),
+      );
+    } finally {
+      setSharingSaving(null);
+    }
+  };
+
   const signLabel = (code: string) =>
     t(`archetypeMeta.${code}.label`, {
       defaultValue: ZODIAC_SIGNS.find((sign) => sign.code === code)?.label || code,
     });
 
+  // The directory response is the only source for a member, so hand the row we
+  // already have to the detail screen rather than refetching it by id.
+  const openMember = (member: CommunityMember) => {
+    router.push({
+      pathname: '/community-member',
+      params: { member: JSON.stringify(member) },
+    } as any);
+  };
+
   const openSocial = async (platform: SocialPlatform, handle: string) => {
-    const url = isProfileUrl(handle)
-      ? handle
-      : `${SOCIAL_BASE_URL[platform]}${encodeURIComponent(handle)}`;
+    const url = socialProfileUrl(platform, handle);
     try {
       await Linking.openURL(url);
     } catch (e) {
@@ -286,35 +376,33 @@ export default function CommunityScreen() {
       member.social_acc_instagram && {
         platform: 'instagram' as const,
         icon: 'instagram',
-        color: '#E1306C',
         handle: member.social_acc_instagram,
-        label: isProfileUrl(member.social_acc_instagram)
-          ? 'Instagram'
-          : `@${member.social_acc_instagram}`,
       },
       member.social_acc_facebook && {
         platform: 'facebook' as const,
         icon: 'facebook-f',
-        color: '#4C8BF5',
         handle: member.social_acc_facebook,
-        label: isProfileUrl(member.social_acc_facebook)
-          ? 'Facebook'
-          : member.social_acc_facebook,
       },
     ].filter(Boolean) as {
       platform: SocialPlatform;
       icon: string;
-      color: string;
       handle: string;
-      label: string;
     }[];
+    // Symbols rather than words, so the three signs fit on one line of a card.
+    // The spoken label keeps the wording for anyone using a screen reader.
     const details = [
-      member.sun_sign && [t('community.sun'), member.sun_sign],
-      member.moon_sign && [t('community.moon'), member.moon_sign],
-      member.ascendant && [t('community.ascendant'), member.ascendant],
+      member.sun_sign && ['sun', '☉', member.sun_sign],
+      member.moon_sign && ['moon', '☽', member.moon_sign],
+      member.ascendant && ['ascendant', 'AC', member.ascendant],
     ].filter(Boolean) as string[][];
     return (
-      <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.85}
+        onPress={() => openMember(member)}
+        accessibilityRole="button"
+        accessibilityLabel={displayName}
+      >
         {member.profile_picture_url ? (
           <Image
             source={{ uri: member.profile_picture_url }}
@@ -326,55 +414,55 @@ export default function CommunityScreen() {
             style={[styles.avatar, styles.avatarPlaceholder]}
             accessibilityLabel={t('community.avatarPlaceholder', { name: displayName })}
           >
-            <Ionicons name="person" size={36} color="#A9A9B4" />
+            <Ionicons name="person" size={32} color="#A9A9B4" />
           </View>
         )}
-        <View style={styles.cardBody}>
-          <Text style={styles.cardName}>{displayName}</Text>
-          {details.map(([label, code]) => (
-            <Text key={label} style={styles.detailText}>
-              {label}: <Text style={styles.detailValue}>{signLabel(code)}</Text>
-            </Text>
-          ))}
-          {member.learning_archetypes && member.learning_archetypes.length > 0 ? (
-            <View style={styles.learningBlock}>
-              <Text style={styles.learningLabel}>{t('community.learning')}</Text>
-              <View style={styles.chips}>
-                {member.learning_archetypes.map((code) => (
-                  <View key={code} style={styles.chip}>
-                    <Text style={styles.chipText}>{signLabel(code)}</Text>
-                  </View>
-                ))}
+        <Text style={styles.cardName} numberOfLines={1}>
+          {displayName}
+        </Text>
+        {details.length > 0 ? (
+          <View style={styles.signRow}>
+            {details.map(([role, symbol, code]) => (
+              <View
+                key={role}
+                style={styles.signItem}
+                accessibilityLabel={`${t(`community.${role}`)}: ${signLabel(code)}`}
+              >
+                <Text style={styles.signSymbol}>{symbol}</Text>
+                <Text style={styles.signValue} numberOfLines={1}>
+                  {signLabel(code)}
+                </Text>
               </View>
-            </View>
-          ) : null}
-          {socials.length > 0 ? (
-            <View style={styles.socialRow}>
-              {socials.map((social) => (
-                <TouchableOpacity
-                  key={social.platform}
-                  style={styles.socialButton}
-                  onPress={() => void openSocial(social.platform, social.handle)}
-                  accessibilityRole="link"
-                  accessibilityLabel={t(`community.open_${social.platform}`, {
-                    name: displayName,
-                  })}
-                >
-                  <FontAwesome5
-                    name={social.icon}
-                    size={13}
-                    color={social.color}
-                    brand
-                  />
-                  <Text style={styles.socialText} numberOfLines={1}>
-                    {social.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : null}
-        </View>
-      </View>
+            ))}
+          </View>
+        ) : null}
+        {member.learning_archetypes && member.learning_archetypes.length > 0 ? (
+          <View style={styles.chips} accessibilityLabel={t('community.learning')}>
+            {member.learning_archetypes.map((code) => (
+              <View key={code} style={styles.chip}>
+                <Text style={styles.chipText}>{signLabel(code)}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {socials.length > 0 ? (
+          <View style={styles.socialRow}>
+            {socials.map((social) => (
+              <TouchableOpacity
+                key={social.platform}
+                style={styles.socialButton}
+                onPress={() => void openSocial(social.platform, social.handle)}
+                accessibilityRole="link"
+                accessibilityLabel={t(`community.open_${social.platform}`, {
+                  name: displayName,
+                })}
+              >
+                <FontAwesome5 name={social.icon} size={16} color="#EDEDF2" brand />
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+      </TouchableOpacity>
     );
   };
 
@@ -441,6 +529,55 @@ export default function CommunityScreen() {
             <ActivityIndicator color="#B283ED" />
           )}
         </View>
+
+        {profileReady && participating ? (
+          <View style={styles.sharingCard}>
+            <TouchableOpacity
+              style={styles.sharingHeader}
+              onPress={() => setSharingExpanded((current) => !current)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: sharingExpanded }}
+              accessibilityLabel={t('community.sharingTitle')}
+            >
+              <View style={styles.sharingHeaderCopy}>
+                <Text style={styles.sharingTitle}>
+                  {t('community.sharingTitle')}
+                </Text>
+                <Text style={styles.sharingSummary}>
+                  {t('community.sharingSummary', {
+                    count: Object.values(sharingSettings).filter(Boolean).length,
+                  })}
+                </Text>
+              </View>
+              <Ionicons
+                name={sharingExpanded ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color="#B283ED"
+              />
+            </TouchableOpacity>
+
+            {sharingExpanded ? (
+              <View style={styles.sharingOptions}>
+                {SHARING_OPTIONS.map(({ key, label }) => (
+                  <View key={key} style={styles.sharingOption}>
+                    <Text style={styles.sharingOptionText}>
+                      {t(`community.${label}`)}
+                    </Text>
+                    <Switch
+                      value={sharingSettings[key]}
+                      onValueChange={(value) => void toggleSharing(key, value)}
+                      disabled={sharingSaving !== null || participationSaving}
+                      trackColor={{ false: '#3A3C45', true: '#7667E8' }}
+                      thumbColor="#fff"
+                      accessibilityRole="switch"
+                      accessibilityLabel={t(`community.${label}`)}
+                    />
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         {!profileReady ? (
           <View style={styles.stateBox}>
@@ -524,11 +661,35 @@ export default function CommunityScreen() {
                 </TouchableOpacity>
               </View>
             ) : null}
-            <View style={styles.grid}>
-              {visibleMembers.map((member) => (
-                <MemberCard key={String(member.id)} member={member} />
-              ))}
-            </View>
+            {sections.map((section) => {
+              const sign = ZODIAC_SIGNS.find((z) => z.code === section.code);
+              return (
+                <View key={section.code} style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    {sign ? (
+                      <Image source={sign.icon} style={styles.sectionIcon} />
+                    ) : null}
+                    <Text style={styles.sectionTitle}>
+                      {section.code === UNGROUPED
+                        ? t('community.otherSection')
+                        : signLabel(section.code)}
+                    </Text>
+                  </View>
+                  <Text style={styles.sectionSubtitle}>
+                    {t('community.sectionSubtitle')}
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.sectionRow}
+                  >
+                    {section.members.map((member) => (
+                      <MemberCard key={String(member.id)} member={member} />
+                    ))}
+                  </ScrollView>
+                </View>
+              );
+            })}
             {hasMore ? (
               <TouchableOpacity
                 style={styles.loadMore}
@@ -697,19 +858,61 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   participationCopy: { flex: 1 },
-  grid: { gap: 12, marginTop: 8 },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 14,
+  sharingCard: {
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    padding: 16,
+    marginTop: -10,
+    marginBottom: 22,
+    overflow: 'hidden',
   },
-  cardBody: { flex: 1, minWidth: 0 },
-  avatar: { width: 72, height: 72, borderRadius: 36 },
+  sharingHeader: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  sharingHeaderCopy: { flex: 1, paddingRight: 12 },
+  sharingTitle: { color: '#fff', fontSize: 16, fontFamily: 'Nunito-Bold' },
+  sharingSummary: { color: '#92929D', fontSize: 12, marginTop: 3 },
+  sharingOptions: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 16,
+  },
+  sharingOption: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  sharingOptionText: { flex: 1, color: '#D5D6E4', fontSize: 14, paddingRight: 12 },
+  section: { marginTop: 26 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  sectionIcon: { width: 20, height: 20, resizeMode: 'contain' },
+  sectionTitle: { color: '#fff', fontSize: 20, fontFamily: 'CooperLtBT-Bold' },
+  sectionSubtitle: {
+    color: '#92929D',
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 10,
+  },
+  // Each section scrolls sideways, so a busy sign stays one row tall.
+  sectionRow: { flexDirection: 'row', gap: 12, paddingTop: 16, paddingBottom: 4 },
+  card: {
+    width: 176,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 18,
+  },
+  avatar: { width: 64, height: 64, borderRadius: 32 },
   avatarPlaceholder: {
     backgroundColor: '#292B33',
     alignItems: 'center',
@@ -717,28 +920,49 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
-  cardName: { color: '#fff', fontSize: 17, fontFamily: 'CooperLtBT-Bold', marginBottom: 8 },
-  detailText: { color: '#92929D', fontSize: 13, marginTop: 3 },
-  detailValue: { color: '#D5D6E4' },
-  learningBlock: { marginTop: 12 },
-  learningLabel: { color: '#92929D', fontSize: 12, marginBottom: 7 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  cardName: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'CooperLtBT-Bold',
+    marginTop: 12,
+    maxWidth: '100%',
+  },
+  signRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  signItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  signSymbol: { color: '#B283ED', fontSize: 11 },
+  signValue: { color: '#D5D6E4', fontSize: 11 },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+  },
   chip: { backgroundColor: 'rgba(178,131,237,0.15)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
   chipText: { color: '#D8C4F4', fontSize: 12 },
-  socialRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  socialButton: {
+  socialRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 12,
+  },
+  socialButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
-    gap: 6,
-    maxWidth: '100%',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
+    justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.07)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.14)',
   },
-  socialText: { color: '#D2D2DC', fontSize: 12, flexShrink: 1 },
   loadMore: {
     height: 48,
     borderRadius: 24,

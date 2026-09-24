@@ -173,6 +173,10 @@ const bg: Translations = {
       'Всеки човек има 12 архетипа в наталната си карта, но някои са слаби, а други – добре позиционирани.',
     male: 'Мъж',
     female: 'Жена',
+    otherSection: 'Без споделен слънчев знак',
+    memberLearning: 'В момента учи',
+    memberNoLearning: 'Този член не споделя какво учи.',
+    archetypeCard: 'Архетип {{sign}}',
     empty: 'Все още няма членове на общността. Провери отново скоро!',
     loading: 'Зареждаме членовете на общността…',
     error: 'Не успяхме да заредим общността. Моля, опитай отново.',
@@ -205,12 +209,21 @@ const bg: Translations = {
     avatarPlaceholder: 'Заместваща профилна снимка на {{name}}',
     participationTitle: 'Участвай в общността',
     participationText:
-      'Включи това, за да се появиш в търсенето и да виждаш други членове. Слънце, Луна, Асцендент и Развиване остават скрити, докато не ги споделиш поотделно в настройките на акаунта.',
+      'Включи това, за да се появиш в търсенето и да виждаш други членове. По подразбиране всичко е видимо, а по-долу можеш да избереш какво да скриеш.',
     participationLocked:
       'Общността е затворена, докато не участваш. Включи превключвателя, за да търсиш и виждаш други членове.',
     participationErrorTitle: 'Участието не беше обновено',
     participationError:
-      'Предишният избор е възстановен. Опитай отново или промени това по-късно в настройките на акаунта.',
+      'Предишният избор е възстановен. Моля, опитай отново.',
+    sharingTitle: 'Какво виждат другите',
+    sharingSummary: '{{count}} от 5 видими',
+    shareSun: 'Слънчев знак',
+    shareMoon: 'Лунен знак',
+    shareAscendant: 'Асцендент',
+    shareLearning: 'Архетипи за развиване',
+    shareSocials: 'Facebook и Instagram',
+    sharingErrorTitle: 'Видимостта не беше обновена',
+    sharingError: 'Предишният избор е възстановен. Моля, опитай отново.',
   },
 
   menu: {
@@ -349,35 +362,17 @@ const bg: Translations = {
     supportEmailRequired: 'Моля, въведи валиден имейл адрес.',
     supportMessageRequired: 'Моля, опиши какво искаш да променим.',
     supportSubject: 'Заявка за промяна на профила',
-    communityPrivacyTitle: 'Поверителност в общността',
-    communityPrivacyDescription:
-      'Избери дали профилът ти да участва в търсенето и кои астрологични категории да виждат другите членове.',
-    communityPrivacyHint:
-      'Участието и всяка астрологична категория са скрити по подразбиране. Избери точно какво могат да виждат другите членове.',
-    communityParticipation: 'Участвай в търсенето в общността',
-    communityParticipationHint:
-      'Когато е изключено, профилът ти е скрит, но можеш да разглеждаш и търсиш.',
-    communityParticipationDescription:
-      'Позволява профилът ти да се показва в резултатите. Можеш да разглеждаш и когато е изключено.',
-    communitySharingTitle: 'Споделени категории',
-    communityShareSun: 'Споделяй слънчев знак',
-    communityShareMoon: 'Споделяй лунен знак',
-    communityShareAscendant: 'Споделяй асцендент',
-    communityShareSocials: 'Facebook и Instagram',
-    communityShareLearning: 'Споделяй архетипи за развиване',
-    shareSun: 'Споделяй слънчев знак',
-    shareMoon: 'Споделяй лунен знак',
-    shareAscendant: 'Споделяй асцендент',
-    shareLearning: 'Споделяй архетипи за развиване',
-    shareSocials: 'Споделяй Facebook и Instagram',
-    sharingDisabledHint:
-      'Изборите се запазват и ще действат само когато участието е включено.',
-    communityPrivacyErrorTitle: 'Настройката не може да се запази',
-    communityPrivacyError:
-      'Предишната настройка беше възстановена. Моля, опитай отново.',
-    communityUpdateFailedTitle: 'Обновяването не успя',
-    communityUpdateFailed:
-      'Не успяхме да запазим тази настройка. Предишният избор е възстановен.',
+    socialsTitle: 'Facebook и Instagram',
+    socialsHint:
+      'Добави или промени акаунтите си тук и натисни „Запази“. За да се виждат в общността, включи „Facebook и Instagram“ там.',
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+    socialsSave: 'Запази акаунтите',
+    socialsSavedTitle: 'Акаунтите са запазени',
+    socialsSaved: 'Facebook и Instagram бяха обновени.',
+    socialsUpdateFailedTitle: 'Акаунтът не беше запазен',
+    socialsUpdateFailed:
+      'Не успяхме да запазим социалния акаунт. Моля, опитай отново.',
   },
 
   notificationsSettings: {
