@@ -8,11 +8,11 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
-  Alert,
   LayoutAnimation,
   Platform,
   UIManager,
 } from 'react-native';
+import { Alert } from '../../components/AppAlert';
 
 if (
   Platform.OS === 'android' &&
@@ -28,6 +28,7 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ZODIAC_SIGNS } from '../../components/Astrowheel';
+import ZodiacGlyph from '../../components/ZodiacGlyph';
 import {
   ELEMENT_BACKGROUNDS,
   getArchetypeMeta,
@@ -661,8 +662,10 @@ export default function ArchetypeDetailScreen() {
 
         <View style={styles.infoCard}>
           <View style={styles.infoTitleRow}>
-            {sign?.icon ? (
-              <Image source={sign.icon} style={styles.headerIcon} />
+            {sign ? (
+              <View style={styles.headerIcon}>
+                <ZodiacGlyph code={sign.code} size={32} color="#D3D5FB" />
+              </View>
             ) : null}
             <Text
               style={styles.headerTitle}
@@ -1144,11 +1147,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   headerIcon: {
-    width: 32,
-    height: 32,
     marginRight: 10,
-    resizeMode: 'contain',
-    tintColor: '#D3D5FB',
   },
   headerTitle: {
     color: '#fff',

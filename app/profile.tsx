@@ -9,8 +9,8 @@ import {
   ActivityIndicator,
   useWindowDimensions,
   Image,
-  Alert,
 } from 'react-native';
+import { Alert } from '../components/AppAlert';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';

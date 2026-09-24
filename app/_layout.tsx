@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Image, Platform, Dimensions, Alert } from 'react-native';
+import { View, StyleSheet, Image, Platform, Dimensions } from 'react-native';
+import { Alert, AppAlertHost } from '../components/AppAlert';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
@@ -96,6 +97,8 @@ export default function RootLayout() {
         <View style={styles.content}>
           <Slot />
         </View>
+
+        <AppAlertHost />
       </View>
     </GestureHandlerRootView>
   );

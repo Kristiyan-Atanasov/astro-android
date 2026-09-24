@@ -8,9 +8,9 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
-  Alert,
   Linking,
 } from 'react-native';
+import { Alert } from '../components/AppAlert';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,8 +30,7 @@ import {
 } from '../services/iapConfig';
 import { getUserQualities } from '../services/api';
 
-const homeBg = require('../assets/images/home-bg.png');
-const moonImg = require('../assets/images/moon-banner.png');
+const homeBg = require('../assets/images/home-bg-horizon.jpg');
 
 // Used when the store hasn't returned a real localized price yet
 // (e.g. sandbox without product approval, or first load before
@@ -378,8 +377,6 @@ export default function SubscriptionScreen() {
 
         <Text style={styles.title}>{t('subscription.title')}</Text>
 
-        <Image source={moonImg} style={styles.moonImage} resizeMode="contain" />
-
         <View style={styles.plansStack}>
           <PlanCard
             label={t('subscription.planMonthly')}
@@ -579,14 +576,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     lineHeight: 34,
   },
-  moonImage: {
-    width: width - 140,
-    height: 70,
-    alignSelf: 'center',
-    marginBottom: 28,
-  },
   plansStack: {
     width: '100%',
+    // Holds the gap the removed moon banner used to occupy, so the plans and
+    // everything below them stay where they were on the page.
+    marginTop: 98,
   },
   planCardSpacing: {
     marginBottom: 12,

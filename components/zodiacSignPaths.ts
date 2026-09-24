@@ -4,6 +4,12 @@
 // IMPORTANT: keys here MUST visually match the actual glyph drawn by the
 // path data. The wheel renders signs in calendar order clockwise starting
 // just past 12 o'clock with Aries.
+//
+// Each glyph is also rotated to face out of its own slot, and that rotation
+// is baked into the coordinates: Aries by 15 degrees, Taurus by 45, and so on
+// in 30 degree steps. Drawing a sign anywhere other than its own slot — as the
+// natal chart does, since the ascendant decides where each sign lands — means
+// undoing that rotation first, or the glyph arrives lying on its side.
 export const ZODIAC_SIGN_PATHS: Record<string, string[]> = {
   ARIES: [
     'M236.709 109.123C235.673 106.801 233.202 105.336 230.693 105.578C229.626 105.679 228.683 106.1 227.912 106.762C227.506 105.905 226.875 105.173 226.01 104.643C223.867 103.326 221.008 103.544 219.052 105.181C217.158 106.762 216.925 108.625 217.065 109.903C217.221 111.313 217.961 112.809 218.686 113.183C219.262 113.471 219.971 113.253 220.267 112.677C220.525 112.178 220.384 111.578 219.971 111.235C219.815 111.025 219.309 110.121 219.395 109.069C219.457 108.266 219.839 107.588 220.563 106.988C221.74 106.007 223.517 105.866 224.795 106.653C225.932 107.355 226.353 108.625 225.979 110.23L223.805 119.604C223.657 120.235 224.047 120.866 224.686 121.014C225.317 121.162 225.948 120.765 226.096 120.134L228.309 110.619C228.683 109.014 229.618 108.056 230.943 107.931C232.439 107.791 233.966 108.695 234.589 110.097C234.971 110.955 235.018 111.742 234.722 112.482C234.332 113.471 233.475 114.056 233.249 114.173C232.719 114.29 232.33 114.773 232.337 115.334C232.353 115.981 232.883 116.495 233.53 116.487C234.34 116.471 235.673 115.451 236.428 114.258C237.122 113.168 237.737 111.399 236.732 109.147L236.709 109.123Z',
@@ -64,3 +70,65 @@ export const ZODIAC_SIGN_ANCHORS: Record<string, { x: number; y: number }> = {
   AQUARIUS: { x: 113.9, y: 146.38 },
   PISCES: { x: 164.67, y: 114.65 },
 };
+
+/**
+ * Degrees of rotation baked into each glyph's path data by the wheel artwork.
+ * Anything that draws a sign somewhere other than its own slot on the wheel
+ * must rotate by the negative of this around the sign's anchor first,
+ * otherwise the symbol arrives tilted or lying on its side.
+ */
+export const ZODIAC_SIGN_BAKED_ROTATION: Record<string, number> = {
+  ARIES: 15,
+  TAURUS: 45,
+  GEMINI: 75,
+  CANCER: 105,
+  LEO: 135,
+  VIRGO: 165,
+  LIBRA: 195,
+  SCORPIO: 225,
+  SAGITTARIUS: 255,
+  CAPRICORN: 285,
+  AQUARIUS: 315,
+  PISCES: 345,
+};
+
+/**
+ * Where each glyph's middle actually falls once it is upright, relative to the
+ * sign's anchor. The anchors centre the glyph as the wheel draws it — rotated
+ * — so straightening one leaves it sitting slightly off to a side unless this
+ * is taken back off. Taurus is the worst at over three units.
+ */
+export const ZODIAC_SIGN_UPRIGHT_OFFSET: Record<string, { x: number; y: number }> = {
+  ARIES: { x: -0.53, y: 0.53 },
+  TAURUS: { x: -0.06, y: 3.2 },
+  GEMINI: { x: 0, y: 0 },
+  CANCER: { x: 0, y: 0 },
+  LEO: { x: 0.81, y: -2.19 },
+  VIRGO: { x: -0.15, y: 0.52 },
+  LIBRA: { x: 0.55, y: -1.48 },
+  SCORPIO: { x: 0.71, y: -0.42 },
+  SAGITTARIUS: { x: -0.24, y: -0.72 },
+  CAPRICORN: { x: -0.29, y: 1.35 },
+  AQUARIUS: { x: 0, y: -0.2 },
+  PISCES: { x: -0.3, y: 0.07 },
+};
+
+/**
+ * Transform that drops a sign glyph upright and centred on (x, y), at `scale`.
+ * Built as a transform rather than by offsetting a viewBox, because
+ * react-native-svg on Android renders nothing for a viewBox whose origin is
+ * not 0 0.
+ */
+export function uprightSignTransform(code: string, x: number, y: number, scale: number) {
+  const anchor = ZODIAC_SIGN_ANCHORS[code];
+  if (!anchor) return undefined;
+  const rotation = ZODIAC_SIGN_BAKED_ROTATION[code] ?? 0;
+  const offset = ZODIAC_SIGN_UPRIGHT_OFFSET[code] ?? { x: 0, y: 0 };
+  return [
+    `translate(${x}, ${y})`,
+    `scale(${scale})`,
+    `translate(${-offset.x}, ${-offset.y})`,
+    `rotate(${-rotation})`,
+    `translate(${-anchor.x}, ${-anchor.y})`,
+  ].join(' ');
+}

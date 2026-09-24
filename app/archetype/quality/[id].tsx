@@ -11,8 +11,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  Alert,
 } from 'react-native';
+import { Alert } from '../../../components/AppAlert';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,7 @@ import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 
 import { ZODIAC_SIGNS } from '../../../components/Astrowheel';
+import ZodiacGlyph from '../../../components/ZodiacGlyph';
 import {
   ELEMENT_BACKGROUNDS,
   getArchetypeMeta,
@@ -176,8 +177,10 @@ export default function QualityReaderScreen() {
           <View style={styles.glassCardTint} />
 
           <View style={styles.cardContent}>
-            {sign?.icon ? (
-              <Image source={sign.icon} style={styles.cardGlyph} />
+            {sign ? (
+              <View style={styles.cardGlyph}>
+                <ZodiacGlyph code={sign.code} size={58} color="#FFFFFF" />
+              </View>
             ) : null}
 
             {!!title && <Text style={styles.title}>{title}</Text>}
@@ -309,10 +312,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardGlyph: {
-    width: 58,
-    height: 58,
-    resizeMode: 'contain',
-    tintColor: '#FFFFFF',
     opacity: 0.95,
     marginBottom: 28,
   },

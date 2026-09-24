@@ -7,10 +7,10 @@ import {
   Image,
   Dimensions,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import { Alert } from '../../components/AppAlert';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';

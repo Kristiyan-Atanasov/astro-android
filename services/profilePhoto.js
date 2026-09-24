@@ -88,6 +88,38 @@ export async function getProfilePhotoUri() {
   return null;
 }
 
+/**
+ * Recompresses to JPEG, or returns null if the imaging module cannot do it.
+ * Callers fall back to the original file, since a conversion we are unable to
+ * run says nothing about whether the photo itself is acceptable.
+ */
+async function toJpeg(uri, width, compress) {
+  try {
+    const result = await ImageManipulator.manipulateAsync(
+      uri,
+      width ? [{ resize: { width } }] : [],
+      { compress, format: ImageManipulator.SaveFormat.JPEG },
+    );
+    return result?.uri ?? null;
+  } catch (e) {
+    console.log(LOG, 'jpeg conversion unavailable', e?.message ?? e);
+    return null;
+  }
+}
+
+/** Size of a local file in bytes, or null when it cannot be read. */
+async function fileSize(uri) {
+  try {
+    const info = await FileSystem.getInfoAsync(uri, { size: true });
+    return typeof info?.size === 'number' ? info.size : null;
+  } catch (e) {
+    // The backend enforces the cap too and answers 413, so an unreadable stat
+    // just means we skip the local shortcut instead of refusing the upload.
+    console.log(LOG, 'size check unavailable', e?.message ?? e);
+    return null;
+  }
+}
+
 async function prepareUploadFile(asset) {
   const sourceUri = asset?.uri;
   if (!sourceUri) return { ok: false, reason: 'invalid' };
@@ -104,51 +136,30 @@ async function prepareUploadFile(asset) {
   if (needsJpegConversion(mime) || mime === 'image/jpeg') {
     // Always normalize HEIC (and odd formats) to JPEG. Mild recompress for
     // JPEG keeps most photos under the 5MB backend cap.
-    const converted = await ImageManipulator.manipulateAsync(
-      sourceUri,
-      [],
-      {
-        compress: 0.85,
-        format: ImageManipulator.SaveFormat.JPEG,
-      },
-    );
-    uploadUri = converted.uri;
-    uploadMime = 'image/jpeg';
-    uploadName = 'avatar.jpg';
+    const converted = await toJpeg(sourceUri, null, 0.85);
+    if (converted) {
+      uploadUri = converted;
+      uploadMime = 'image/jpeg';
+      uploadName = 'avatar.jpg';
+    }
   } else if (mime === 'image/png') {
     uploadName = 'avatar.png';
   } else if (mime === 'image/webp') {
     uploadName = 'avatar.webp';
   }
 
-  const info = await FileSystem.getInfoAsync(uploadUri, { size: true });
-  if (!info.exists) return { ok: false, reason: 'invalid' };
-  if (typeof info.size === 'number' && info.size > MAX_UPLOAD_BYTES) {
-    // One more pass at stronger compression for oversized JPEG candidates.
-    if (uploadMime === 'image/jpeg' || needsJpegConversion(mime)) {
-      const smaller = await ImageManipulator.manipulateAsync(
-        sourceUri,
-        [{ resize: { width: 1600 } }],
-        {
-          compress: 0.7,
-          format: ImageManipulator.SaveFormat.JPEG,
-        },
-      );
-      const smallerInfo = await FileSystem.getInfoAsync(smaller.uri, {
-        size: true,
-      });
-      if (
-        typeof smallerInfo.size === 'number' &&
-        smallerInfo.size > MAX_UPLOAD_BYTES
-      ) {
-        return { ok: false, reason: 'too_large' };
-      }
-      uploadUri = smaller.uri;
-      uploadMime = 'image/jpeg';
-      uploadName = 'avatar.jpg';
-    } else {
+  const size = await fileSize(uploadUri);
+  if (size !== null && size > MAX_UPLOAD_BYTES) {
+    // Shrink anything oversized rather than turning it away — a 12MP photo or
+    // a big PNG is an ordinary thing for someone to pick off their phone.
+    const smaller = await toJpeg(sourceUri, 1600, 0.7);
+    const smallerSize = smaller ? await fileSize(smaller) : null;
+    if (!smaller || (smallerSize !== null && smallerSize > MAX_UPLOAD_BYTES)) {
       return { ok: false, reason: 'too_large' };
     }
+    uploadUri = smaller;
+    uploadMime = 'image/jpeg';
+    uploadName = 'avatar.jpg';
   }
 
   return {
@@ -164,6 +175,16 @@ async function prepareUploadFile(asset) {
 function mapUploadError(error) {
   const status = error?.status;
   const message = String(error?.message ?? '').toLowerCase();
+  // The backend is what actually decides on content, so its verdict is what
+  // the user should be told about — not a generic upload failure.
+  if (
+    message.includes('nsfw') ||
+    message.includes('explicit') ||
+    message.includes('inappropriate') ||
+    message.includes('moderation')
+  ) {
+    return 'nsfw';
+  }
   if (
     status === 413 ||
     message.includes('too large') ||
@@ -223,7 +244,10 @@ export async function pickAndSaveProfilePhoto() {
     const prepared = await prepareUploadFile(asset);
     if (!prepared.ok) return { ok: false, reason: prepared.reason || 'invalid' };
 
-    const moderation = await moderateProfileImage(prepared.file.uri);
+    const moderation = await moderateProfileImage(prepared.file.uri, {
+      width: asset.width,
+      height: asset.height,
+    });
     if (!moderation.ok) {
       return { ok: false, reason: moderation.reason || 'nsfw' };
     }

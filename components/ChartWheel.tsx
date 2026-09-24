@@ -11,8 +11,8 @@ import ChartWheelSvg from '../assets/images/astro-wheel-chart.svg';
 
 import { ZODIAC_SIGNS } from './Astrowheel';
 import {
-  ZODIAC_SIGN_ANCHORS,
   ZODIAC_SIGN_PATHS,
+  uprightSignTransform,
 } from './zodiacSignPaths';
 
 export type ChartPlanet = {
@@ -369,12 +369,18 @@ function ChartWheelOverlay({
           Zodiac glyphs as SVG paths (same art as the home wheel). Drawn in
           this Svg so they share the spoke coordinate system — absolute PNG
           overlays were double-drawn with a glow and drifted on Android.
+          The ascendant moves each sign off its slot in the source art, so the
+          glyphs need the artwork's baked rotation taken back out.
         */}
         {zodiacSlots.map((slot) => {
           const paths = ZODIAC_SIGN_PATHS[slot.code];
-          const anchor = ZODIAC_SIGN_ANCHORS[slot.code];
-          if (!paths || !anchor) return null;
-          const transform = `translate(${slot.iconPos.x}, ${slot.iconPos.y}) scale(${ringScale}) translate(${-anchor.x}, ${-anchor.y})`;
+          const transform = uprightSignTransform(
+            slot.code,
+            slot.iconPos.x,
+            slot.iconPos.y,
+            ringScale,
+          );
+          if (!paths || !transform) return null;
           return (
             <G key={`zodiac-${slot.code}`} transform={transform}>
               {paths.map((d, i) => (

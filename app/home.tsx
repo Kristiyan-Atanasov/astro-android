@@ -10,13 +10,12 @@ import {
   TouchableOpacity,
   Animated,
   Pressable,
-  Alert,
 } from 'react-native';
+import { Alert } from '../components/AppAlert';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   getUserProfile,
@@ -40,10 +39,7 @@ import {
 } from '../services/iap';
 import { rememberScroll, takeScrollRestore } from '../services/scrollRestore';
 import Astrowheel, { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
-import {
-  ZODIAC_SIGN_ANCHORS,
-  ZODIAC_SIGN_PATHS,
-} from '../components/zodiacSignPaths';
+import ZodiacGlyph from '../components/ZodiacGlyph';
 import {
   backendCodeToLocale,
   getAppLanguageCode,
@@ -69,24 +65,7 @@ const KEYS_GRID_SIGNS: ZodiacSign[] = KEYS_GRID_ORDER
   .map((code) => ZODIAC_BY_CODE[code])
   .filter((s): s is ZodiacSign => !!s);
 
-function ActiveZodiacGlyph({ code }: { code: string }) {
-  const paths = ZODIAC_SIGN_PATHS[code];
-  const anchor = ZODIAC_SIGN_ANCHORS[code];
-  if (!paths || !anchor) return null;
-
-  const viewBoxSize = 36;
-  return (
-    <Svg
-      width={52}
-      height={52}
-      viewBox={`${anchor.x - viewBoxSize / 2} ${anchor.y - viewBoxSize / 2} ${viewBoxSize} ${viewBoxSize}`}
-    >
-      {paths.map((d, index) => (
-        <Path key={`${code}-${index}`} d={d} fill="#FFFFFF" />
-      ))}
-    </Svg>
-  );
-}
+const GRID_GLYPH_SIZE = 52;
 
 const homeBg = require('../assets/images/home-bg-horizon.jpg');
 // const homeBg = require('../assets/images/home-bg-test.jpg'); // previous test
@@ -452,7 +431,11 @@ export default function HomeScreen() {
                     end={{ x: 1, y: 0 }}
                     style={styles.symbolBoxActive}
                   >
-                    <ActiveZodiacGlyph code={sign.code} />
+                    <ZodiacGlyph
+                      code={sign.code}
+                      size={GRID_GLYPH_SIZE}
+                      color="#D3D5FB"
+                    />
                   </LinearGradient>
                 </TouchableOpacity>
               );
@@ -466,7 +449,11 @@ export default function HomeScreen() {
                 activeOpacity={0.7}
                 onPress={() => goToArchetype(sign)}
               >
-                <Image source={sign.icon} style={styles.symbolImage} />
+                <ZodiacGlyph
+                  code={sign.code}
+                  size={GRID_GLYPH_SIZE}
+                  color="#D3D5FB"
+                />
               </TouchableOpacity>
             );
           })}
@@ -738,12 +725,13 @@ const styles = StyleSheet.create({
     // Pull outside the scroll's horizontal padding so the wheel can sit
     // close to the screen edges and feel as large as in the design.
     marginHorizontal: -23,
-    // The wheel SVG's viewBox is taller than the visible wheel art,
-    // leaving empty space above and below the circle. Negative vertical
-    // margins eat into that empty space so the section feels tighter
-    // without cropping or shrinking the wheel itself.
-    marginTop: -24,
-    marginBottom: 4,
+    // The wheel SVG's viewBox is taller than the visible wheel art, leaving
+    // 51 of its 456 units empty above and below the circle — roughly 53dp
+    // once rendered. These margins claw back most of that padding so the
+    // section reads as one block, and stay under it so the art is never
+    // cropped and the surrounding text is never overlapped.
+    marginTop: -48,
+    marginBottom: -24,
   },
   symbolGrid: {
     flexDirection: 'row',
@@ -772,12 +760,6 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  symbolImage: {
-    width: 48,
-    height: 48,
-    resizeMode: 'contain',
-    tintColor: '#D3D5FB',
   },
   communityCard: {
     borderRadius: 16,

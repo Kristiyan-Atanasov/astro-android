@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   Image,
   Linking,
   ScrollView,
@@ -13,6 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert } from '../components/AppAlert';
 import { ZODIAC_SIGNS } from '../components/Astrowheel';
 import {
   ELEMENT_BACKGROUNDS,
@@ -22,6 +22,8 @@ import {
   socialProfileUrl,
   type SocialPlatform,
 } from '../services/socialLinks';
+
+const profileBg = require('../assets/images/profile-bg.jpg');
 
 interface CommunityMember {
   id: string | number;
@@ -78,13 +80,13 @@ export default function CommunityMemberScreen() {
       >
         <Ionicons name="arrow-back" size={20} color="#fff" />
       </TouchableOpacity>
-      <Ionicons name="sparkles" size={26} color="#B283ED" />
     </View>
   );
 
   if (!member) {
     return (
       <View style={styles.wrapper}>
+        <Image source={profileBg} style={styles.bg} resizeMode="cover" />
         {header}
         <View style={styles.stateBox}>
           <Text style={styles.stateText}>{t('community.error')}</Text>
@@ -119,6 +121,7 @@ export default function CommunityMemberScreen() {
 
   return (
     <View style={styles.wrapper}>
+      <Image source={profileBg} style={styles.bg} resizeMode="cover" />
       {header}
       <ScrollView
         contentContainerStyle={styles.content}
@@ -224,11 +227,15 @@ export default function CommunityMemberScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrapper: { flex: 1, backgroundColor: '#08090E' },
+  wrapper: { flex: 1, backgroundColor: '#000' },
+  bg: {
+    ...(StyleSheet.absoluteFill as object),
+    width: '100%',
+    height: '100%',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 8,
   },
@@ -245,7 +252,8 @@ const styles = StyleSheet.create({
   stateText: { color: '#92929D', fontSize: 14, textAlign: 'center' },
   profileCard: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    // Matches the profile screen's card tint so it stays readable on the photo.
+    backgroundColor: 'rgba(57, 60, 71, 0.55)',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -299,7 +307,7 @@ const styles = StyleSheet.create({
   learningRow: { flexDirection: 'row', gap: 12, paddingTop: 14, paddingBottom: 4 },
   learningCard: {
     width: 156,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(57, 60, 71, 0.55)',
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
