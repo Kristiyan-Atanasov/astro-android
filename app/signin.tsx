@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   Image,
+  ImageBackground,
   TouchableOpacity,
   ActivityIndicator,
   Platform,
@@ -235,9 +236,12 @@ export default function SignInScreen() {
 
 
   return (
-    <View style={styles.container}>
-      <Image source={signinBg} style={styles.bg} resizeMode="cover" />
-
+    <ImageBackground
+      source={signinBg}
+      style={styles.container}
+      imageStyle={styles.bg}
+      resizeMode="cover"
+    >
       <View style={styles.content}>
         <Image
           source={require("../assets/images/logo-signin.png")}
@@ -284,7 +288,7 @@ export default function SignInScreen() {
           <Text style={styles.link}>{t("legalLinks.subscription")}</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </ImageBackground>
   );
 }
 
@@ -294,18 +298,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   bg: {
-    ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
   },
   content: {
     alignItems: "center",
-    flexGrow: 1,
+    flex: 1,
     justifyContent: "center",
     paddingTop: 60,
     paddingBottom: 72,
     paddingHorizontal: 30,
     overflow: "visible",
+    position: "relative",
+    zIndex: 1,
   },
   logo: {
     width: 260,
@@ -352,6 +357,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexWrap: "wrap",
     gap: 10,
+    zIndex: 2,
   },
   link: {
     fontSize: 12,

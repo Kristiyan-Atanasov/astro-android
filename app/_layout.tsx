@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Image, Platform, Dimensions } from 'react-native';
+import { View, StyleSheet, Image, Platform } from 'react-native';
 import { Alert, AppAlertHost } from '../components/AppAlert';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, useRouter } from 'expo-router';
@@ -104,35 +104,37 @@ export default function RootLayout() {
   );
 }
 
-const { width, height } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   root: {
-    width,
-    height,
+    flex: 1,
+    backgroundColor: '#000',
     overflow: 'hidden',
     position: 'relative',
   },
   bg: {
     position: 'absolute',
-    width,
-    height,
-    zIndex: -2,
     top: 0,
+    right: 0,
+    bottom: 0,
     left: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 0,
   },
   stars: {
     position: 'absolute',
-    width,
-    height,
-    zIndex: -1,
     top: 0,
+    right: 0,
+    bottom: 0,
     left: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 0,
   },
   content: {
     flex: 1,
-    height,
-    width,
+    position: 'relative',
+    zIndex: 1,
   },
 });

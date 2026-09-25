@@ -40,6 +40,7 @@ import {
 import { rememberScroll, takeScrollRestore } from '../services/scrollRestore';
 import Astrowheel, { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
 import ZodiacGlyph from '../components/ZodiacGlyph';
+import ActiveZodiacTile from '../components/ActiveZodiacTile';
 import {
   backendCodeToLocale,
   getAppLanguageCode,
@@ -424,25 +425,7 @@ export default function HomeScreen() {
                   activeOpacity={0.85}
                   onPress={() => goToArchetype(sign)}
                 >
-                  <LinearGradient
-                    colors={['#577CFB', '#B283ED']}
-                    locations={[0, 0.9451]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    pointerEvents="none"
-                    style={styles.symbolBoxActiveGradient}
-                  />
-                  <View
-                    pointerEvents="none"
-                    collapsable={false}
-                    style={styles.symbolBoxActiveGlyph}
-                  >
-                    <ZodiacGlyph
-                      code={sign.code}
-                      size={GRID_GLYPH_SIZE}
-                      color="#FFFFFF"
-                    />
-                  </View>
+                  <ActiveZodiacTile code={sign.code} size={tileSize} />
                 </TouchableOpacity>
               );
             }
@@ -757,27 +740,7 @@ const styles = StyleSheet.create({
   },
   symbolBoxActiveWrap: {
     borderRadius: 18,
-    overflow: 'hidden',
     backgroundColor: '#7B80F4',
-    position: 'relative',
-  },
-  symbolBoxActiveGradient: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-  },
-  symbolBoxActiveGlyph: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-    elevation: 1,
   },
   communityCard: {
     borderRadius: 16,
