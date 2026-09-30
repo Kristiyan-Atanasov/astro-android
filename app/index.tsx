@@ -22,6 +22,8 @@ import {
   isBiometricSupported,
 } from '../services/biometric';
 
+const profileBg = require('../assets/images/profile-bg.jpg');
+
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   const { t } = useTranslation();
   return (
@@ -116,11 +118,7 @@ export default function WelcomeScreen() {
   }, [router]);
 
   if (mode === 'checking') {
-    return (
-      <View style={[styles.container, { justifyContent: 'center' }]}>
-        <ActivityIndicator color="#fff" />
-      </View>
-    );
+    return <LaunchLoader />;
   }
 
   if (mode === 'locked') {
@@ -164,14 +162,24 @@ export default function WelcomeScreen() {
     );
   }
 
+  return <LaunchLoader />;
+}
+
+function LaunchLoader() {
   return (
-    <View style={[styles.container, { justifyContent: 'center' }]}>
+    <View style={styles.loading}>
+      <Image source={profileBg} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <ActivityIndicator color="#fff" />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
     padding: 30,

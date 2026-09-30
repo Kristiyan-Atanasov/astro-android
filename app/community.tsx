@@ -24,6 +24,7 @@ import {
   getUserProfile,
   patchUserProfile,
 } from '../services/api';
+import { rememberCommunityMember } from '../services/communityMemberCache';
 import {
   normalizeHandle,
   socialProfileUrl,
@@ -353,9 +354,14 @@ export default function CommunityScreen() {
   // The directory response is the only source for a member, so hand the row we
   // already have to the detail screen rather than refetching it by id.
   const openMember = (member: CommunityMember) => {
+    // The photo URL is a signed link. It stays in memory; the route only
+    // carries the rest, because query parsing mangles "+" in the signature
+    // and the opened profile then shows a blank avatar.
+    rememberCommunityMember(member);
+    const { profile_picture_url: _photo, ...routable } = member;
     router.push({
       pathname: '/community-member',
-      params: { member: JSON.stringify(member) },
+      params: { member: JSON.stringify(routable) },
     } as any);
   };
 

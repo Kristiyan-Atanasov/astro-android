@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Image,
   Linking,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,12 +13,15 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from '../components/AppAlert';
 import { ZODIAC_SIGNS } from '../components/Astrowheel';
+import ZodiacGlyph from '../components/ZodiacGlyph';
 import {
   ELEMENT_BACKGROUNDS,
   getArchetypeMeta,
 } from '../components/archetypeMeta';
+import { recallCommunityMember } from '../services/communityMemberCache';
 import {
   socialProfileUrl,
   type SocialPlatform,
@@ -54,7 +58,12 @@ export default function CommunityMemberScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ member?: string }>();
-  const member = parseMember(params.member);
+  const routed = parseMember(params.member);
+  // Prefer the in-memory row: it still has the signed photo URL, which is
+  // deliberately left off the route.
+  const member = (recallCommunityMember(routed?.id) ?? routed) as CommunityMember | null;
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   const signLabel = (code: string) =>
     t(`archetypeMeta.${code}.label`, {
@@ -118,9 +127,36 @@ export default function CommunityMemberScreen() {
     handle: string;
   }[];
   const learning = member.learning_archetypes ?? [];
+  const showPhoto = !!member.profile_picture_url && !photoFailed;
 
   return (
     <View style={styles.wrapper}>
+      {showPhoto ? (
+        <Modal
+          visible={photoOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPhotoOpen(false)}
+          statusBarTranslucent
+        >
+          <TouchableOpacity
+            style={styles.viewerBackdrop}
+            activeOpacity={1}
+            onPress={() => setPhotoOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.cancel')}
+          >
+            <Image
+              source={{ uri: member.profile_picture_url as string }}
+              style={styles.viewerImage}
+              resizeMode="contain"
+            />
+            <View style={[styles.viewerClose, { top: insets.top + 12 }]}>
+              <Ionicons name="close" size={22} color="#fff" />
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      ) : null}
       <Image source={profileBg} style={styles.bg} resizeMode="cover" />
       {header}
       <ScrollView
@@ -128,20 +164,37 @@ export default function CommunityMemberScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileCard}>
-          {member.profile_picture_url ? (
-            <Image
-              source={{ uri: member.profile_picture_url }}
-              style={styles.avatar}
-              accessibilityLabel={t('community.avatarLabel', { name: displayName })}
-            />
-          ) : (
-            <View
-              style={[styles.avatar, styles.avatarPlaceholder]}
-              accessibilityLabel={t('community.avatarPlaceholder', { name: displayName })}
-            >
-              <Ionicons name="person" size={44} color="#A9A9B4" />
-            </View>
-          )}
+          <LinearGradient
+            colors={['#577CFB', '#B283ED']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.avatarRing}
+          >
+            {showPhoto ? (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => setPhotoOpen(true)}
+                accessibilityRole="imagebutton"
+                accessibilityLabel={t('community.avatarLabel', { name: displayName })}
+              >
+                <Image
+                  source={{ uri: member.profile_picture_url as string }}
+                  style={styles.avatar}
+                  resizeMode="cover"
+                  onError={() => setPhotoFailed(true)}
+                />
+              </TouchableOpacity>
+            ) : (
+              <View
+                style={[styles.avatar, styles.avatarPlaceholder]}
+                accessibilityLabel={t('community.avatarPlaceholder', {
+                  name: displayName,
+                })}
+              >
+                <Ionicons name="person" size={64} color="#A9A9B4" />
+              </View>
+            )}
+          </LinearGradient>
           <Text style={styles.name}>{displayName}</Text>
           {details.length > 0 ? (
             <View style={styles.signRow}>
@@ -196,7 +249,7 @@ export default function CommunityMemberScreen() {
                       />
                     ) : null}
                     {sign ? (
-                      <Image source={sign.icon} style={styles.thumbGlyph} />
+                      <ZodiacGlyph code={code} size={30} color="#FFFFFF" />
                     ) : null}
                   </View>
                   <Text style={styles.learningName} numberOfLines={1}>
@@ -261,13 +314,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 12,
   },
-  avatar: { width: 92, height: 92, borderRadius: 46 },
+  avatarRing: {
+    width: 156,
+    height: 156,
+    borderRadius: 78,
+    padding: 3,
+    shadowColor: '#B283ED',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  avatar: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#1E1F27',
+  },
+  viewerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.94)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewerImage: { width: '100%', height: '80%' },
+  viewerClose: {
+    position: 'absolute',
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   avatarPlaceholder: {
     backgroundColor: '#292B33',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
   name: {
     color: '#fff',
@@ -322,7 +408,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   thumbImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-  thumbGlyph: { width: 30, height: 30, resizeMode: 'contain' },
   learningName: {
     color: '#fff',
     fontSize: 14,
