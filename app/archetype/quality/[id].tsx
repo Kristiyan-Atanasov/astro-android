@@ -17,6 +17,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -93,6 +94,18 @@ export default function QualityReaderScreen() {
   // Off-screen branded card that gets rendered to an image for sharing.
   const shareCardRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
+  const signName = sign
+    ? t(`archetypeMeta.${sign.code}.label`, { defaultValue: sign.label })
+    : '';
+  // The story frame has a fixed height, so longer readings step the type down
+  // rather than running into the footer.
+  const shareBodySize =
+    text.length > 420
+      ? styles.shareCardBodySmall
+      : text.length > 260
+        ? styles.shareCardBodyMedium
+        : null;
+  const shareBodyLines = text.length > 420 ? 9 : text.length > 260 ? 8 : 6;
 
   const handleShare = async (platform: 'instagram' | 'facebook') => {
     if (sharing) return;
@@ -102,6 +115,8 @@ export default function QualityReaderScreen() {
         format: 'png',
         quality: 1,
         result: 'tmpfile',
+        width: 1080,
+        height: 1920,
       });
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
@@ -225,24 +240,48 @@ export default function QualityReaderScreen() {
         </View>
       </ScrollView>
 
-      {/* Off-screen branded card captured as the shared image. */}
+      {/* Off-screen 9:16 story card captured as the shared image. */}
       <View style={styles.shareCardHost} pointerEvents="none">
         <View ref={shareCardRef} collapsable={false} style={styles.shareCard}>
           {background ? (
             <Image source={background} style={styles.shareCardBg} resizeMode="cover" />
           ) : null}
-          <View style={styles.shareCardOverlay} />
+          <LinearGradient
+            colors={[
+              'rgba(8, 9, 15, 0.55)',
+              'rgba(8, 9, 15, 0.28)',
+              'rgba(8, 9, 15, 0.7)',
+              'rgba(8, 9, 15, 0.94)',
+            ]}
+            locations={[0, 0.3, 0.62, 1]}
+            style={styles.shareCardBg}
+          />
           <View style={styles.shareCardContent}>
-            {sign?.icon ? (
-              <Image source={sign.icon} style={styles.shareCardGlyph} />
+            {sign ? (
+              <View style={styles.shareCardGlyphRing}>
+                <ZodiacGlyph code={sign.code} size={34} color="#FFFFFF" />
+              </View>
+            ) : null}
+            {sign ? (
+              <Text style={styles.shareCardSign}>{signName}</Text>
             ) : null}
             {!!title && <Text style={styles.shareCardTitle}>{title}</Text>}
-            <Text style={styles.shareCardBody}>{text}</Text>
-            <Image
-              source={require('../../../assets/images/logo.png')}
-              style={styles.shareCardLogo}
-            />
-            <Text style={styles.shareCardBrand}>Astroinsights</Text>
+            <View style={styles.shareCardDivider} />
+            <Text
+              style={[styles.shareCardBody, shareBodySize]}
+              numberOfLines={shareBodyLines}
+            >
+              {text}
+            </Text>
+          </View>
+          <View style={styles.shareCardFooter}>
+            <View style={styles.shareCardLogoWrap}>
+              <Image
+                source={require('../../../assets/images/logo.png')}
+                style={styles.shareCardLogo}
+              />
+            </View>
+            <Text style={styles.shareCardBrand}>ASTROINSIGHTS</Text>
           </View>
         </View>
       </View>
@@ -379,10 +418,13 @@ const styles = StyleSheet.create({
     left: -10000,
     top: 0,
   },
+  // 9:16 story frame, captured at 1080x1920. Instagram and Facebook draw their
+  // own controls over roughly the top 13% and bottom 18% of a story, so the
+  // text and the footer are kept inside the band between them.
   shareCard: {
     width: 360,
+    height: 640,
     backgroundColor: '#0F1014',
-    paddingTop: 0,
     overflow: 'hidden',
   },
   shareCardBg: {
@@ -394,51 +436,79 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  shareCardOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: 'rgba(10, 11, 18, 0.62)',
-  },
   shareCardContent: {
-    paddingHorizontal: 28,
-    paddingVertical: 40,
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 34,
+    paddingTop: 84,
+    paddingBottom: 248,
+    overflow: 'hidden',
   },
-  shareCardGlyph: {
-    width: 44,
-    height: 44,
-    resizeMode: 'contain',
-    tintColor: '#D3D5FB',
-    marginBottom: 20,
+  shareCardGlyphRing: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareCardSign: {
+    color: '#C9B8F0',
+    fontSize: 12,
+    letterSpacing: 3.2,
+    textTransform: 'uppercase',
+    fontFamily: 'Nunito-Bold',
+    marginTop: 14,
   },
   shareCardTitle: {
     color: '#fff',
-    fontSize: 26,
+    fontSize: 30,
+    lineHeight: 36,
     fontFamily: 'CooperLtBT-Bold',
     textAlign: 'center',
-    marginBottom: 18,
+    marginTop: 10,
+  },
+  shareCardDivider: {
+    width: 40,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: '#B283ED',
+    marginVertical: 18,
   },
   shareCardBody: {
-    color: '#E6E7EF',
+    color: '#ECEDF4',
     fontSize: 16,
-    lineHeight: 26,
+    lineHeight: 25,
     fontFamily: 'SFProDisplay-Regular',
     textAlign: 'center',
-    marginBottom: 28,
+  },
+  shareCardBodyMedium: { fontSize: 15, lineHeight: 22 },
+  shareCardBodySmall: { fontSize: 14, lineHeight: 20 },
+  shareCardFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 118,
+    alignItems: 'center',
+  },
+  shareCardLogoWrap: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    overflow: 'hidden',
   },
   shareCardLogo: {
-    width: 56,
-    height: 56,
-    resizeMode: 'contain',
-    marginBottom: 10,
+    width: 76,
+    height: 76,
   },
   shareCardBrand: {
-    color: '#AEB4E8',
-    fontSize: 14,
-    letterSpacing: 1.5,
+    color: '#FFFFFF',
+    fontSize: 15,
+    letterSpacing: 4,
     fontFamily: 'Nunito-Bold',
+    marginTop: 12,
   },
 });
