@@ -427,16 +427,10 @@ export default function ArchetypeDetailScreen() {
     // showing everything under the active tab so the page isn't empty.
     const source =
       filtered.length === 0 && tab === 'mastering' ? archetypeQualities : filtered;
-    // Sort order:
-    //   0) ACTIVE (purple) — what you're learning right now → top
-    //   1) untouched / inactive
-    //   2) learned → bottom
-    const rank = (q: QualityItem) => {
-      if (q.is_completed) return 2;
-      if (q.status === 'ACTIVE') return 0;
-      return 1;
-    };
-    return [...source].sort((a, b) => rank(a) - rank(b));
+    // Fixed order by id, never by state: a row that moved when it was
+    // activated or learned looked like it had vanished to anyone scrolled
+    // into the middle of the list. Rows change colour in place instead.
+    return [...source].sort((a, b) => a.id - b.id);
   }, [archetypeQualities, tab]);
 
   const totalCount = tabQualities.length;
@@ -568,7 +562,7 @@ export default function ArchetypeDetailScreen() {
     [patchQuality, handleLockedQuality, animateList, syncFromServer],
   );
 
-  // Swipe right: mark as learned (turns green, sinks to bottom).
+  // Swipe right: mark as learned (turns green in place).
   const markLearned = useCallback(
     async (quality: QualityItem) => {
       if (quality.status === 'LOCKED' || quality.is_completed) return;
