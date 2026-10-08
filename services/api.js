@@ -1273,6 +1273,146 @@ export async function deleteAccount() {
   throw new Error(detail);
 }
 
+function subscriptionError(status, data, fallback) {
+  const safe = data && typeof data === 'object' && !Array.isArray(data)
+    ? Object.fromEntries(Object.entries(data).filter(([key]) => !/token/i.test(key)))
+    : data;
+  const err = new Error(formatApiError(safe, '', fallback));
+  err.status = status;
+  if (status === 400) err.code = 'subscription-invalid';
+  else if (status === 401 || status === 403) err.code = 'subscription-auth';
+  else if (status === 404) err.code = 'subscription-not-found';
+  else if (status === 409) err.code = 'subscription-conflict';
+  else if (status === 503) err.code = 'subscription-unavailable';
+  else err.code = 'subscription-error';
+  return err;
+}
+
+// Current entitlements. Not cached: the response is Cache-Control: no-store
+// and a pending plan change must be read again after checkout.
+export async function getSubscriptionSummary() {
+  const accessToken = await getAccessToken();
+  if (!accessToken) {
+    const err = new Error('Missing access token. Please sign in again.');
+    err.status = 401;
+    err.code = 'subscription-auth';
+    throw err;
+  }
+
+  let res;
+  try {
+    res = await fetchWithTimeout(
+      `${API_BASE}/payments/subscription/`,
+      {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          'Cache-Control': 'no-store',
+        },
+      },
+      VERIFY_FETCH_TIMEOUT_MS,
+      'subscription_summary',
+    );
+  } catch (e) {
+    console.log('🌐 subscription summary network error:', e?.code ?? null, e?.message ?? String(e));
+    if (e?.code === 'E_TIMEOUT') throw e;
+    const err = new Error('Network request failed');
+    err.code = 'subscription-network';
+    throw err;
+  }
+
+  console.log('🌐 subscription summary status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await handleSessionExpired();
+    throw subscriptionError(res.status, null, 'Session expired. Please sign in again.');
+  }
+
+  const { data } = await readResponse(res);
+  if (!res.ok) {
+    throw subscriptionError(
+      res.status,
+      data,
+      `Could not load subscription (${res.status})`,
+    );
+  }
+
+  return data || {
+    has_active_subscription: false,
+    access_until: null,
+    subscriptions: [],
+  };
+}
+
+// Asks the backend for the current Google purchase token and deferred
+// replacement parameters. This does not schedule, charge, or cancel.
+// The token is returned to the caller and must not be logged.
+export async function prepareSubscriptionChange(subscriptionId, targetProductId) {
+  const accessToken = await getAccessToken();
+  if (!accessToken) {
+    const err = new Error('Missing access token. Please sign in again.');
+    err.status = 401;
+    err.code = 'subscription-auth';
+    throw err;
+  }
+
+  let res;
+  try {
+    res = await fetchWithTimeout(
+      `${API_BASE}/payments/subscription/change/prepare/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          'Cache-Control': 'no-store',
+        },
+        body: JSON.stringify({
+          subscription_id: subscriptionId,
+          target_product_id: targetProductId,
+        }),
+      },
+      VERIFY_FETCH_TIMEOUT_MS,
+      'subscription_prepare',
+    );
+  } catch (e) {
+    console.log('🌐 subscription prepare network error:', e?.code ?? null, e?.message ?? String(e));
+    if (e?.code === 'E_TIMEOUT') throw e;
+    const err = new Error('Network request failed');
+    err.code = 'subscription-network';
+    throw err;
+  }
+
+  console.log('🌐 subscription prepare status:', res.status);
+
+  if (res.status === 401 || res.status === 403) {
+    await handleSessionExpired();
+    throw subscriptionError(res.status, null, 'Session expired. Please sign in again.');
+  }
+
+  const { data } = await readResponse(res);
+  if (!res.ok) {
+    throw subscriptionError(
+      res.status,
+      data,
+      `Could not prepare the plan change (${res.status})`,
+    );
+  }
+
+  console.log('🌐 subscription prepare ok:', {
+    provider: data?.provider ?? null,
+    subscription_id: data?.subscription_id ?? null,
+    current_product_id: data?.current_product_id ?? null,
+    target_product_id: data?.target_product_id ?? null,
+    target_base_plan_id: data?.target_base_plan_id ?? null,
+    replacement_mode: data?.replacement_mode ?? null,
+  });
+
+  return data;
+}
+
 // Tells the backend "the user has subscription purchase data, please
 // verify it with Google Play and update its state accordingly".
 //

@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   Animated,
   Pressable,
+  AppState,
 } from 'react-native';
 import { Alert } from '../components/AppAlert';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -34,8 +35,8 @@ import {
   syncDeviceTokenIfChanged,
 } from '../services/notifications';
 import {
-  isUserPremiumFromProfile,
   isUserPremiumFromQualities,
+  profileSubscriptionState,
 } from '../services/iap';
 import { rememberScroll, takeScrollRestore } from '../services/scrollRestore';
 import Astrowheel, { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
@@ -152,6 +153,46 @@ export default function HomeScreen() {
     }, []),
   );
 
+  const refreshPremiumFromProfile = useCallback(async () => {
+    try {
+      const profile = await getUserProfile();
+      if (!profile) return;
+      const name = (profile as any)?.name;
+      if (typeof name === 'string' && name.trim().length > 0) {
+        setUserName(name.trim().split(/\s+/)[0]);
+      }
+      let premium = profileSubscriptionState(profile) === 'active';
+      if (!premium && typeof (profile as any)?.has_active_subscription !== 'boolean') {
+        try {
+          const qualities = await getUserQualities();
+          const fromQualities = isUserPremiumFromQualities(qualities);
+          if (fromQualities === true) premium = true;
+        } catch (qualErr) {
+          console.log(
+            'Premium qualities check failed:',
+            (qualErr as any)?.message ?? String(qualErr),
+          );
+        }
+      }
+      setIsPremium(premium);
+    } catch (e) {
+      console.log('Profile refresh failed:', (e as any)?.message ?? String(e));
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshPremiumFromProfile();
+    }, [refreshPremiumFromProfile]),
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshPremiumFromProfile();
+    });
+    return () => sub.remove();
+  }, [refreshPremiumFromProfile]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -170,8 +211,8 @@ export default function HomeScreen() {
           setUserName(name.trim().split(/\s+/)[0]);
         }
 
-        let premium = isUserPremiumFromProfile(profile);
-        if (!premium) {
+        let premium = profileSubscriptionState(profile) === 'active';
+        if (!premium && typeof (profile as any)?.has_active_subscription !== 'boolean') {
           try {
             const qualities = await getUserQualities();
             const fromQualities = isUserPremiumFromQualities(qualities);
