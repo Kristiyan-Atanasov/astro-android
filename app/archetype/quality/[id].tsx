@@ -17,7 +17,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -240,48 +239,37 @@ export default function QualityReaderScreen() {
         </View>
       </ScrollView>
 
-      {/* Off-screen 9:16 story card captured as the shared image. */}
+      {/* Off-screen 9:16 story. Same framed card as the page, so the symbol,
+          reading and logo stay together instead of being pinned to opposite
+          ends of the story. */}
       <View style={styles.shareCardHost} pointerEvents="none">
         <View ref={shareCardRef} collapsable={false} style={styles.shareCard}>
           {background ? (
             <Image source={background} style={styles.shareCardBg} resizeMode="cover" />
           ) : null}
-          <LinearGradient
-            colors={[
-              'rgba(8, 9, 15, 0.55)',
-              'rgba(8, 9, 15, 0.28)',
-              'rgba(8, 9, 15, 0.7)',
-              'rgba(8, 9, 15, 0.94)',
-            ]}
-            locations={[0, 0.3, 0.62, 1]}
-            style={styles.shareCardBg}
-          />
-          <View style={styles.shareCardContent}>
+          <View style={styles.shareCardScrim} />
+          <View style={styles.shareCardStage}>
+          <View style={styles.shareCardFrame}>
             {sign ? (
-              <View style={styles.shareCardGlyphRing}>
-                <ZodiacGlyph code={sign.code} size={34} color="#FFFFFF" />
-              </View>
+              <ZodiacGlyph code={sign.code} size={52} color="#FFFFFF" />
             ) : null}
             {sign ? (
               <Text style={styles.shareCardSign}>{signName}</Text>
             ) : null}
             {!!title && <Text style={styles.shareCardTitle}>{title}</Text>}
-            <View style={styles.shareCardDivider} />
             <Text
               style={[styles.shareCardBody, shareBodySize]}
               numberOfLines={shareBodyLines}
             >
               {text}
             </Text>
-          </View>
-          <View style={styles.shareCardFooter}>
-            <View style={styles.shareCardLogoWrap}>
-              <Image
-                source={require('../../../assets/images/logo.png')}
-                style={styles.shareCardLogo}
-              />
-            </View>
+            <View style={styles.shareCardDivider} />
+            <Image
+              source={require('../../../assets/images/logo-mark.png')}
+              style={styles.shareCardLogo}
+            />
             <Text style={styles.shareCardBrand}>ASTROINSIGHTS</Text>
+          </View>
           </View>
         </View>
       </View>
@@ -436,27 +424,32 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  shareCardContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 34,
-    paddingTop: 84,
-    paddingBottom: 248,
-    overflow: 'hidden',
+  shareCardScrim: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(10, 7, 13, 0.28)',
   },
-  shareCardGlyphRing: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    alignItems: 'center',
+  shareCardStage: {
+    flex: 1,
     justifyContent: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 72,
+  },
+  shareCardFrame: {
+    borderRadius: 36,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.55)',
+    backgroundColor: 'rgba(20, 16, 22, 0.28)',
+    paddingTop: 36,
+    paddingBottom: 28,
+    paddingHorizontal: 26,
+    alignItems: 'center',
   },
   shareCardSign: {
-    color: '#C9B8F0',
+    color: 'rgba(255, 255, 255, 0.82)',
     fontSize: 12,
     letterSpacing: 3.2,
     textTransform: 'uppercase',
@@ -465,50 +458,38 @@ const styles = StyleSheet.create({
   },
   shareCardTitle: {
     color: '#fff',
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 28,
+    lineHeight: 34,
     fontFamily: 'CooperLtBT-Bold',
     textAlign: 'center',
-    marginTop: 10,
-  },
-  shareCardDivider: {
-    width: 40,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: '#B283ED',
-    marginVertical: 18,
+    marginTop: 12,
   },
   shareCardBody: {
-    color: '#ECEDF4',
+    color: 'rgba(255, 255, 255, 0.88)',
     fontSize: 16,
-    lineHeight: 25,
-    fontFamily: 'SFProDisplay-Regular',
+    lineHeight: 24,
     textAlign: 'center',
+    marginTop: 14,
   },
   shareCardBodyMedium: { fontSize: 15, lineHeight: 22 },
   shareCardBodySmall: { fontSize: 14, lineHeight: 20 },
-  shareCardFooter: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 118,
-    alignItems: 'center',
-  },
-  shareCardLogoWrap: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    overflow: 'hidden',
+  shareCardDivider: {
+    width: 64,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    marginTop: 20,
+    marginBottom: 16,
   },
   shareCardLogo: {
-    width: 76,
-    height: 76,
+    width: 58,
+    height: 58,
+    resizeMode: 'contain',
   },
   shareCardBrand: {
     color: '#FFFFFF',
-    fontSize: 15,
-    letterSpacing: 4,
+    fontSize: 13,
+    letterSpacing: 3.2,
     fontFamily: 'Nunito-Bold',
-    marginTop: 12,
+    marginTop: 8,
   },
 });

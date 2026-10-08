@@ -104,6 +104,38 @@ export default function HomeScreen() {
   const scrollYRef = useRef(0);
   const pendingRestoreY = useRef<number | null>(null);
 
+  // The backend decides which signs are lit. Refetch whenever Home is shown
+  // and replace the set outright — an empty list clears every highlight, and
+  // a sign that is simply absent is not treated as finished. The wheel and
+  // the tiles both read this same set.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      (async () => {
+        try {
+          const archetypes = await getUserArchetypes();
+          if (cancelled || !archetypes) return;
+          const list = Array.isArray(archetypes)
+            ? archetypes
+            : (archetypes as any)?.archetypes;
+          const codes = (Array.isArray(list) ? list : [])
+            .map((a: any) =>
+              typeof a?.archetype === 'string' ? a.archetype.toUpperCase() : null,
+            )
+            .filter((c: string | null): c is string => !!c);
+          setActiveArchetypes(new Set(codes));
+        } catch (e) {
+          console.log('Archetypes load failed:', (e as any)?.message ?? String(e));
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
+
   useFocusEffect(
     useCallback(() => {
       const y = takeScrollRestore('home');
@@ -183,24 +215,6 @@ export default function HomeScreen() {
         }
       } catch (e) {
         console.log('Vibe load failed:', (e as any)?.message ?? String(e));
-      }
-    })();
-
-    (async () => {
-      try {
-        const archetypes = await getUserArchetypes();
-        if (cancelled || !archetypes) return;
-        const list = (archetypes as any)?.archetypes;
-        if (Array.isArray(list)) {
-          const codes = list
-            .map((a: any) =>
-              typeof a?.archetype === 'string' ? a.archetype.toUpperCase() : null,
-            )
-            .filter((c: any): c is string => !!c);
-          setActiveArchetypes(new Set(codes));
-        }
-      } catch (e) {
-        console.log('Archetypes load failed:', (e as any)?.message ?? String(e));
       }
     })();
 
