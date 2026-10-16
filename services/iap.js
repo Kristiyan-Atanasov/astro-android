@@ -94,11 +94,11 @@ async function handlePurchaseEvent(purchase) {
     purchaseState: purchase.purchaseState,
   });
 
-  // An unpaid pending purchase must not be verified or finished. Google
-  // redelivers it if it later completes. The product id on that later
-  // purchase may still be the current plan while a deferred change is
-  // only scheduled — verification accepts whichever id Play returns.
-  if (purchase.purchaseState === 'pending') {
+  // An unpaid or unresolved purchase must not be verified or finished.
+  // Google redelivers it if it later completes. The product id on that
+  // later purchase may still be the current plan while a deferred change
+  // is only scheduled — verification accepts whichever id Play returns.
+  if (purchase.purchaseState && purchase.purchaseState !== 'purchased') {
     if (activeFlow) {
       const err = new Error('The purchase is still pending.');
       err.code = 'E_PENDING';
@@ -120,8 +120,11 @@ async function handlePurchaseEvent(purchase) {
   }
 
   try {
-    const verifyResult = await verifySubscription(provider, receiptPayload);
-    console.log('✅ Subscription verify result:', verifyResult);
+    const verifyResult = await verifyPurchaseWithRetry(provider, receiptPayload);
+    console.log('✅ Subscription verify result:', {
+      status: verifyResult?.status ?? null,
+      end_date: verifyResult?.end_date ?? null,
+    });
 
     try {
       await RNIap.finishTransaction({ purchase, isConsumable: false });
@@ -144,6 +147,28 @@ async function handlePurchaseEvent(purchase) {
       activeFlow = null;
     }
   }
+}
+
+function isRetryableVerificationError(error) {
+  const code = error?.code;
+  const message = String(error?.message || '');
+  return code === 'E_VERIFY_TIMEOUT' || code === 'E_TIMEOUT' || /network request failed/i.test(message);
+}
+
+// Retries the same receipt after a network failure. This never starts
+// another Google checkout.
+async function verifyPurchaseWithRetry(provider, receiptPayload) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await verifySubscription(provider, receiptPayload);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableVerificationError(error) || attempt === 2) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
+  }
+  throw lastError;
 }
 
 function handlePurchaseError(error) {
@@ -278,7 +303,7 @@ function listPlayOffers(product) {
         (typeof offer?.basePlanIdAndroid === 'string' && offer.basePlanIdAndroid) ||
         (typeof offer?.basePlanId === 'string' && offer.basePlanId) ||
         '',
-      offerToken: offer?.offerTokenAndroid || '',
+      offerToken: offer?.offerTokenAndroid || offer?.offerToken || '',
       displayPrice: typeof offer?.displayPrice === 'string' ? offer.displayPrice : '',
       phases:
         offer?.pricingPhasesAndroid?.pricingPhaseList ||
@@ -355,8 +380,10 @@ function offersForBasePlan(offers, basePlanId) {
 }
 
 function isRegularBasePlanOffer(offer) {
-  if (offer.id) return false;
-  if (offer.paymentMode === 'free-trial') return false;
+  const offerId = String(offer?.id || '');
+  if (offerId === MONTHLY_TRIAL_OFFER_ID) return false;
+  if (offerId && offer.basePlanId && offerId !== offer.basePlanId) return false;
+  if (offer.paymentMode === 'free-trial' || offer.paymentMode === 'introductory') return false;
   if (freePhase(offer)) return false;
   return true;
 }
@@ -638,7 +665,7 @@ export async function restoreSubscriptions() {
     if (!receiptPayload) continue;
 
     try {
-      const verifyResult = await verifySubscription(provider, receiptPayload);
+      const verifyResult = await verifyPurchaseWithRetry(provider, receiptPayload);
       try {
         await RNIap.finishTransaction({ purchase, isConsumable: false });
       } catch (finishErr) {

@@ -119,6 +119,15 @@ function shouldManage(row: SubscriptionRow): boolean {
   return row.status === 'on_hold' || row.status === 'in_grace_period' || row.status === 'paused';
 }
 
+function planKeyFor(
+  plan: string | null | undefined,
+  productId: string | null | undefined,
+): PlanKey | null {
+  if (plan === 'monthly' || productId === MONTHLY_SUBSCRIPTION_SKU) return 'monthly';
+  if (plan === 'yearly' || productId === YEARLY_SUBSCRIPTION_SKU) return 'yearly';
+  return null;
+}
+
 function userCancelledPurchase(error: { code?: string; message?: string } | null): boolean {
   const code = error?.code;
   const msg = String(error?.message ?? '');
@@ -214,6 +223,10 @@ export default function SubscriptionScreen() {
     productById(MONTHLY_SUBSCRIPTION_SKU),
     { allowTrial: true, basePlanId: MONTHLY_BASE_PLAN_ID },
   );
+  const monthlyRegularOffer = describeSubscriptionProduct(
+    productById(MONTHLY_SUBSCRIPTION_SKU),
+    { allowTrial: false, basePlanId: MONTHLY_BASE_PLAN_ID },
+  );
   const yearlyOffer = describeSubscriptionProduct(
     productById(YEARLY_SUBSCRIPTION_SKU),
     { allowTrial: false, basePlanId: YEARLY_BASE_PLAN_ID },
@@ -234,14 +247,43 @@ export default function SubscriptionScreen() {
     !summary.has_active_subscription &&
     managementRows.length === 0,
   );
+  const changeRow = managementRows.find(
+    (row) =>
+      row.provider === 'google' &&
+      planKeyFor(row.plan, row.product_id) !== null &&
+      row.can_change_plan &&
+      !row.pending_change,
+  ) ?? null;
+  const currentPlan = planKeyFor(changeRow?.plan, changeRow?.product_id) ?? 'monthly';
+  const availableChanges = changeRow?.available_changes || [];
+  const monthlyChange = availableChanges.find(
+    (change) => change.plan === 'monthly' || change.product_id === MONTHLY_SUBSCRIPTION_SKU,
+  ) ?? null;
+  const yearlyChange = availableChanges.find(
+    (change) => change.plan === 'yearly' || change.product_id === YEARLY_SUBSCRIPTION_SKU,
+  ) ?? null;
+  const canChangePlan = Boolean(changeRow && availableChanges.length > 0);
 
   const monthlyHasTrial = Boolean(monthlyOffer.offerToken && monthlyOffer.hasTrial);
   const monthlyTrialDays = monthlyHasTrial ? monthlyOffer.trialDays : null;
   const selectedSku = selectedPlan === 'yearly' ? YEARLY_SUBSCRIPTION_SKU : MONTHLY_SUBSCRIPTION_SKU;
   const selectedOffer = selectedPlan === 'yearly' ? yearlyOffer : monthlyOffer;
+  const selectedChangeOffer = selectedPlan === 'yearly' ? yearlyOffer : monthlyRegularOffer;
   const selectedPriceLabel = selectedOffer.priceLabel;
-  const selectedReady = Boolean(selectedOffer.offerToken && selectedPriceLabel);
+  const selectedChange = selectedPlan === 'yearly' ? yearlyChange : monthlyChange;
+  const purchaseReady = Boolean(selectedOffer.offerToken && selectedPriceLabel);
+  const changeReady = Boolean(
+    canChangePlan &&
+    selectedPlan !== currentPlan &&
+    selectedChange &&
+    selectedChangeOffer.offerToken,
+  );
+  const actionReady = showPurchase ? purchaseReady : changeReady;
   const selectedStartsTrial = selectedPlan === 'monthly' && monthlyHasTrial;
+
+  useEffect(() => {
+    if (changeRow) setSelectedPlan(currentPlan);
+  }, [changeRow?.id, changeRow?.product_id, changeRow?.pending_change?.product_id, currentPlan]);
 
   const planLabel = (plan: string | null | undefined) => {
     if (plan === 'monthly') return t('subscription.planNameMonthly');
@@ -307,6 +349,26 @@ export default function SubscriptionScreen() {
     : selectedStartsTrial
       ? t('subscription.cancelInfoTrial')
       : t('subscription.cancelInfo');
+  const actionLabel = showPurchase
+    ? ctaLabel
+    : selectedPlan === currentPlan
+      ? t('subscription.currentPlan')
+      : t('subscription.changeTo', { plan: planLabel(selectedPlan) });
+  const selectedChangePriceMissing = Boolean(
+    canChangePlan && selectedPlan !== currentPlan && selectedChange && !selectedChangeOffer.offerToken,
+  );
+  const actionNote = showPurchase
+    ? noteLabel
+    : selectedChangePriceMissing
+      ? t('subscription.offerUnavailable')
+      : t('subscription.changeTiming', {
+          current: planLabel(currentPlan),
+          date: formatWhen(
+            changeRow?.access_until || changeRow?.current_period_end || changeRow?.renews_at,
+            i18n.language,
+          ),
+          next: planLabel(selectedPlan),
+        });
   const titleLabel = !showPurchase
     ? t('subscription.manageTitle')
     : selectedStartsTrial
@@ -390,7 +452,7 @@ export default function SubscriptionScreen() {
       showUnavailableAlert();
       return;
     }
-    if (!selectedReady) return;
+    if (!purchaseReady) return;
     setPurchasing(true);
     try {
       const current = await getSubscriptionSummary();
@@ -406,7 +468,7 @@ export default function SubscriptionScreen() {
       } catch (e) {
         console.log('refresh qualities after purchase error:', e);
       }
-      const latest = await getSubscriptionSummary();
+      const latest = await getSubscriptionSummary() as SubscriptionSummary;
       await getUserProfile();
       if (!isMounted.current) return;
       setSummary(latest);
@@ -454,7 +516,7 @@ export default function SubscriptionScreen() {
     purchasing,
     restoring,
     router,
-    selectedReady,
+    purchaseReady,
     selectedSku,
     showPurchase,
     showUnavailableAlert,
@@ -568,29 +630,6 @@ export default function SubscriptionScreen() {
                   {rowLines(row).map((line) => (
                     <Text key={line} style={styles.planSubtitle}>{line}</Text>
                   ))}
-                  {row.provider === 'google' && row.can_change_plan
-                    ? (row.available_changes || []).map((change) => {
-                        const price = priceFor(change.product_id, change.base_plan_id, false);
-                        const period = change.plan === 'yearly'
-                          ? t('subscription.perYear')
-                          : t('subscription.perMonth');
-                        return (
-                          <TouchableOpacity
-                            key={change.product_id}
-                            style={styles.changeButton}
-                            disabled={purchasing || restoring}
-                            onPress={() => { void handleChangePlan(row, change); }}
-                          >
-                            <Text style={styles.changeButtonText}>
-                              {t('subscription.changeTo', { plan: planLabel(change.plan) })}
-                            </Text>
-                            {price ? (
-                              <Text style={styles.changePrice}>{price} {period}</Text>
-                            ) : null}
-                          </TouchableOpacity>
-                        );
-                      })
-                    : null}
                   {row.manage_url ? (
                     <TouchableOpacity
                       style={styles.restoreLinkHit}
@@ -604,6 +643,37 @@ export default function SubscriptionScreen() {
               {managementRows.length === 0 && summary?.has_active_subscription ? (
                 <View style={styles.planCard}>
                   <Text style={styles.planLabel}>{t('subscription.planNamePremium')}</Text>
+                </View>
+              ) : null}
+              {canChangePlan ? (
+                <View style={styles.changePlans}>
+                  <Text style={styles.changePlansTitle}>{t('subscription.chooseNextPlan')}</Text>
+                  <PlanCard
+                    label={t('subscription.planMonthly')}
+                    badgeText={currentPlan === 'monthly' ? t('subscription.currentPlan') : undefined}
+                    subtitle={t('subscription.monthlyBilling')}
+                    priceLabel={monthlyRegularOffer.priceLabel || '—'}
+                    periodLabel={t('subscription.perMonth')}
+                    selected={selectedPlan === 'monthly'}
+                    onSelect={() => setSelectedPlan('monthly')}
+                    disabled={purchasing || restoring || (currentPlan !== 'monthly' && !monthlyChange)}
+                    style={styles.planCardSpacing}
+                  />
+                  <PlanCard
+                    label={t('subscription.planYearly')}
+                    badgeText={currentPlan === 'yearly' ? t('subscription.currentPlan') : undefined}
+                    subtitle={t('subscription.yearlyBilling')}
+                    priceLabel={yearlyOffer.priceLabel || '—'}
+                    periodLabel={t('subscription.perYear')}
+                    selected={selectedPlan === 'yearly'}
+                    onSelect={() => setSelectedPlan('yearly')}
+                    disabled={purchasing || restoring || (currentPlan !== 'yearly' && !yearlyChange)}
+                  />
+                  {productError || selectedChangePriceMissing ? (
+                    <TouchableOpacity style={styles.changeButton} onPress={() => { void loadProducts(); }}>
+                      <Text style={styles.changeButtonText}>{t('subscription.retry')}</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               ) : null}
             </>
@@ -656,14 +726,20 @@ export default function SubscriptionScreen() {
 
         <View style={styles.spacer} />
 
-        {showPurchase ? (
+        {showPurchase || canChangePlan ? (
           <>
             <Text style={styles.secureText}>{t('subscription.securedPlayStore')}</Text>
             <TouchableOpacity
               style={styles.ctaButton}
               activeOpacity={0.9}
-              onPress={handleStart}
-              disabled={purchasing || restoring || !selectedReady}
+              onPress={() => {
+                if (showPurchase) {
+                  void handleStart();
+                } else if (changeRow && selectedChange) {
+                  void handleChangePlan(changeRow, selectedChange);
+                }
+              }}
+              disabled={purchasing || restoring || !actionReady}
             >
               <LinearGradient
                 colors={['rgba(87, 124, 251, 1)', 'rgba(178, 131, 237, 1)']}
@@ -674,11 +750,11 @@ export default function SubscriptionScreen() {
                 {purchasing ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.ctaText} numberOfLines={2}>{ctaLabel}</Text>
+                  <Text style={styles.ctaText} numberOfLines={2}>{actionLabel}</Text>
                 )}
               </LinearGradient>
             </TouchableOpacity>
-            <Text style={styles.note}>{noteLabel}</Text>
+            <Text style={styles.note}>{actionNote}</Text>
           </>
         ) : null}
 
@@ -803,7 +879,7 @@ const styles = StyleSheet.create({
   },
   plansStack: {
     width: '100%',
-    marginTop: 98,
+    marginTop: 12,
   },
   planCardSpacing: { marginBottom: 12 },
   planLoading: { marginVertical: 28 },
@@ -900,6 +976,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     fontFamily: 'SFProDisplay-Regular',
+  },
+  changePlans: {
+    marginTop: 20,
+  },
+  changePlansTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Nunito-Bold',
+    marginBottom: 12,
+    textAlign: 'center',
   },
   spacer: { flex: 1, minHeight: 24 },
   secureText: {
