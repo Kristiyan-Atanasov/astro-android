@@ -93,7 +93,6 @@ type SubscriptionSummary = {
 
 const IAP_ENABLED = true;
 const SUPPORT_EMAIL = 'astro.insights.ltd@gmail.com';
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -104,12 +103,10 @@ function formatWhen(iso: string | null | undefined, language: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
   const locale = language.toLowerCase().startsWith('bg') ? 'bg-BG' : 'en-GB';
-  const near = Math.abs(date.getTime() - Date.now()) < 2 * DAY_MS;
   return new Intl.DateTimeFormat(locale, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-    ...(near ? { hour: '2-digit', minute: '2-digit' } : {}),
   }).format(date);
 }
 
