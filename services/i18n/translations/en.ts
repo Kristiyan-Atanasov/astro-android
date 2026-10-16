@@ -200,6 +200,9 @@ const en = {
     open_facebook: 'Open {{name}} on Facebook',
     linkErrorTitle: 'Couldn’t open link',
     linkError: 'We couldn’t open that profile. Please try again.',
+    socialsLockedTitle: 'Social links are part of Premium',
+    socialsLockedBody:
+      'Upgrade to open the Facebook and Instagram profiles community members choose to share.',
     avatarPlaceholder: '{{name}} profile photo placeholder',
     participationTitle: 'Participate in the community',
     participationText:

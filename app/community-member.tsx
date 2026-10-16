@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Image,
   Linking,
@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +21,7 @@ import {
   ELEMENT_BACKGROUNDS,
   getArchetypeMeta,
 } from '../components/archetypeMeta';
+import { getSubscriptionSummary } from '../services/api';
 import { recallCommunityMember } from '../services/communityMemberCache';
 import {
   socialProfileUrl,
@@ -64,6 +65,26 @@ export default function CommunityMemberScreen() {
   const member = (recallCommunityMember(routed?.id) ?? routed) as CommunityMember | null;
   const [photoFailed, setPhotoFailed] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
+  const [socialsLocked, setSocialsLocked] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void (async () => {
+        try {
+          const summary: any = await getSubscriptionSummary();
+          if (!active) return;
+          setSocialsLocked(summary?.has_active_subscription !== true);
+        } catch (e) {
+          console.log('[CommunityMember] subscription load failed:', (e as any)?.message ?? String(e));
+          if (active) setSocialsLocked(false);
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   const signLabel = (code: string) =>
     t(`archetypeMeta.${code}.label`, {
@@ -77,6 +98,17 @@ export default function CommunityMemberScreen() {
       console.log('[CommunityMember] social link failed:', (e as any)?.message ?? String(e));
       Alert.alert(t('community.linkErrorTitle'), t('community.linkError'));
     }
+  };
+
+  const promptSocialUpgrade = () => {
+    Alert.alert(
+      t('community.socialsLockedTitle'),
+      t('community.socialsLockedBody'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.seePlan'), onPress: () => router.push('/subscription') },
+      ],
+    );
   };
 
   const header = (
@@ -110,22 +142,27 @@ export default function CommunityMemberScreen() {
     member.moon_sign && ['moon', '☽', member.moon_sign],
     member.ascendant && ['ascendant', 'AC', member.ascendant],
   ].filter(Boolean) as string[][];
-  const socials = [
-    member.social_acc_instagram && {
-      platform: 'instagram' as const,
-      icon: 'instagram',
-      handle: member.social_acc_instagram,
-    },
-    member.social_acc_facebook && {
-      platform: 'facebook' as const,
-      icon: 'facebook-f',
-      handle: member.social_acc_facebook,
-    },
-  ].filter(Boolean) as {
-    platform: SocialPlatform;
-    icon: string;
-    handle: string;
-  }[];
+  const socials = socialsLocked
+    ? ([
+        { platform: 'instagram' as const, icon: 'instagram', handle: '' },
+        { platform: 'facebook' as const, icon: 'facebook-f', handle: '' },
+      ] as const)
+    : ([
+        member.social_acc_instagram && {
+          platform: 'instagram' as const,
+          icon: 'instagram',
+          handle: member.social_acc_instagram,
+        },
+        member.social_acc_facebook && {
+          platform: 'facebook' as const,
+          icon: 'facebook-f',
+          handle: member.social_acc_facebook,
+        },
+      ].filter(Boolean) as {
+        platform: SocialPlatform;
+        icon: string;
+        handle: string;
+      }[]);
   const learning = member.learning_archetypes ?? [];
   const showPhoto = !!member.profile_picture_url && !photoFailed;
 
@@ -216,11 +253,19 @@ export default function CommunityMemberScreen() {
                 <TouchableOpacity
                   key={social.platform}
                   style={styles.socialButton}
-                  onPress={() => void openSocial(social.platform, social.handle)}
-                  accessibilityRole="link"
-                  accessibilityLabel={t(`community.open_${social.platform}`, {
-                    name: displayName,
-                  })}
+                  onPress={() => {
+                    if (socialsLocked || !social.handle) {
+                      promptSocialUpgrade();
+                      return;
+                    }
+                    void openSocial(social.platform, social.handle);
+                  }}
+                  accessibilityRole={socialsLocked ? 'button' : 'link'}
+                  accessibilityLabel={
+                    socialsLocked
+                      ? t('community.socialsLockedTitle')
+                      : t(`community.open_${social.platform}`, { name: displayName })
+                  }
                 >
                   <FontAwesome5 name={social.icon} size={20} color="#EDEDF2" brand />
                 </TouchableOpacity>

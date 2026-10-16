@@ -206,6 +206,9 @@ const bg: Translations = {
     open_facebook: 'Отвори {{name}} във Facebook',
     linkErrorTitle: 'Връзката не се отвори',
     linkError: 'Не успяхме да отворим този профил. Моля, опитай отново.',
+    socialsLockedTitle: 'Социалните профили са част от Premium',
+    socialsLockedBody:
+      'Надгради, за да отваряш Facebook и Instagram профилите, които членовете споделят.',
     avatarPlaceholder: 'Заместваща профилна снимка на {{name}}',
     participationTitle: 'Участвай в общността',
     participationText:
