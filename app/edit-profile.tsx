@@ -218,9 +218,8 @@ export default function EditProfileScreen() {
     }
   };
 
-  // Used by both sign-out and delete-account flows: forget local creds
-  // and any cached onboarding state, then bounce back to the welcome
-  // screen. Mirrors what the (removed) profile screen used to do.
+  // Forget local credentials and cached onboarding state, then return
+  // to the welcome screen. Used after the account is deleted.
   const cleanupAndGoHome = async () => {
     try {
       await clearAccessToken();
@@ -231,22 +230,6 @@ export default function EditProfileScreen() {
     } finally {
       router.replace('/');
     }
-  };
-
-  const handleSignOut = () => {
-    Alert.alert(
-      t('profile.signOutConfirmTitle'),
-      t('profile.signOutConfirmBody'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('profile.signOut'),
-          style: 'destructive',
-          onPress: cleanupAndGoHome,
-        },
-      ],
-      { cancelable: true },
-    );
   };
 
   const handleDeleteAccount = () => {
@@ -444,27 +427,6 @@ export default function EditProfileScreen() {
             <Text style={styles.saveText}>
               {t('editProfile.contactSupport')}
             </Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {/*
-          Sign-out / delete-account actions moved here from the removed
-          dedicated profile screen so account management lives next to
-          profile editing.
-        */}
-        <TouchableOpacity
-          onPress={handleSignOut}
-          activeOpacity={0.9}
-          disabled={accountWorking}
-          style={styles.signOutWrap}
-        >
-          <LinearGradient
-            colors={['rgba(87, 124, 251, 1)', 'rgba(178, 131, 237, 1)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.signOutButton, accountWorking && styles.disabled]}
-          >
-            <Text style={styles.signOutText}>{t('profile.signOut')}</Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -762,23 +724,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Nunito-Bold',
-  },
-  signOutWrap: {
-    width: '100%',
-    borderRadius: 30,
-    overflow: 'hidden',
-    marginTop: 14,
-  },
-  signOutButton: {
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  signOutText: {
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Nunito-Bold',

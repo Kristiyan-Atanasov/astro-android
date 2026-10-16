@@ -633,6 +633,7 @@ export default function HomeScreen() {
                 { label: t('menu.items.privacy'), icon: icons.privacy, route: '/privacy' as const },
                 { label: t('menu.items.terms'), icon: icons.terms, route: '/terms' as const },
                 { label: t('menu.items.faq'), icon: icons.faq, route: '/faq' as const },
+                { label: t('menu.items.logout'), icon: icons.logout, action: 'logout' as const },
               ].map((item, index) => (
                 <TouchableOpacity
                   key={index}
