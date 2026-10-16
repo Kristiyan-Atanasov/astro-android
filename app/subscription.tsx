@@ -369,11 +369,58 @@ export default function SubscriptionScreen() {
           ),
           next: planLabel(selectedPlan),
         });
-  const titleLabel = !showPurchase
+  const managing = Boolean(
+    summary && (managementRows.length > 0 || summary.has_active_subscription),
+  );
+  const titleLabel = managing
     ? t('subscription.manageTitle')
     : selectedStartsTrial
       ? t('subscription.titleTrial')
       : t('subscription.title');
+
+  const statusPillKey = (row: SubscriptionRow) => {
+    if (row.is_trial === true) return 'subscription.statusTrial';
+    if (row.status === 'paused') return 'subscription.statusPaused';
+    if (row.status === 'on_hold' || row.status === 'in_grace_period') return 'subscription.statusIssue';
+    return 'subscription.statusActive';
+  };
+
+  const membershipHeadline = (row: SubscriptionRow): { label: string; value: string } | null => {
+    if (row.is_trial === true) {
+      const value = formatWhen(row.trial_ends_at || row.access_until, i18n.language);
+      return value ? { label: t('subscription.trialEndsLabel'), value } : null;
+    }
+    if (row.plan === 'complimentary') {
+      const value = formatWhen(row.access_until, i18n.language);
+      return value ? { label: t('subscription.accessEndsLabel'), value } : null;
+    }
+    if (row.has_access && row.is_auto_renewing && row.renews_at) {
+      const value = formatWhen(row.renews_at, i18n.language);
+      return value ? { label: t('subscription.renewsLabel'), value } : null;
+    }
+    if (row.has_access && row.is_auto_renewing === false) {
+      const value = formatWhen(row.access_until || row.current_period_end, i18n.language);
+      return value ? { label: t('subscription.accessEndsLabel'), value } : null;
+    }
+    return null;
+  };
+
+  const membershipNotes = (row: SubscriptionRow): string[] => {
+    const notes: string[] = [];
+    const pending = pendingLine(row);
+    if (pending) notes.push(pending);
+    if (row.is_trial === true) {
+      const price = priceFor(row.product_id, row.base_plan_id, false);
+      if (price) notes.push(t('subscription.trialThenPrice', { price }));
+    }
+    if (row.status === 'in_grace_period') notes.push(t('subscription.grace'));
+    else if (row.status === 'on_hold') notes.push(t('subscription.onHold'));
+    else if (row.status === 'paused') notes.push(t('subscription.paused'));
+    if (!membershipHeadline(row)) {
+      notes.push(...rowLines(row).filter((line) => !notes.includes(line)));
+    }
+    return notes;
+  };
 
   const openSupportMail = useCallback(() => {
     const subject = encodeURIComponent(t('subscription.supportSubject'));
@@ -406,6 +453,7 @@ export default function SubscriptionScreen() {
       showUnavailableAlert();
       return;
     }
+    const wasPremium = Boolean(summary?.has_active_subscription);
     setRestoring(true);
     try {
       const result = await restoreSubscriptions();
@@ -428,6 +476,10 @@ export default function SubscriptionScreen() {
         profileSubscriptionState(profile) === 'active' ||
         (result && isPremiumStatus(result.status)),
       );
+      if (premium && wasPremium) {
+        Alert.alert(t('subscription.alreadyActiveTitle'), t('subscription.alreadyActiveBody'));
+        return;
+      }
       if (premium) {
         Alert.alert(t('subscription.restoredTitle'), t('subscription.restoredBody'), [
           { text: t('subscription.continue'), onPress: () => router.replace('/home') },
@@ -444,7 +496,7 @@ export default function SubscriptionScreen() {
     } finally {
       if (isMounted.current) setRestoring(false);
     }
-  }, [purchasing, restoring, router, showUnavailableAlert, t]);
+  }, [purchasing, restoring, router, showUnavailableAlert, summary?.has_active_subscription, t]);
 
   const handleStart = useCallback(async () => {
     if (purchasing || restoring || !showPurchase) return;
@@ -601,7 +653,9 @@ export default function SubscriptionScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topBar}>
-          <Text style={styles.subtitle}>{t('subscription.letsGetStarted')}</Text>
+          <Text style={styles.subtitle}>
+            {managing ? t('subscription.manageEyebrow') : t('subscription.letsGetStarted')}
+          </Text>
           <TouchableOpacity
             onPress={() => router.back()}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -624,26 +678,26 @@ export default function SubscriptionScreen() {
             </View>
           ) : managementRows.length > 0 || summary?.has_active_subscription ? (
             <>
-              {managementRows.map((row) => (
-                <View key={row.id} style={[styles.planCard, styles.planCardSpacing]}>
-                  <Text style={styles.planLabel}>{planLabel(row.plan)}</Text>
-                  {rowLines(row).map((line) => (
-                    <Text key={line} style={styles.planSubtitle}>{line}</Text>
-                  ))}
-                  {row.manage_url ? (
-                    <TouchableOpacity
-                      style={styles.restoreLinkHit}
-                      onPress={() => openManage(row.manage_url as string)}
-                    >
-                      <Text style={styles.restoreLink}>{t('subscription.manage')}</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              ))}
+              {managementRows.map((row) => {
+                const headline = membershipHeadline(row);
+                const notes = membershipNotes(row);
+                return (
+                  <StatusCard
+                    key={row.id}
+                    pill={t(statusPillKey(row))}
+                    plan={planLabel(row.plan)}
+                    headline={headline}
+                    notes={notes}
+                    manageLabel={row.manage_url ? t('subscription.manage') : undefined}
+                    onManage={row.manage_url ? () => openManage(row.manage_url as string) : undefined}
+                  />
+                );
+              })}
               {managementRows.length === 0 && summary?.has_active_subscription ? (
-                <View style={styles.planCard}>
-                  <Text style={styles.planLabel}>{t('subscription.planNamePremium')}</Text>
-                </View>
+                <StatusCard
+                  pill={t('subscription.statusActive')}
+                  plan={t('subscription.planNamePremium')}
+                />
               ) : null}
               {canChangePlan ? (
                 <View style={styles.changePlans}>
@@ -724,7 +778,7 @@ export default function SubscriptionScreen() {
           )}
         </View>
 
-        <View style={styles.spacer} />
+        <View style={showPurchase || canChangePlan ? styles.spacer : styles.manageSpacer} />
 
         {showPurchase || canChangePlan ? (
           <>
@@ -796,6 +850,58 @@ interface PlanCardProps {
   onSelect: () => void;
   disabled?: boolean;
   style?: object;
+}
+
+function StatusCard({
+  pill,
+  plan,
+  headline,
+  notes = [],
+  manageLabel,
+  onManage,
+}: {
+  pill: string;
+  plan: string;
+  headline?: { label: string; value: string } | null;
+  notes?: string[];
+  manageLabel?: string;
+  onManage?: () => void;
+}) {
+  return (
+    <LinearGradient
+      colors={['rgba(178, 131, 237, 0.95)', 'rgba(87, 124, 251, 0.75)']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.statusFrame, styles.planCardSpacing]}
+    >
+      <View style={styles.statusCard}>
+        <LinearGradient
+          colors={['rgba(178, 131, 237, 1)', 'rgba(87, 124, 251, 1)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.statusPill}
+        >
+          <Text style={styles.statusPillText}>{pill}</Text>
+        </LinearGradient>
+        <Text style={styles.statusPlan}>{plan}</Text>
+        {headline ? (
+          <View style={styles.statusDateBlock}>
+            <Text style={styles.statusDateLabel}>{headline.label}</Text>
+            <Text style={styles.statusDateValue}>{headline.value}</Text>
+          </View>
+        ) : null}
+        {notes.map((line) => (
+          <Text key={line} style={styles.statusNote}>{line}</Text>
+        ))}
+        {manageLabel && onManage ? (
+          <TouchableOpacity style={styles.manageButton} activeOpacity={0.85} onPress={onManage}>
+            <Text style={styles.manageButtonText}>{manageLabel}</Text>
+            <Ionicons name="chevron-forward" size={18} color="#fff" />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    </LinearGradient>
+  );
 }
 
 function PlanCard({
@@ -988,6 +1094,75 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   spacer: { flex: 1, minHeight: 24 },
+  manageSpacer: { height: 28 },
+  statusFrame: {
+    borderRadius: 22,
+    padding: 1,
+  },
+  statusCard: {
+    backgroundColor: 'rgba(10, 8, 24, 0.92)',
+    borderRadius: 21,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+  },
+  statusPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+  },
+  statusPillText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: 'Nunito-Bold',
+  },
+  statusPlan: {
+    color: '#fff',
+    fontSize: 28,
+    lineHeight: 34,
+    fontFamily: 'CooperLtBT-Bold',
+    marginTop: 14,
+  },
+  statusDateBlock: {
+    marginTop: 16,
+  },
+  statusDateLabel: {
+    color: 'rgba(211, 213, 251, 0.72)',
+    fontSize: 13,
+    fontFamily: 'Nunito-Bold',
+  },
+  statusDateValue: {
+    color: '#fff',
+    fontSize: 17,
+    lineHeight: 24,
+    fontFamily: 'Nunito-Bold',
+    marginTop: 4,
+  },
+  statusNote: {
+    color: '#aaa',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 12,
+    fontFamily: 'SFProDisplay-Regular',
+  },
+  manageButton: {
+    marginTop: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(211, 213, 251, 0.35)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  manageButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontFamily: 'Nunito-Bold',
+  },
   secureText: {
     textAlign: 'center',
     fontSize: 12,
