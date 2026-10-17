@@ -21,14 +21,10 @@ import { ZODIAC_SIGNS } from '../components/Astrowheel';
 import ZodiacGlyph from '../components/ZodiacGlyph';
 import {
   getCommunityUsers,
-  getSubscriptionSummary,
   getUserProfile,
   patchUserProfile,
 } from '../services/api';
-import {
-  rememberCommunityMember,
-  syncCommunityViewer,
-} from '../services/communityMemberCache';
+import { rememberCommunityMember } from '../services/communityMemberCache';
 import {
   normalizeHandle,
   socialProfileUrl,
@@ -56,7 +52,9 @@ interface CommunityMember {
   ascendant: string | null;
   learning_archetypes: string[] | null;
   social_acc_facebook: string | null;
+  social_acc_facebook_locked: boolean;
   social_acc_instagram: string | null;
+  social_acc_instagram_locked: boolean;
 }
 
 const EMPTY_FILTERS: Filters = {
@@ -130,7 +128,9 @@ function normalizeMember(raw: any, index: number): CommunityMember {
           .filter((code: string | null): code is string => !!code)
       : null,
     social_acc_facebook: normalizeHandle(raw?.social_acc_facebook),
+    social_acc_facebook_locked: raw?.social_acc_facebook_locked === true,
     social_acc_instagram: normalizeHandle(raw?.social_acc_instagram),
+    social_acc_instagram_locked: raw?.social_acc_instagram_locked === true,
   };
 }
 
@@ -154,10 +154,6 @@ export default function CommunityScreen() {
   const [sharingExpanded, setSharingExpanded] = useState(false);
   const [sharingSaving, setSharingSaving] = useState<SharingKey | null>(null);
   const [hasSocials, setHasSocials] = useState(false);
-  // null until GET /payments/subscription/ answers. Only an explicit false
-  // shows the locked icons; a failed check must not invent a paywall.
-  const [socialsLocked, setSocialsLocked] = useState<boolean | null>(null);
-  const [viewerStamp, setViewerStamp] = useState('');
   const [sharingSettings, setSharingSettings] =
     useState<SharingSettings>(DEFAULT_SHARING);
 
@@ -232,27 +228,15 @@ export default function CommunityScreen() {
         let visible = false;
         let settings = DEFAULT_SHARING;
         let socials = false;
-        let userId: string | null = null;
         try {
           const profile: any = await getUserProfile();
-          userId = profile?.id != null ? String(profile.id) : null;
           visible = profile?.is_profile_visible === true;
           settings = sharingFromProfile(profile);
           socials = hasAnyHandle(profile);
         } catch (e) {
           console.log('[Community] profile load failed:', (e as any)?.message ?? String(e));
         }
-        let premium: boolean | null = null;
-        try {
-          const summary: any = await getSubscriptionSummary();
-          premium = summary?.has_active_subscription === true;
-        } catch (e) {
-          console.log('[Community] subscription load failed:', (e as any)?.message ?? String(e));
-        }
         if (!active) return;
-        syncCommunityViewer(userId, premium);
-        setViewerStamp(`${userId ?? ''}:${premium === true ? '1' : premium === false ? '0' : '?'}`);
-        setSocialsLocked(premium === false);
         setParticipating(visible);
         setSharingSettings(settings);
         setHasSocials(socials);
@@ -272,7 +256,7 @@ export default function CommunityScreen() {
       return;
     }
     clearDirectory();
-  }, [clearDirectory, filters, load, participating, profileReady, viewerStamp]);
+  }, [clearDirectory, filters, load, participating, profileReady]);
 
   const selectFilter = (value: string) => {
     if (!selector) return;
@@ -400,7 +384,7 @@ export default function CommunityScreen() {
       t('community.socialsLockedTitle'),
       t('community.socialsLockedBody'),
       [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.notNow'), style: 'cancel' },
         { text: t('common.seePlan'), onPress: () => router.push('/subscription') },
       ],
     );
@@ -408,27 +392,25 @@ export default function CommunityScreen() {
 
   const MemberCard = ({ member }: { member: CommunityMember }) => {
     const displayName = member.name || t('community.memberFallback');
-    const socials = socialsLocked
-      ? ([
-          { platform: 'instagram' as const, icon: 'instagram', handle: '' },
-          { platform: 'facebook' as const, icon: 'facebook-f', handle: '' },
-        ] as const)
-      : ([
-          member.social_acc_instagram && {
-            platform: 'instagram' as const,
-            icon: 'instagram',
-            handle: member.social_acc_instagram,
-          },
-          member.social_acc_facebook && {
-            platform: 'facebook' as const,
-            icon: 'facebook-f',
-            handle: member.social_acc_facebook,
-          },
-        ].filter(Boolean) as {
-          platform: SocialPlatform;
-          icon: string;
-          handle: string;
-        }[]);
+    const socials = [
+      (member.social_acc_instagram_locked || member.social_acc_instagram) && {
+        platform: 'instagram' as const,
+        icon: 'instagram',
+        handle: member.social_acc_instagram,
+        locked: member.social_acc_instagram_locked,
+      },
+      (member.social_acc_facebook_locked || member.social_acc_facebook) && {
+        platform: 'facebook' as const,
+        icon: 'facebook-f',
+        handle: member.social_acc_facebook,
+        locked: member.social_acc_facebook_locked,
+      },
+    ].filter(Boolean) as {
+      platform: SocialPlatform;
+      icon: string;
+      handle: string | null;
+      locked: boolean;
+    }[];
     const details = [
       member.sun_sign && [t('community.sun'), member.sun_sign],
       member.moon_sign && [t('community.moon'), member.moon_sign],
@@ -506,15 +488,15 @@ export default function CommunityScreen() {
                 style={styles.socialButton}
                 onPress={(event) => {
                   event.stopPropagation();
-                  if (socialsLocked || !social.handle) {
+                  if (social.locked) {
                     promptSocialUpgrade();
                     return;
                   }
-                  void openSocial(social.platform, social.handle);
+                  if (social.handle) void openSocial(social.platform, social.handle);
                 }}
-                accessibilityRole={socialsLocked ? 'button' : 'link'}
+                accessibilityRole={social.locked ? 'button' : 'link'}
                 accessibilityLabel={
-                  socialsLocked
+                  social.locked
                     ? t('community.socialsLockedTitle')
                     : t(`community.open_${social.platform}`, { name: displayName })
                 }

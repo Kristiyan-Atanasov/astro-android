@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Image,
   Linking,
@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,7 +21,6 @@ import {
   ELEMENT_BACKGROUNDS,
   getArchetypeMeta,
 } from '../components/archetypeMeta';
-import { getSubscriptionSummary } from '../services/api';
 import { recallCommunityMember } from '../services/communityMemberCache';
 import {
   socialProfileUrl,
@@ -39,7 +38,9 @@ interface CommunityMember {
   ascendant: string | null;
   learning_archetypes: string[] | null;
   social_acc_facebook: string | null;
+  social_acc_facebook_locked: boolean;
   social_acc_instagram: string | null;
+  social_acc_instagram_locked: boolean;
 }
 
 // The member arrives as JSON on the route because the directory response is
@@ -65,26 +66,6 @@ export default function CommunityMemberScreen() {
   const member = (recallCommunityMember(routed?.id) ?? routed) as CommunityMember | null;
   const [photoFailed, setPhotoFailed] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
-  const [socialsLocked, setSocialsLocked] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      void (async () => {
-        try {
-          const summary: any = await getSubscriptionSummary();
-          if (!active) return;
-          setSocialsLocked(summary?.has_active_subscription !== true);
-        } catch (e) {
-          console.log('[CommunityMember] subscription load failed:', (e as any)?.message ?? String(e));
-          if (active) setSocialsLocked(false);
-        }
-      })();
-      return () => {
-        active = false;
-      };
-    }, []),
-  );
 
   const signLabel = (code: string) =>
     t(`archetypeMeta.${code}.label`, {
@@ -105,7 +86,7 @@ export default function CommunityMemberScreen() {
       t('community.socialsLockedTitle'),
       t('community.socialsLockedBody'),
       [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.notNow'), style: 'cancel' },
         { text: t('common.seePlan'), onPress: () => router.push('/subscription') },
       ],
     );
@@ -142,27 +123,25 @@ export default function CommunityMemberScreen() {
     member.moon_sign && ['moon', '☽', member.moon_sign],
     member.ascendant && ['ascendant', 'AC', member.ascendant],
   ].filter(Boolean) as string[][];
-  const socials = socialsLocked
-    ? ([
-        { platform: 'instagram' as const, icon: 'instagram', handle: '' },
-        { platform: 'facebook' as const, icon: 'facebook-f', handle: '' },
-      ] as const)
-    : ([
-        member.social_acc_instagram && {
-          platform: 'instagram' as const,
-          icon: 'instagram',
-          handle: member.social_acc_instagram,
-        },
-        member.social_acc_facebook && {
-          platform: 'facebook' as const,
-          icon: 'facebook-f',
-          handle: member.social_acc_facebook,
-        },
-      ].filter(Boolean) as {
-        platform: SocialPlatform;
-        icon: string;
-        handle: string;
-      }[]);
+  const socials = [
+    (member.social_acc_instagram_locked || member.social_acc_instagram) && {
+      platform: 'instagram' as const,
+      icon: 'instagram',
+      handle: member.social_acc_instagram,
+      locked: member.social_acc_instagram_locked,
+    },
+    (member.social_acc_facebook_locked || member.social_acc_facebook) && {
+      platform: 'facebook' as const,
+      icon: 'facebook-f',
+      handle: member.social_acc_facebook,
+      locked: member.social_acc_facebook_locked,
+    },
+  ].filter(Boolean) as {
+    platform: SocialPlatform;
+    icon: string;
+    handle: string | null;
+    locked: boolean;
+  }[];
   const learning = member.learning_archetypes ?? [];
   const showPhoto = !!member.profile_picture_url && !photoFailed;
 
@@ -254,15 +233,15 @@ export default function CommunityMemberScreen() {
                   key={social.platform}
                   style={styles.socialButton}
                   onPress={() => {
-                    if (socialsLocked || !social.handle) {
+                    if (social.locked) {
                       promptSocialUpgrade();
                       return;
                     }
-                    void openSocial(social.platform, social.handle);
+                    if (social.handle) void openSocial(social.platform, social.handle);
                   }}
-                  accessibilityRole={socialsLocked ? 'button' : 'link'}
+                  accessibilityRole={social.locked ? 'button' : 'link'}
                   accessibilityLabel={
-                    socialsLocked
+                    social.locked
                       ? t('community.socialsLockedTitle')
                       : t(`community.open_${social.platform}`, { name: displayName })
                   }
