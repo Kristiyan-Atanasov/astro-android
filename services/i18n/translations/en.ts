@@ -158,6 +158,32 @@ const en = {
       'Find exclusive content and connect with other people with similar wheels.',
   },
 
+  reading: {
+    kicker: 'Comfort',
+    hintTitle: 'Text a little small?',
+    hintBody:
+      'If the writing is hard to read, you can make it larger in Settings. It changes the text across the app.',
+    hintDismiss: 'It’s fine',
+    hintAction: 'Make it larger',
+    title: 'Text size',
+    back: 'Back',
+    previewKicker: 'Preview',
+    previewTitle: 'Read at your own pace',
+    previewBody:
+      'The stars are easier to follow when the words are the right size for your eyes.',
+    note: 'Large makes the writing bigger on every screen in Astroinsights.',
+    sizes: {
+      standard: 'Standard',
+      large: 'Large',
+    },
+    details: {
+      standard: 'The usual size',
+      large: 'Bigger text across the whole app',
+    },
+    settingsTitle: 'Text size',
+    settingsDetail: 'Make the writing larger if it is hard to see',
+  },
+
   community: {
     headerTitle: 'Community',
     bannerTitle: 'Explore the community',
@@ -236,6 +262,7 @@ const en = {
       home: 'Home',
       myProfile: 'Profile',
       accountSettings: 'Account settings',
+      textSize: 'Text size',
       editProfile: 'Edit Profile',
       notifications: 'Notifications',
       community: 'Community',
@@ -722,6 +749,7 @@ const en = {
     unlearnAction: 'Unlearn',
     learnedLabel: 'Learned',
     newLabel: 'New',
+    soonLabel: 'Soon',
     openHint: 'Read',
     legendTitle: 'How it works',
     legendTap:

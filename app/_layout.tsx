@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { View, StyleSheet, Image, Platform } from 'react-native';
 import { Alert, AppAlertHost } from '../components/AppAlert';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -7,6 +7,7 @@ import { useFonts } from 'expo-font';
 import { useTranslation } from 'react-i18next';
 import { onSessionExpired } from '../services/sessionEvents';
 import { initI18n } from '../services/i18n';
+import { getReadingSize, loadReadingSize, subscribeReadingSize } from '../services/readingSize';
 import { startNotificationAutoDismiss } from '../services/notifications';
 
 const backgroundImg = require('../assets/images/background.png');
@@ -17,6 +18,9 @@ export default function RootLayout() {
   const { t } = useTranslation();
   const alertVisibleRef = useRef(false);
   const [i18nReady, setI18nReady] = useState(false);
+  // Subscribing here redraws every open screen when the size changes,
+  // so the new scale reaches text outside this layout.
+  const readingSize = useSyncExternalStore(subscribeReadingSize, getReadingSize);
 
   const [fontsLoaded] = useFonts({
     'Nunito-Regular': require('../assets/fonts/Nunito-Regular.ttf'),
@@ -28,11 +32,11 @@ export default function RootLayout() {
   useEffect(() => {
     let cancelled = false;
     initI18n()
-      .then(() => {
-        if (!cancelled) setI18nReady(true);
-      })
       .catch((e) => {
         console.log('i18n init failed:', (e as any)?.message ?? String(e));
+      })
+      .then(() => loadReadingSize())
+      .finally(() => {
         if (!cancelled) setI18nReady(true);
       });
     return () => {
@@ -94,7 +98,7 @@ export default function RootLayout() {
         <Image source={starsImg} style={styles.stars} resizeMode="cover" />
 
         {/* App Content */}
-        <View style={styles.content}>
+        <View style={styles.content} accessibilityLabel={readingSize}>
           <Slot />
         </View>
 

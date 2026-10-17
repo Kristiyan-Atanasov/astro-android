@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,13 @@ import {
 } from '../services/iap';
 import { rememberScroll, takeScrollRestore } from '../services/scrollRestore';
 import Astrowheel, { ZODIAC_SIGNS, type ZodiacSign } from '../components/Astrowheel';
+import ReadingHintCard from '../components/ReadingHintCard';
+import {
+  dismissReadingHint,
+  getReadingSize,
+  shouldShowReadingHint,
+  subscribeReadingSize,
+} from '../services/readingSize';
 import ZodiacGlyph from '../components/ZodiacGlyph';
 import ActiveZodiacTile from '../components/ActiveZodiacTile';
 import {
@@ -95,9 +102,11 @@ export default function HomeScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
+  const largeReading = useSyncExternalStore(subscribeReadingSize, getReadingSize) === 'large';
   const [menuVisible, setMenuVisible] = useState(false);
   const [userName, setUserName] = useState<string>('');
   const [isPremium, setIsPremium] = useState(false);
+  const [readingHintFor, setReadingHintFor] = useState<string | null>(null);
   const [dailyVibe, setDailyVibe] = useState<string>('');
   const [activeArchetypes, setActiveArchetypes] = useState<Set<string>>(new Set());
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').width)).current;
@@ -209,6 +218,11 @@ export default function HomeScreen() {
         const name = (profile as any)?.name;
         if (typeof name === 'string' && name.trim().length > 0) {
           setUserName(name.trim().split(/\s+/)[0]);
+        }
+        const profileId = (profile as any)?.id ?? (profile as any)?.email ?? null;
+        if (profileId != null && String(profileId)) {
+          const showHint = await shouldShowReadingHint(profileId);
+          if (!cancelled && showHint) setReadingHintFor(String(profileId));
         }
 
         let premium = profileSubscriptionState(profile) === 'active';
@@ -429,9 +443,9 @@ export default function HomeScreen() {
       >
         {/* Top Section */}
         <View style={styles.topRow}>
-          <View>
+          <View style={styles.topCopy}>
             <Text style={styles.date}>{todayLabel}</Text>
-            <Text style={styles.greeting}>
+            <Text style={styles.greeting} numberOfLines={2}>
               {userName ? t('home.hello', { name: userName }) : t('home.helloFallback')}
             </Text>
           </View>
@@ -439,6 +453,22 @@ export default function HomeScreen() {
             <Image source={menuIcon} style={styles.menuIcon} />
           </TouchableOpacity>
         </View>
+
+        {readingHintFor ? (
+          <ReadingHintCard
+            onDismiss={() => {
+              const id = readingHintFor;
+              setReadingHintFor(null);
+              void dismissReadingHint(id);
+            }}
+            onAdjust={() => {
+              const id = readingHintFor;
+              setReadingHintFor(null);
+              void dismissReadingHint(id);
+              router.push('/reading-size');
+            }}
+          />
+        ) : null}
 
         {/* Daily Vibe */}
         <View style={styles.vibeCard}>
@@ -584,12 +614,17 @@ export default function HomeScreen() {
               >
                 <ImageBackground
                   source={subBg}
-                  style={styles.subscriptionBg}
+                  style={[styles.subscriptionBg, largeReading && styles.subscriptionBgLarge]}
                   imageStyle={styles.subscriptionBgImage}
                 >
                   <View style={styles.subscriptionOverlay} />
-                  <View style={styles.subscriptionContent}>
-                    <View>
+                  <View
+                    style={[
+                      styles.subscriptionContent,
+                      largeReading && styles.subscriptionContentLarge,
+                    ]}
+                  >
+                    <View style={styles.subscriptionCopy}>
                       <Text style={styles.subscriptionLabel}>{t('menu.subscription')}</Text>
                       <Text style={styles.subscriptionPlan}>
                         {isPremium ? t('menu.plan.premium') : t('menu.plan.free')}
@@ -630,6 +665,7 @@ export default function HomeScreen() {
                     : t('menu.statuses.freePlan'),
                 },
                 { label: t('menu.items.accountSettings'), icon: icons.edit, route: '/edit-profile' as const },
+                { label: t('menu.items.textSize'), glyph: 'Aa', route: '/reading-size' as const },
                 { label: t('menu.items.privacy'), icon: icons.privacy, route: '/privacy' as const },
                 { label: t('menu.items.terms'), icon: icons.terms, route: '/terms' as const },
                 { label: t('menu.items.faq'), icon: icons.faq, route: '/faq' as const },
@@ -654,7 +690,13 @@ export default function HomeScreen() {
                     }
                   }}
                 >
-                  <Image source={item.icon} style={styles.menuItemIcon} />
+                  {(item as any).glyph ? (
+                    <View style={styles.menuGlyph}>
+                      <Text style={styles.menuGlyphText}>{(item as any).glyph}</Text>
+                    </View>
+                  ) : (
+                    <Image source={(item as any).icon} style={styles.menuItemIcon} />
+                  )}
                   <Text style={styles.menuItemText}>{item.label}</Text>
                   {(item as any).status ? (
                     <View style={styles.statusPill}>
@@ -700,6 +742,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  topCopy: {
+    flex: 1,
+    marginRight: 12,
   },
   menuButton: {
     width: 52,
@@ -913,6 +959,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: 16,
   },
+  subscriptionBgLarge: {
+    height: undefined,
+    minHeight: 96,
+  },
   subscriptionBgImage: {
     borderRadius: 16,
   },
@@ -928,6 +978,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     zIndex: 1,
+  },
+  subscriptionContentLarge: {
+    flexWrap: 'wrap',
+    rowGap: 10,
+    paddingVertical: 14,
+  },
+  subscriptionCopy: {
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   subscriptionLabel: {
     color: 'rgba(255,255,255,0.85)',
@@ -970,6 +1029,20 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,255,255,0.12)',
+  },
+  menuGlyph: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    marginRight: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(178, 131, 237, 0.22)',
+  },
+  menuGlyphText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: 'CooperLtBT-Bold',
   },
   menuItemIcon: {
     width: 26,

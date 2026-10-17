@@ -151,7 +151,7 @@ function PositionRow({
             <Text style={styles.pointBadgeText}>{planet.label}</Text>
           </View>
         )}
-        <Text style={styles.planetName} numberOfLines={1}>
+        <Text style={styles.planetName} numberOfLines={2}>
           {name}
         </Text>
       </View>
@@ -329,6 +329,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     paddingVertical: 10,
     gap: 6,
   },
@@ -340,8 +341,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flex: 0.95,
-    minWidth: 0,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: '42%',
   },
   rowRight: {
     flexDirection: 'row',
@@ -349,6 +351,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 5,
     flexShrink: 0,
+    marginLeft: 'auto',
   },
   planetIcon: {
     width: 20,

@@ -1,5 +1,5 @@
 // app/archetype/[name].tsx
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getReadingSize, subscribeReadingSize } from '../../services/readingSize';
 
 import { ZODIAC_SIGNS } from '../../components/Astrowheel';
 import ZodiacGlyph from '../../components/ZodiacGlyph';
@@ -183,6 +184,7 @@ export default function ArchetypeDetailScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const largeReading = useSyncExternalStore(subscribeReadingSize, getReadingSize) === 'large';
   const { name, fromNotification } = useLocalSearchParams<{
     name: string;
     fromNotification?: string;
@@ -472,38 +474,10 @@ export default function ArchetypeDetailScreen() {
     );
   }, [t]);
 
-  // LOCKED alone is not proof the user needs a subscription. Prefer
-  // lock_reason when present; otherwise subscribers get a progression
-  // message and free users get the paywall.
   const handleLockedQuality = useCallback(
     (quality?: QualityItem) => {
-      const reason = String(
-        quality?.lock_reason || (quality as any)?.lockReason || '',
-      ).toLowerCase();
-      if (
-        reason === 'subscription' ||
-        reason === 'premium' ||
-        reason === 'paywall' ||
-        reason === 'not_subscribed'
-      ) {
-        showPaywall();
-        return;
-      }
-      if (
-        reason === 'progression' ||
-        reason === 'daily_limit' ||
-        reason === 'quota' ||
-        reason === 'daily' ||
-        reason === 'enrollment'
-      ) {
-        showProgressionLock();
-        return;
-      }
-      if (isPremium) {
-        showProgressionLock();
-        return;
-      }
-      showPaywall();
+      if (lockKindFor(quality, isPremium) === 'premium') showPaywall();
+      else showProgressionLock();
     },
     [isPremium, showPaywall, showProgressionLock],
   );
@@ -654,8 +628,8 @@ export default function ArchetypeDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.infoCard}>
-          <View style={styles.infoTitleRow}>
+        <View style={[styles.infoCard, largeReading && styles.infoCardStacked]}>
+          <View style={[styles.infoTitleRow, largeReading && styles.infoTitleRowStacked]}>
             {sign ? (
               <View style={styles.headerIcon}>
                 <ZodiacGlyph code={sign.code} size={32} color="#D3D5FB" />
@@ -663,16 +637,16 @@ export default function ArchetypeDetailScreen() {
             ) : null}
             <Text
               style={styles.headerTitle}
-              numberOfLines={1}
+              numberOfLines={largeReading ? 2 : 1}
               adjustsFontSizeToFit
-              minimumFontScale={0.6}
+              minimumFontScale={largeReading ? 0.8 : 0.6}
             >
               {title.toUpperCase()}
             </Text>
           </View>
 
           {meta ? (
-            <View style={styles.metaRow}>
+            <View style={[styles.metaRow, largeReading && styles.metaRowStacked]}>
               <View style={styles.metaItem}>
                 <Text style={styles.metaLabel}>{t('archetype.rulerLabel')}</Text>
                 <View style={styles.metaValueRow}>
@@ -782,7 +756,10 @@ export default function ArchetypeDetailScreen() {
             onPress={() => setTab('mastering')}
             activeOpacity={0.85}
           >
-            <Text style={[styles.tabText, tab === 'mastering' && styles.tabTextActive]}>
+            <Text
+              style={[styles.tabText, tab === 'mastering' && styles.tabTextActive]}
+              numberOfLines={largeReading ? 2 : 1}
+            >
               {t('archetype.tabMastering')}
             </Text>
           </TouchableOpacity>
@@ -791,7 +768,10 @@ export default function ArchetypeDetailScreen() {
             onPress={() => setTab('managing')}
             activeOpacity={0.85}
           >
-            <Text style={[styles.tabText, tab === 'managing' && styles.tabTextActive]}>
+            <Text
+              style={[styles.tabText, tab === 'managing' && styles.tabTextActive]}
+              numberOfLines={largeReading ? 2 : 1}
+            >
               {t('archetype.tabManaging')}
             </Text>
           </TouchableOpacity>
@@ -857,6 +837,8 @@ export default function ArchetypeDetailScreen() {
                 learnedAction={t('archetype.learnedAction')}
                 unlearnAction={t('archetype.unlearnAction')}
                 newLabel={t('archetype.newLabel')}
+                lockKind={lockKindFor(q, isPremium)}
+                soonLabel={t('archetype.soonLabel')}
               />
             ))}
           </View>
@@ -864,6 +846,35 @@ export default function ArchetypeDetailScreen() {
       </ScrollView>
     </View>
   );
+}
+
+type LockKind = 'premium' | 'progression';
+
+// LOCKED alone is not proof the user needs a subscription. Prefer
+// lock_reason when present; otherwise subscribers are waiting on progression
+// and free users are behind the paywall.
+function lockKindFor(quality: QualityItem | undefined, isPremium: boolean): LockKind {
+  const reason = String(
+    quality?.lock_reason || (quality as any)?.lockReason || '',
+  ).toLowerCase();
+  if (
+    reason === 'subscription' ||
+    reason === 'premium' ||
+    reason === 'paywall' ||
+    reason === 'not_subscribed'
+  ) {
+    return 'premium';
+  }
+  if (
+    reason === 'progression' ||
+    reason === 'daily_limit' ||
+    reason === 'quota' ||
+    reason === 'daily' ||
+    reason === 'enrollment'
+  ) {
+    return 'progression';
+  }
+  return isPremium ? 'progression' : 'premium';
 }
 
 function ProgressRow({
@@ -939,8 +950,12 @@ function QualityRow({
   learnedAction,
   unlearnAction,
   newLabel,
+  lockKind,
+  soonLabel,
 }: {
   quality: QualityItem;
+  lockKind: LockKind;
+  soonLabel: string;
   onToggle: (q: QualityItem) => void;
   onOpen: (q: QualityItem) => void;
   onLearned: (q: QualityItem) => void;
@@ -1050,7 +1065,7 @@ function QualityRow({
 
       {isLocked ? <LockedFrost /> : null}
 
-      {isLocked ? (
+      {isLocked && lockKind === 'premium' ? (
         <LinearGradient
           colors={['#577CFB', '#B283ED']}
           start={{ x: 0, y: 0 }}
@@ -1060,6 +1075,11 @@ function QualityRow({
           <Ionicons name="diamond" size={10} color="#fff" />
           <Text style={styles.qualityProBadgeText}>PRO</Text>
         </LinearGradient>
+      ) : isLocked ? (
+        <View style={styles.qualitySoonBadge}>
+          <Ionicons name="lock-closed" size={10} color="#D3D5FB" />
+          <Text style={styles.qualitySoonBadgeText}>{soonLabel}</Text>
+        </View>
       ) : (
         <TouchableOpacity
           onPress={() => onOpen(quality)}
@@ -1126,6 +1146,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 18,
     borderWidth: 1,
@@ -1134,20 +1155,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 24,
   },
+  infoCardStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
   infoTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
     marginRight: 12,
+  },
+  infoTitleRowStacked: {
+    marginRight: 0,
+    marginBottom: 14,
+    width: '100%',
   },
   headerIcon: {
     marginRight: 10,
+    flexShrink: 0,
   },
   headerTitle: {
     color: '#fff',
     fontSize: 22,
     fontFamily: 'CooperLtBT-Bold',
     letterSpacing: 1,
+    flex: 1,
     flexShrink: 1,
   },
   metaRow: {
@@ -1155,8 +1188,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 14,
   },
+  metaRowStacked: {
+    flexWrap: 'wrap',
+    rowGap: 10,
+    width: '100%',
+  },
   metaItem: {
     alignItems: 'flex-start',
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   metaLabel: {
     color: '#9C9CA6',
@@ -1167,12 +1207,15 @@ const styles = StyleSheet.create({
   metaValueRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     marginTop: 4,
+    maxWidth: '100%',
   },
   metaValue: {
     color: '#fff',
     fontSize: 13,
     fontFamily: 'Nunito-Bold',
+    flexShrink: 1,
   },
   metaIcon: {
     marginLeft: 4,
@@ -1210,6 +1253,7 @@ const styles = StyleSheet.create({
   lessonsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     marginBottom: 12,
     gap: 8,
   },
@@ -1310,6 +1354,7 @@ const styles = StyleSheet.create({
     color: '#9C9CA6',
     fontSize: 14,
     fontFamily: 'Nunito-Bold',
+    textAlign: 'center',
   },
   tabTextActive: {
     color: '#141519',
@@ -1552,6 +1597,24 @@ const styles = StyleSheet.create({
   },
   qualityProBadgeText: {
     color: '#fff',
+    fontSize: 11,
+    fontFamily: 'Nunito-Bold',
+    letterSpacing: 0.5,
+  },
+  qualitySoonBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(211, 213, 251, 0.35)',
+    backgroundColor: 'rgba(211, 213, 251, 0.10)',
+    zIndex: 1,
+  },
+  qualitySoonBadgeText: {
+    color: '#D3D5FB',
     fontSize: 11,
     fontFamily: 'Nunito-Bold',
     letterSpacing: 0.5,

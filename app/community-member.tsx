@@ -276,7 +276,7 @@ export default function CommunityMemberScreen() {
                       <ZodiacGlyph code={code} size={30} color="#FFFFFF" />
                     ) : null}
                   </View>
-                  <Text style={styles.learningName} numberOfLines={1}>
+                  <Text style={styles.learningName} numberOfLines={2}>
                     {t('community.archetypeCard', { sign: signLabel(code) })}
                   </Text>
                 </View>

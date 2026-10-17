@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -19,6 +19,7 @@ import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { Alert } from '../components/AppAlert';
 import { ZODIAC_SIGNS } from '../components/Astrowheel';
 import ZodiacGlyph from '../components/ZodiacGlyph';
+import { getReadingSize, subscribeReadingSize } from '../services/readingSize';
 import {
   getCommunityUsers,
   getUserProfile,
@@ -137,6 +138,7 @@ function normalizeMember(raw: any, index: number): CommunityMember {
 export default function CommunityScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const largeReading = useSyncExternalStore(subscribeReadingSize, getReadingSize) === 'large';
   const requestId = useRef(0);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [selector, setSelector] = useState<FilterKey | null>(null);
@@ -446,21 +448,28 @@ export default function CommunityScreen() {
               <Ionicons name="person" size={28} color="#A9A9B4" />
             </View>
           )}
-          <Text style={styles.cardName} numberOfLines={1}>
+          <Text style={styles.cardName} numberOfLines={largeReading ? 2 : 1}>
             {displayName}
           </Text>
           <Ionicons name="chevron-forward" size={18} color="#6E6E7A" />
         </View>
         {details.length > 0 ? (
-          <View style={styles.signStrip}>
+          <View style={[styles.signStrip, largeReading && styles.signStripLarge]}>
             {details.map(([label, code], index) => (
               <View
                 key={label}
-                style={[styles.signCell, index > 0 && styles.signCellDivided]}
+                style={[
+                  styles.signCell,
+                  largeReading && styles.signCellLarge,
+                  index > 0 && !largeReading && styles.signCellDivided,
+                ]}
               >
                 <ZodiacGlyph code={code} size={20} color="#C6B4EF" />
                 <Text style={styles.signCellLabel}>{label}</Text>
-                <Text style={styles.signCellValue} numberOfLines={1}>
+                <Text
+                  style={styles.signCellValue}
+                  numberOfLines={largeReading ? 2 : 1}
+                >
                   {signLabel(code)}
                 </Text>
               </View>
@@ -663,7 +672,7 @@ export default function CommunityScreen() {
               })}
             >
               <Text style={styles.filterLabel}>{t(`community.filters.${key}`)}</Text>
-              <Text style={styles.filterValue} numberOfLines={1}>
+              <Text style={styles.filterValue} numberOfLines={largeReading ? 2 : 1}>
                 {filters[key] ? signLabel(filters[key]) : t('community.anySign')}
               </Text>
               <Ionicons name="chevron-down" size={15} color="#B283ED" />
@@ -952,7 +961,23 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.06)',
     paddingVertical: 12,
   },
-  signCell: { flex: 1, minWidth: 0, alignItems: 'center', gap: 4, paddingHorizontal: 6 },
+  signStripLarge: {
+    flexWrap: 'wrap',
+    rowGap: 12,
+  },
+  signCell: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+  },
+  signCellLarge: {
+    flexBasis: '46%',
+    minWidth: 120,
+  },
   signCellDivided: {
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderLeftColor: 'rgba(255,255,255,0.1)',

@@ -1,0 +1,39 @@
+diff --git a/node_modules/react-native/Libraries/StyleSheet/flattenStyle.js b/node_modules/react-native/Libraries/StyleSheet/flattenStyle.js
+index 5d78712..3cc9f29 100644
+--- a/node_modules/react-native/Libraries/StyleSheet/flattenStyle.js
++++ b/node_modules/react-native/Libraries/StyleSheet/flattenStyle.js
+@@ -32,7 +32,7 @@ function flattenStyle<
+ 
+   if (!Array.isArray(style)) {
+     // $FlowFixMe[incompatible-type]
+-    return style;
++    return applyReadingScale(style);
+   }
+ 
+   const result: {[string]: $FlowFixMe} = {};
+@@ -53,4 +53,25 @@ function flattenStyle<
+   return result;
+ }
+ 
++// App reading-size preference. Only plain numeric text metrics are scaled,
++// and only on style leaves, so an array of styles is not scaled twice.
++function applyReadingScale(style) {
++  const scale = global.__astroReadingScale;
++  const hasFont = typeof style?.fontSize === 'number';
++  const hasLine = typeof style?.lineHeight === 'number';
++  if (!scale || scale === 1 || !style || (!hasFont && !hasLine)) {
++    return style;
++  }
++  const next = {};
++  for (const key in style) {
++    next[key] = style[key];
++  }
++  if (hasFont) next.fontSize = Math.round(style.fontSize * scale);
++  if (hasLine) {
++    next.lineHeight = Math.round(style.lineHeight * scale);
++    if (hasFont) next.lineHeight = Math.max(next.fontSize, next.lineHeight);
++  }
++  return next;
++}
++
+ export default flattenStyle;

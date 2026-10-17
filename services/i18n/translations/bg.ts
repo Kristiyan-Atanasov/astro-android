@@ -164,6 +164,32 @@ const bg: Translations = {
       'Открий ексклузивно съдържание и се свържи с други хора с подобни колела.',
   },
 
+  reading: {
+    kicker: 'Комфорт',
+    hintTitle: 'Текстът малък ли е?',
+    hintBody:
+      'Ако ти е трудно да четеш, можеш да го увеличиш от настройките. Промяната важи за целия текст в приложението.',
+    hintDismiss: 'Добре е',
+    hintAction: 'Увеличи текста',
+    title: 'Размер на текста',
+    back: 'Назад',
+    previewKicker: 'Преглед',
+    previewTitle: 'Чети със своето темпо',
+    previewBody:
+      'Звездите се следят по-лесно, когато думите са с удобен за очите ти размер.',
+    note: 'Големият размер уголемява текста на всеки екран в Astroinsights.',
+    sizes: {
+      standard: 'Обикновен',
+      large: 'Голям',
+    },
+    details: {
+      standard: 'Обичайният размер',
+      large: 'По-голям текст в цялото приложение',
+    },
+    settingsTitle: 'Размер на текста',
+    settingsDetail: 'Увеличи текста, ако ти е трудно да го виждаш',
+  },
+
   community: {
     headerTitle: 'Общност',
     bannerTitle: 'Разгледай общността',
@@ -242,6 +268,7 @@ const bg: Translations = {
       home: 'Начало',
       myProfile: 'Профил',
       accountSettings: 'Настройки на акаунта',
+      textSize: 'Размер на текста',
       editProfile: 'Редактирай профила',
       notifications: 'Известия',
       community: 'Общност',
@@ -730,6 +757,7 @@ const bg: Translations = {
     unlearnAction: 'Отмени',
     learnedLabel: 'Научено',
     newLabel: 'Ново',
+    soonLabel: 'Скоро',
     openHint: 'Прочети',
     legendTitle: 'Как работи',
     legendTap:

@@ -1,5 +1,5 @@
 // app/edit-profile.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getReadingSize, subscribeReadingSize } from '../services/readingSize';
 import {
   clearAccessToken,
   deleteAccount,
@@ -50,6 +51,7 @@ export default function EditProfileScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language === 'bg' ? 'bg-BG' : undefined;
+  const readingSize = useSyncExternalStore(subscribeReadingSize, getReadingSize);
 
   const [loading, setLoading] = useState(true);
   // Lock used by sign-out / delete-account flows so destructive actions
@@ -296,6 +298,30 @@ export default function EditProfileScreen() {
           </Text>
         </View>
 
+        <TouchableOpacity
+          style={styles.readingCard}
+          activeOpacity={0.88}
+          onPress={() => router.push('/reading-size')}
+          accessibilityRole="button"
+          accessibilityLabel={t('reading.settingsTitle')}
+        >
+          <LinearGradient
+            colors={['#577CFB', '#B283ED']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.readingMark}
+          >
+            <Text style={styles.readingMarkText}>Aa</Text>
+          </LinearGradient>
+          <View style={styles.readingCopy}>
+            <Text style={styles.readingTitle}>{t('reading.settingsTitle')}</Text>
+            <Text style={styles.readingDetail} numberOfLines={2}>
+              {t(`reading.sizes.${readingSize}`)} · {t('reading.settingsDetail')}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.55)" />
+        </TouchableOpacity>
+
         <Text style={styles.fieldLabel}>{t('editProfile.name')}</Text>
         <View style={[styles.field, styles.fieldLocked]}>
           <Text
@@ -303,7 +329,7 @@ export default function EditProfileScreen() {
               styles.fieldValue,
               !name && styles.fieldValuePlaceholder,
             ]}
-            numberOfLines={1}
+            numberOfLines={2}
           >
             {name || t('editProfile.namePlaceholder')}
           </Text>
@@ -331,7 +357,7 @@ export default function EditProfileScreen() {
               styles.fieldValue,
               !birthCity && styles.fieldValuePlaceholder,
             ]}
-            numberOfLines={1}
+            numberOfLines={2}
           >
             {birthCity || t('editProfile.birthCityPlaceholder')}
           </Text>
@@ -605,6 +631,41 @@ const styles = StyleSheet.create({
   fieldLocked: {
     backgroundColor: 'rgba(57, 60, 71, 0.3)',
   },
+  readingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(178,131,237,0.35)',
+    padding: 12,
+    marginBottom: 18,
+  },
+  readingMark: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  readingMarkText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'CooperLtBT-Bold',
+  },
+  readingCopy: { flex: 1 },
+  readingTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Nunito-Bold',
+  },
+  readingDetail: {
+    color: 'rgba(255,255,255,0.62)',
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
   lockedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -668,7 +729,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito-Bold',
   },
   field: {
-    height: 56,
+    minHeight: 56,
+    paddingVertical: 10,
     borderRadius: 12,
     backgroundColor: 'rgba(57, 60, 71, 0.5)',
     paddingHorizontal: 18,

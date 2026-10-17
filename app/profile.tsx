@@ -1,5 +1,5 @@
 // app/profile.tsx — personal profile with on-device birth chart & transits
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getReadingSize, subscribeReadingSize } from '../services/readingSize';
 
 import ChartWheel, { type ChartModel } from '../components/ChartWheel';
 import ChartPositionsList from '../components/ChartPositionsList';
@@ -115,7 +116,7 @@ function BigThreeRow({
       {items.map((item) => (
         <View key={item.role} style={styles.bigThreeItem}>
           <Text style={styles.bigThreeIcon}>{item.icon}</Text>
-          <Text style={styles.bigThreeSign} numberOfLines={1}>
+          <Text style={styles.bigThreeSign} numberOfLines={2}>
             {signLabel(item.code, t)}
           </Text>
         </View>
@@ -168,6 +169,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
+  const largeReading = useSyncExternalStore(subscribeReadingSize, getReadingSize) === 'large';
   const { width } = useWindowDimensions();
   const dateLocale = i18n.language === 'bg' ? 'bg-BG' : undefined;
 
@@ -484,7 +486,7 @@ export default function ProfileScreen() {
                 </View>
               </TouchableOpacity>
               <View style={styles.profileCardBody}>
-                <Text style={styles.profileName} numberOfLines={1}>
+                <Text style={styles.profileName} numberOfLines={largeReading ? 2 : 1}>
                   {profile?.name?.trim() || '—'}
                 </Text>
                 <Text style={styles.profileBirth}>{birthLine}</Text>
@@ -626,12 +628,16 @@ const styles = StyleSheet.create({
   bigThreeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    flexWrap: 'wrap',
+    columnGap: 16,
+    rowGap: 6,
   },
   bigThreeItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   bigThreeIcon: {
     color: '#D3D5FB',
@@ -642,6 +648,7 @@ const styles = StyleSheet.create({
     color: '#B283ED',
     fontSize: 13,
     fontFamily: 'Nunito-Bold',
+    flexShrink: 1,
   },
   chartSectionHeading: {
     alignItems: 'center',

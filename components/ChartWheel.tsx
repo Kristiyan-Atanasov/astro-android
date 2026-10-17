@@ -10,6 +10,15 @@ import Svg, { G, Line, Path } from 'react-native-svg';
 import ChartWheelSvg from '../assets/images/astro-wheel-chart.svg';
 
 import { ZODIAC_SIGNS } from './Astrowheel';
+import { getReadingScale } from '../services/readingSize';
+
+// Degree marks are placed in a fixed ring. The reading-size scale would
+// enlarge them into the zodiac symbols, so draw them back at the design size.
+function fittedDiagramSize(size: number) {
+  const scale = getReadingScale();
+  if (!scale || scale === 1) return size;
+  return size / scale;
+}
 import {
   ZODIAC_SIGN_PATHS,
   uprightSignTransform,
@@ -828,7 +837,7 @@ function renderTransitOuterLabel(
               width: size * 0.11,
               textAlign: 'center',
               color,
-              fontSize: degreeSize,
+              fontSize: fittedDiagramSize(degreeSize),
             },
           ]}
         >
@@ -846,8 +855,8 @@ function renderTransitOuterLabel(
               width: degreeWidth,
               textAlign: 'center',
               color,
-              fontSize: degreeSize,
-              lineHeight: degreeSize * 1.15,
+              fontSize: fittedDiagramSize(degreeSize),
+              lineHeight: fittedDiagramSize(degreeSize * 1.15),
             },
           ]}
         >
@@ -863,7 +872,7 @@ function renderTransitOuterLabel(
               left: degreePos.x + degreeWidth * 0.2,
               top: degreePos.y - degreeSize * 0.72,
               color,
-              fontSize: degreeSize * 0.62,
+              fontSize: fittedDiagramSize(degreeSize * 0.62),
             },
           ]}
         >
