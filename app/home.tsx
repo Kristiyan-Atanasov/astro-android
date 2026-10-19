@@ -656,7 +656,6 @@ export default function HomeScreen() {
                 { label: t('menu.items.myProfile'), icon: icons.profile, route: '/profile' as const },
                 { label: t('menu.items.notifications'), icon: icons.notifications, route: '/notifications' as const },
                 { label: t('menu.items.community'), icon: icons.community, route: '/community' as const },
-                { label: t('menu.items.blockedUsers'), ionicon: 'ban-outline', route: '/blocked-users' as const },
                 {
                   label: t('menu.items.subscriptions'),
                   icon: icons.subscriptions,
@@ -666,7 +665,6 @@ export default function HomeScreen() {
                     : t('menu.statuses.freePlan'),
                 },
                 { label: t('menu.items.accountSettings'), icon: icons.edit, route: '/edit-profile' as const },
-                { label: t('menu.items.textSize'), glyph: 'Aa', route: '/reading-size' as const },
                 { label: t('menu.items.privacy'), icon: icons.privacy, route: '/privacy' as const },
                 { label: t('menu.items.terms'), icon: icons.terms, route: '/terms' as const },
                 { label: t('menu.items.faq'), icon: icons.faq, route: '/faq' as const },
@@ -691,17 +689,7 @@ export default function HomeScreen() {
                     }
                   }}
                 >
-                  {(item as any).ionicon ? (
-                    <View style={styles.menuGlyph}>
-                      <Ionicons name={(item as any).ionicon as any} size={16} color="#fff" />
-                    </View>
-                  ) : (item as any).glyph ? (
-                    <View style={styles.menuGlyph}>
-                      <Text style={styles.menuGlyphText}>{(item as any).glyph}</Text>
-                    </View>
-                  ) : (
-                    <Image source={(item as any).icon} style={styles.menuItemIcon} />
-                  )}
+                  <Image source={(item as any).icon} style={styles.menuItemIcon} />
                   <Text style={styles.menuItemText}>{item.label}</Text>
                   {(item as any).status ? (
                     <View style={styles.statusPill}>
@@ -1034,20 +1022,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,255,255,0.12)',
-  },
-  menuGlyph: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    marginRight: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(178, 131, 237, 0.22)',
-  },
-  menuGlyphText: {
-    color: '#fff',
-    fontSize: 12,
-    fontFamily: 'CooperLtBT-Bold',
   },
   menuItemIcon: {
     width: 26,
