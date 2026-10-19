@@ -322,6 +322,25 @@ export default function EditProfileScreen() {
           <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.55)" />
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.readingCard}
+          activeOpacity={0.88}
+          onPress={() => router.push('/blocked-users')}
+          accessibilityRole="button"
+          accessibilityLabel={t('blockedUsers.title')}
+        >
+          <View style={styles.blockedMark}>
+            <Ionicons name="ban-outline" size={20} color="#D3D5FB" />
+          </View>
+          <View style={styles.readingCopy}>
+            <Text style={styles.readingTitle}>{t('blockedUsers.title')}</Text>
+            <Text style={styles.readingDetail} numberOfLines={2}>
+              {t('blockedUsers.intro')}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.55)" />
+        </TouchableOpacity>
+
         <Text style={styles.fieldLabel}>{t('editProfile.name')}</Text>
         <View style={[styles.field, styles.fieldLocked]}>
           <Text
@@ -653,6 +672,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'CooperLtBT-Bold',
+  },
+  blockedMark: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(211,213,251,0.12)',
   },
   readingCopy: { flex: 1 },
   readingTitle: {

@@ -929,6 +929,137 @@ export async function getCommunityUsers(filtersOrNextUrl = {}) {
   return data || {};
 }
 
+const COMMUNITY_BLOCKS_PATH = '/archetypes/community/blocks/';
+
+async function authedCommunityRequest(url, options = {}) {
+  const token = await getAccessToken();
+  if (!token) {
+    const err = new Error('Missing access token. Please sign in again.');
+    err.code = 'MISSING_ACCESS_TOKEN';
+    throw err;
+  }
+
+  const send = (bearer) =>
+    fetchWithTimeout(
+      url,
+      {
+        method: options.method || 'GET',
+        headers: {
+          Accept: 'application/json',
+          ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+          Authorization: `Bearer ${bearer}`,
+        },
+        ...(options.body ? { body: options.body } : {}),
+      },
+      DEFAULT_FETCH_TIMEOUT_MS,
+      'community_safety',
+    );
+
+  let res;
+  try {
+    res = await send(token);
+    if (res.status === 401 || res.status === 403) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) res = await send(refreshed);
+    }
+  } catch (e) {
+    if (e?.code === 'E_TIMEOUT') throw e;
+    const err = new Error('Network request failed');
+    err.code = 'NETWORK_ERROR';
+    throw err;
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    await handleSessionExpired();
+    const err = new Error('Session expired. Please sign in again.');
+    err.status = res.status;
+    err.code = 'SESSION_EXPIRED';
+    throw err;
+  }
+
+  if (res.status === 204) return { status: 204, data: null };
+
+  const { raw, data } = await readResponse(res);
+  if (!res.ok) {
+    console.log('🌐 community_safety error:', res.status);
+    const err = new Error(
+      formatApiError(data, null, `Request failed (${res.status})`),
+    );
+    err.status = res.status;
+    err.code = data?.code || `HTTP_${res.status}`;
+    throw err;
+  }
+  return { status: res.status, data };
+}
+
+function communityUserActionUrl(userId, action) {
+  return `${API_BASE}/archetypes/community/users/${encodeURIComponent(String(userId))}/${action}/`;
+}
+
+export async function reportCommunityUser(userId, payload) {
+  const result = await authedCommunityRequest(communityUserActionUrl(userId, 'report'), {
+    method: 'POST',
+    body: JSON.stringify({
+      content_type: payload.contentType,
+      reason: payload.reason,
+      ...(payload.details ? { details: payload.details } : {}),
+    }),
+  });
+  return {
+    id: result.data?.id ?? null,
+    status: result.data?.status || 'received',
+    alreadyOpen: result.status === 200,
+  };
+}
+
+export async function blockCommunityUser(userId) {
+  const result = await authedCommunityRequest(communityUserActionUrl(userId, 'block'), {
+    method: 'POST',
+  });
+  return { userId: result.data?.user_id ?? userId, blocked: true };
+}
+
+function buildCommunityBlocksUrl(pageOrNext) {
+  const endpoint = new URL(`${API_BASE}${COMMUNITY_BLOCKS_PATH}`);
+  if (typeof pageOrNext === 'string') {
+    try {
+      const next = new URL(pageOrNext);
+      const base = new URL(API_BASE);
+      const expectedPath = `${base.pathname.replace(/\/$/, '')}${COMMUNITY_BLOCKS_PATH}`;
+      if (next.origin === base.origin && next.pathname === expectedPath) {
+        return next.toString();
+      }
+    } catch {
+      // Fall through to the first page.
+    }
+    return endpoint.toString();
+  }
+  const page = Number(pageOrNext);
+  if (Number.isInteger(page) && page > 0) {
+    endpoint.searchParams.set('page', String(page));
+  }
+  return endpoint.toString();
+}
+
+export async function getCommunityBlocks(pageOrNext) {
+  const result = await authedCommunityRequest(
+    buildCommunityBlocksUrl(pageOrNext == null ? 1 : pageOrNext),
+  );
+  const data = result.data || {};
+  return {
+    count: typeof data.count === 'number' ? data.count : 0,
+    next: typeof data.next === 'string' ? data.next : null,
+    previous: typeof data.previous === 'string' ? data.previous : null,
+    results: Array.isArray(data.results) ? data.results : [],
+  };
+}
+
+export async function unblockCommunityUser(userId) {
+  await authedCommunityRequest(communityUserActionUrl(userId, 'block'), {
+    method: 'DELETE',
+  });
+}
+
 export async function recalculateAstro() {
   const token = await getAccessToken();
   if (!token) return false;

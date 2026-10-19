@@ -251,6 +251,56 @@ const en = {
     socialsMissingAction: 'Account settings',
     sharingErrorTitle: 'Couldn’t update visibility',
     sharingError: 'Your previous choice has been restored. Please try again.',
+    safety: 'Safety options',
+  },
+
+  communitySafety: {
+    menuHint: 'Report a profile or photo, or block this person. These actions are free.',
+    reportProfile: 'Report profile',
+    reportPhoto: 'Report photo',
+    reportHint:
+      'Tell us what is wrong with {{name}}. We review reports. Reporting alone does not block or remove the profile.',
+    reasons: {
+      inappropriate_content: 'Inappropriate content',
+      harassment: 'Harassment',
+      hate: 'Hate',
+      impersonation: 'Impersonation',
+      spam: 'Spam',
+      other: 'Something else',
+    },
+    detailsPlaceholder: 'Add details (optional)',
+    detailsRequiredPlaceholder: 'Tell us what happened',
+    reasonRequired: 'Choose a reason.',
+    detailsRequired: 'Add a short description for this reason.',
+    sendReport: 'Send report',
+    reportReceivedTitle: 'Report received',
+    reportReceivedBody:
+      'Thanks. We received your report and will review it. You can also block this person.',
+    reportFailed: 'We couldn’t send the report. Your draft is still here.',
+    reportLimit:
+      'You’ve sent several reports recently. You can try again later. You can still block this person.',
+    unavailable: 'This profile isn’t available.',
+    block: 'Block',
+    blockInstead: 'Block this person instead',
+    blockTitle: 'Block {{name}}?',
+    blockBody:
+      'You won’t see each other in Community, including names, photos and social links. This does not change either subscription.',
+    blockFailedTitle: 'Couldn’t block',
+    blockFailed: 'We couldn’t block this person. Please try again.',
+    blockFailedAfterReport:
+      'Your report was received, but the block didn’t go through. You can try blocking again.',
+  },
+
+  blockedUsers: {
+    title: 'Blocked users',
+    intro: 'People you block are hidden from your Community. Unblocking does not override their own block or privacy choices.',
+    empty: 'You haven’t blocked anyone.',
+    error: 'We couldn’t load blocked users. Please try again.',
+    unblock: 'Unblock',
+    unblockTitle: 'Unblock {{name}}?',
+    unblockBody: 'They can appear in Community again, unless they have blocked you or hidden their profile.',
+    unblockFailedTitle: 'Couldn’t unblock',
+    unblockFailed: 'Please try again.',
   },
 
   menu: {
@@ -266,6 +316,7 @@ const en = {
       editProfile: 'Edit Profile',
       notifications: 'Notifications',
       community: 'Community',
+      blockedUsers: 'Blocked users',
       subscriptions: 'Subscriptions',
       privacy: 'Privacy policy',
       terms: 'Terms of Service',

@@ -656,6 +656,7 @@ export default function HomeScreen() {
                 { label: t('menu.items.myProfile'), icon: icons.profile, route: '/profile' as const },
                 { label: t('menu.items.notifications'), icon: icons.notifications, route: '/notifications' as const },
                 { label: t('menu.items.community'), icon: icons.community, route: '/community' as const },
+                { label: t('menu.items.blockedUsers'), ionicon: 'ban-outline', route: '/blocked-users' as const },
                 {
                   label: t('menu.items.subscriptions'),
                   icon: icons.subscriptions,
@@ -690,7 +691,11 @@ export default function HomeScreen() {
                     }
                   }}
                 >
-                  {(item as any).glyph ? (
+                  {(item as any).ionicon ? (
+                    <View style={styles.menuGlyph}>
+                      <Ionicons name={(item as any).ionicon as any} size={16} color="#fff" />
+                    </View>
+                  ) : (item as any).glyph ? (
                     <View style={styles.menuGlyph}>
                       <Text style={styles.menuGlyphText}>{(item as any).glyph}</Text>
                     </View>

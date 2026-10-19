@@ -14,3 +14,8 @@ export function recallCommunityMember(id: string | number | null | undefined) {
   if (id == null || id === '') return null;
   return members.get(String(id)) ?? null;
 }
+
+export function forgetCommunityMember(id: string | number | null | undefined) {
+  if (id == null || id === '') return;
+  members.delete(String(id));
+}

@@ -3,6 +3,7 @@ import {
   Image,
   Linking,
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,6 +23,10 @@ import {
   getArchetypeMeta,
 } from '../components/archetypeMeta';
 import { recallCommunityMember } from '../services/communityMemberCache';
+import MemberSafetySheet, {
+  MemberSafetyButton,
+  type SafetyIntent,
+} from '../components/MemberSafetySheet';
 import {
   socialProfileUrl,
   type SocialPlatform,
@@ -66,6 +71,7 @@ export default function CommunityMemberScreen() {
   const member = (recallCommunityMember(routed?.id) ?? routed) as CommunityMember | null;
   const [photoFailed, setPhotoFailed] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
+  const [safetyIntent, setSafetyIntent] = useState<SafetyIntent>(null);
 
   const signLabel = (code: string) =>
     t(`archetypeMeta.${code}.label`, {
@@ -102,6 +108,12 @@ export default function CommunityMemberScreen() {
       >
         <Ionicons name="arrow-back" size={20} color="#fff" />
       </TouchableOpacity>
+      {member ? (
+        <MemberSafetyButton
+          label={t('community.safety')}
+          onPress={() => setSafetyIntent('menu')}
+        />
+      ) : null}
     </View>
   );
 
@@ -155,22 +167,53 @@ export default function CommunityMemberScreen() {
           onRequestClose={() => setPhotoOpen(false)}
           statusBarTranslucent
         >
-          <TouchableOpacity
-            style={styles.viewerBackdrop}
-            activeOpacity={1}
-            onPress={() => setPhotoOpen(false)}
-            accessibilityRole="button"
-            accessibilityLabel={t('common.cancel')}
-          >
-            <Image
-              source={{ uri: member.profile_picture_url as string }}
-              style={styles.viewerImage}
-              resizeMode="contain"
+          <View style={styles.viewerBackdrop}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setPhotoOpen(false)}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.cancel')}
             />
-            <View style={[styles.viewerClose, { top: insets.top + 12 }]}>
-              <Ionicons name="close" size={22} color="#fff" />
+            <View pointerEvents="none">
+              <Image
+                source={{ uri: member.profile_picture_url as string }}
+                style={styles.viewerImage}
+                resizeMode="contain"
+              />
             </View>
-          </TouchableOpacity>
+            <View style={[styles.viewerActions, { top: insets.top + 12 }]}>
+              <TouchableOpacity
+                style={styles.viewerAction}
+                onPress={() => {
+                  setPhotoOpen(false);
+                  setSafetyIntent('report-photo');
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={t('communitySafety.reportPhoto')}
+              >
+                <Ionicons name="flag-outline" size={18} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.viewerAction}
+                onPress={() => {
+                  setPhotoOpen(false);
+                  setSafetyIntent('menu');
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={t('community.safety')}
+              >
+                <Ionicons name="ban-outline" size={18} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.viewerAction}
+                onPress={() => setPhotoOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.cancel')}
+              >
+                <Ionicons name="close" size={22} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
         </Modal>
       ) : null}
       <Image source={profileBg} style={styles.bg} resizeMode="cover" />
@@ -299,6 +342,18 @@ export default function CommunityMemberScreen() {
           <Text style={styles.footerLink}>{t('legalLinks.subscription')}</Text>
         </TouchableOpacity>
       </View>
+      <MemberSafetySheet
+        userId={member.id}
+        name={displayName}
+        hasPhoto={showPhoto}
+        intent={safetyIntent}
+        onClose={() => setSafetyIntent(null)}
+        onBlocked={() => {
+          setSafetyIntent(null);
+          setPhotoOpen(false);
+          router.back();
+        }}
+      />
     </View>
   );
 }
@@ -313,6 +368,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 8,
   },
@@ -364,9 +420,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   viewerImage: { width: '100%', height: '80%' },
-  viewerClose: {
+  viewerActions: {
     position: 'absolute',
-    right: 20,
+    right: 16,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  viewerAction: {
     width: 40,
     height: 40,
     borderRadius: 20,

@@ -27,6 +27,15 @@ import {
 } from '../services/api';
 import { rememberCommunityMember } from '../services/communityMemberCache';
 import {
+  getCommunitySafetyVersion,
+  isCommunityUserBlocked,
+  subscribeCommunitySafety,
+} from '../services/communitySafety';
+import MemberSafetySheet, {
+  MemberSafetyButton,
+  type SafetyIntent,
+} from '../components/MemberSafetySheet';
+import {
   normalizeHandle,
   socialProfileUrl,
   type SocialPlatform,
@@ -158,6 +167,12 @@ export default function CommunityScreen() {
   const [hasSocials, setHasSocials] = useState(false);
   const [sharingSettings, setSharingSettings] =
     useState<SharingSettings>(DEFAULT_SHARING);
+  const [safetyMember, setSafetyMember] = useState<CommunityMember | null>(null);
+  const [safetyIntent, setSafetyIntent] = useState<SafetyIntent>(null);
+  const safetyVersion = useSyncExternalStore(
+    subscribeCommunitySafety,
+    getCommunitySafetyVersion,
+  );
 
   const clearDirectory = useCallback(() => {
     requestId.current += 1;
@@ -260,6 +275,16 @@ export default function CommunityScreen() {
     clearDirectory();
   }, [clearDirectory, filters, load, participating, profileReady]);
 
+  const safetySeen = useRef(safetyVersion);
+  useEffect(() => {
+    if (safetySeen.current === safetyVersion) return;
+    safetySeen.current = safetyVersion;
+    setMembers((current) =>
+      current.filter((member) => !isCommunityUserBlocked(member.id)),
+    );
+    if (participating) void load('refresh');
+  }, [safetyVersion, participating, load]);
+
   const selectFilter = (value: string) => {
     if (!selector) return;
     setFilters((current) => ({ ...current, [selector]: value }));
@@ -271,7 +296,9 @@ export default function CommunityScreen() {
     void load('refresh');
   };
 
-  const visibleMembers = members.slice(0, visibleCount);
+  const visibleMembers = members
+    .filter((member) => !isCommunityUserBlocked(member.id))
+    .slice(0, visibleCount);
   const hasMore = visibleCount < members.length || !!next;
 
   const showMore = () => {
@@ -451,6 +478,13 @@ export default function CommunityScreen() {
           <Text style={styles.cardName} numberOfLines={largeReading ? 2 : 1}>
             {displayName}
           </Text>
+          <MemberSafetyButton
+            label={t('community.safety')}
+            onPress={() => {
+              setSafetyMember(member);
+              setSafetyIntent('menu');
+            }}
+          />
           <Ionicons name="chevron-forward" size={18} color="#6E6E7A" />
         </View>
         {details.length > 0 ? (
@@ -788,6 +822,14 @@ export default function CommunityScreen() {
           </View>
         </View>
       </Modal>
+      <MemberSafetySheet
+        userId={safetyMember?.id ?? null}
+        name={safetyMember?.name || t('community.memberFallback')}
+        hasPhoto={!!safetyMember?.profile_picture_url}
+        intent={safetyIntent}
+        onClose={() => setSafetyIntent(null)}
+        onBlocked={() => setSafetyIntent(null)}
+      />
     </View>
   );
 }
