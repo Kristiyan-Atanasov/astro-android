@@ -26,6 +26,7 @@ import {
   patchUserProfile,
 } from '../services/api';
 import { rememberCommunityMember } from '../services/communityMemberCache';
+import { ensurePublicContentTerms } from '../services/publicContentConsent';
 import {
   getCommunitySafetyVersion,
   isCommunityUserBlocked,
@@ -312,6 +313,14 @@ export default function CommunityScreen() {
 
   const toggleParticipation = async (value: boolean) => {
     if (participationSaving) return;
+    if (value) {
+      const allowed = await ensurePublicContentTerms(t);
+      if (allowed === 'terms') {
+        router.push('/terms');
+        return;
+      }
+      if (!allowed) return;
+    }
     const previous = participating;
     const previousSettings = sharingSettings;
     // Opting in turns everything on, except socials for someone who hasn't

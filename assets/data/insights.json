@@ -133,11 +133,11 @@
         },
         {
           "heading": "9. Your Rights",
-          "body": "Subject to applicable law, you have the right to access, rectify, erase, or port your personal data, to restrict or object to certain processing, and to withdraw consent at any time. You may exercise these rights by emailing privacy@astroinsights.io. You also have the right to lodge a complaint with your local data-protection authority."
+          "body": "Subject to applicable law, you have the right to access, rectify, erase, or port your personal data, to restrict or object to certain processing, and to withdraw consent at any time. You may exercise these rights by emailing support@astroinsights.io. You also have the right to lodge a complaint with your local data-protection authority."
         },
         {
           "heading": "10. Children",
-          "body": "The App is not directed to children under 16. We do not knowingly collect personal data from children under 16. If you believe a child has provided us personal data, please contact us at privacy@astroinsights.io and we will delete it."
+          "body": "The App is not directed to children under 16. We do not knowingly collect personal data from children under 16. If you believe a child has provided us personal data, please contact us at support@astroinsights.io and we will delete it."
         },
         {
           "heading": "11. Security",
@@ -149,7 +149,7 @@
         },
         {
           "heading": "13. Contact",
-          "body": "For privacy questions or requests, contact us at privacy@astroinsights.io."
+          "body": "For privacy questions or requests, contact us at support@astroinsights.io."
         }
       ]
     },
@@ -186,7 +186,7 @@
         },
         {
           "question": "How do I delete my account and data?",
-          "answer": "From the side menu, tap Log out, then send a deletion request to privacy@astroinsights.io from the email tied to your account. We will delete or anonymise your personal data within 90 days, except where we are legally required to retain certain records."
+          "answer": "From the side menu, tap Log out, then send a deletion request to support@astroinsights.io from the email tied to your account. We will delete or anonymise your personal data within 90 days, except where we are legally required to retain certain records."
         },
         {
           "question": "Will AstroInsights tell me what to do?",
@@ -198,7 +198,7 @@
         },
         {
           "question": "How can I contact support?",
-          "answer": "For general questions, email support@astroinsights.io. For privacy questions, email privacy@astroinsights.io. We aim to reply within five business days."
+          "answer": "Email support@astroinsights.io for any question, including privacy and account deletion. We aim to reply within five business days."
         }
       ]
     }

@@ -33,6 +33,7 @@ import {
   pickAndSaveProfilePhoto,
   removeProfilePhoto,
 } from '../services/profilePhoto';
+import { ensurePublicContentTerms } from '../services/publicContentConsent';
 const LOG = '[Profile]';
 
 const profileBg = require('../assets/images/profile-bg.jpg');
@@ -257,8 +258,15 @@ export default function ProfileScreen() {
   );
 
   const uploadPhoto = useCallback(async () => {
+    if (photoBusy) return;
     setPhotoBusy(true);
     try {
+      const allowed = await ensurePublicContentTerms(t);
+      if (allowed === 'terms') {
+        router.push('/terms');
+        return;
+      }
+      if (!allowed) return;
       const result = await pickAndSaveProfilePhoto();
       if (result.ok) {
         if (result.profile) {
@@ -278,7 +286,7 @@ export default function ProfileScreen() {
     } finally {
       setPhotoBusy(false);
     }
-  }, [explainPhotoResult]);
+  }, [explainPhotoResult, photoBusy, router, t]);
 
   const deletePhoto = useCallback(async () => {
     setPhotoBusy(true);

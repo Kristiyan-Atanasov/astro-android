@@ -51,6 +51,21 @@ const en = {
     loginFailed: 'Login failed',
     enableBiometricTitle: 'Enable {{label}}?',
     enableBiometricBody: 'Use {{label}} to sign in to Astroinsights faster next time.',
+    agreeLead: 'I agree to the ',
+    agreeAnd: ' and the ',
+    agreeEnd: '.',
+    agreeHint: 'Required before you sign in, and before a public profile or photo.',
+    agreeRequiredTitle: 'Accept the terms first',
+    agreeRequiredBody:
+      'Tick the box to accept the Terms of Service and Privacy Policy. You need that agreement before you sign in.',
+  },
+
+  publicTerms: {
+    title: 'Before you share publicly',
+    body: 'A profile photo and a visible community profile can be seen by other members. By agreeing, you accept the Terms of Service: no nudity, harassment, hate, impersonation, or spam. We store the photo, a specialist provider screens it, and our team can review reports.',
+    notNow: 'Not now',
+    view: 'Read terms',
+    agree: 'I agree',
   },
 
   lock: {
@@ -628,7 +643,7 @@ const en = {
         },
         {
           heading: '7. User Conduct',
-          body: 'You agree not to use the App in any way that is unlawful, harmful, threatening, abusive, defamatory, obscene, infringing, or otherwise objectionable. You agree not to attempt to gain unauthorised access to any part of the App or its underlying infrastructure, not to interfere with the security or integrity of the App, not to use the App to collect or harvest information about other users, and not to use any automated system or bot to access the App.',
+          body: 'You agree not to use the App in any way that is unlawful, harmful, threatening, abusive, defamatory, obscene, infringing, or otherwise objectionable. You agree not to attempt to gain unauthorised access to any part of the App or its underlying infrastructure, not to interfere with the security or integrity of the App, not to use the App to collect or harvest information about other users, and not to use any automated system or bot to access the App. If you upload a profile photo or make your profile visible to other members, you agree that this content is public. You must accept these Terms in the App before you do so. You must not post nudity, sexual content, harassment, hate, impersonation, or spam. We may remove that content and restrict your account, including after a review by our moderation team or an image-safety provider.',
         },
         {
           heading: '8. Disclaimer of Warranties',
@@ -669,7 +684,7 @@ const en = {
         },
         {
           heading: '2. Data We Collect',
-          body: 'We collect: (a) account data such as your name, email address, and the social-account handles you choose to add; (b) astrological inputs such as your date, time, and city of birth, and any other information you enter to receive readings; (c) device and usage data such as device model, operating-system version, language, app version, crash reports and aggregated analytics; (d) authentication identifiers received from Google when you sign in; and (e) subscription and purchase metadata received from Google Play, excluding full payment-card details, which we never see or store.',
+          body: 'We collect: (a) account data such as your name, email address, and the social-account handles you choose to add; (b) astrological inputs such as your date, time, and city of birth, and any other information you enter to receive readings; (c) device and usage data such as device model, operating-system version, language, app version, crash reports and aggregated analytics; (d) authentication identifiers received from Google when you sign in; and (e) subscription and purchase metadata received from Google Play, excluding full payment-card details, which we never see or store. We also collect profile photos you choose to upload. When your community profile is visible, that photo and the profile details you leave shared can be shown to other members.',
         },
         {
           heading: '3. How We Use Your Data',
@@ -685,7 +700,7 @@ const en = {
         },
         {
           heading: '6. Sharing Your Data',
-          body: 'We share data only with: (a) cloud hosting and infrastructure providers (e.g., Amazon Web Services) acting as our processors; (b) authentication providers (Google) when you choose to sign in with them; (c) Google Play for subscription processing; (d) analytics, crash-reporting, and customer-support tools acting as our processors; and (e) competent authorities when required by law. We do not sell your personal data to anyone.',
+          body: 'We share data only with: (a) cloud hosting and infrastructure providers (e.g., Amazon Web Services) acting as our processors; (b) authentication providers (Google) when you choose to sign in with them; (c) Google Play for subscription processing; (d) analytics, crash-reporting, and customer-support tools acting as our processors; and (e) competent authorities when required by law. We also share profile photos with a specialist image-safety provider that screens them for nudity and sexual content before they are stored, and with our moderation staff when a photo or profile is reported. We do not sell your personal data to anyone.',
         },
         {
           heading: '7. International Transfers',
@@ -693,27 +708,31 @@ const en = {
         },
         {
           heading: '8. Retention',
-          body: 'We keep account and astrological data for as long as your account is active. If you delete your account, we will delete or anonymise your personal data within 90 days, except where we are legally required to retain certain records (for example, invoices) for longer periods.',
+          body: 'We keep account data, astrological data, and any profile photo you upload for as long as your account is active. If you delete your account, we will delete or anonymise your personal data within 90 days, except where we are legally required to retain certain records (for example, invoices) for longer periods.',
         },
         {
           heading: '9. Your Rights',
-          body: 'Subject to applicable law, you have the right to access, rectify, erase, or port your personal data, to restrict or object to certain processing, and to withdraw consent at any time. You may exercise these rights by emailing privacy@astroinsights.io. You also have the right to lodge a complaint with your local data-protection authority.',
+          body: 'Subject to applicable law, you have the right to access, rectify, erase, or port your personal data, to restrict or object to certain processing, and to withdraw consent at any time. You may exercise these rights by emailing support@astroinsights.io. You also have the right to lodge a complaint with your local data-protection authority.',
         },
         {
           heading: '10. Children',
-          body: 'The App is not directed to children under 16. We do not knowingly collect personal data from children under 16. If you believe a child has provided us personal data, please contact us at privacy@astroinsights.io and we will delete it.',
+          body: 'The App is not directed to children under 16. We do not knowingly collect personal data from children under 16. If you believe a child has provided us personal data, please contact us at support@astroinsights.io and we will delete it.',
         },
         {
           heading: '11. Security',
           body: 'We use industry-standard technical and organisational measures, including encryption in transit, secure token storage on your device, and access controls, to protect your personal data. No method of electronic storage or transmission is 100% secure, however, and we cannot guarantee absolute security.',
         },
         {
-          heading: '12. Changes to This Policy',
+          heading: '12. Profile Photos, Storage, and Moderation',
+          body: 'If you upload a profile photo, we store the image in private cloud storage operated for us by Amazon Web Services. It is not kept only on your phone. The App displays it with a temporary link. When you make your community profile visible, other members can see that photo and the profile details you leave shared. Before a photo is saved, an automated safety service from a specialist provider screens it for nudity and sexual content. Photos that fail the check are rejected and are not published. You can report another member’s profile or photo. Our moderation team reviews those reports and may remove content or restrict the account. Deleting the photo, or deleting your account, removes the stored image as described under Retention.',
+        },
+        {
+          heading: '13. Changes to This Policy',
           body: 'We may update this Privacy Policy from time to time. The latest version will always be available in the App. Material changes will be communicated through the App and, where required by law, by email.',
         },
         {
-          heading: '13. Contact',
-          body: 'For privacy questions or requests, contact us at privacy@astroinsights.io.',
+          heading: '14. Contact',
+          body: 'For privacy questions or requests, contact us at support@astroinsights.io.',
         },
       ],
     },
@@ -750,7 +769,7 @@ const en = {
         },
         {
           question: 'How do I delete my account and data?',
-          answer: 'From the side menu, tap Log out, then send a deletion request to privacy@astroinsights.io from the email tied to your account. We will delete or anonymise your personal data within 90 days, except where we are legally required to retain certain records.',
+          answer: 'From the side menu, tap Log out, then send a deletion request to support@astroinsights.io from the email tied to your account. We will delete or anonymise your personal data within 90 days, except where we are legally required to retain certain records.',
         },
         {
           question: 'Will AstroInsights tell me what to do?',
@@ -762,7 +781,7 @@ const en = {
         },
         {
           question: 'How can I contact support?',
-          answer: 'For general questions, email support@astroinsights.io. For privacy questions, email privacy@astroinsights.io. We aim to reply within five business days.',
+          answer: 'Email support@astroinsights.io for any question, including privacy and account deletion. We aim to reply within five business days.',
         },
       ],
     },

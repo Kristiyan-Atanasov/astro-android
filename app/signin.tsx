@@ -32,6 +32,10 @@ import {
   setBiometricEnabled,
 } from "../services/biometric";
 import { syncDeviceTokenIfChanged } from "../services/notifications";
+import {
+  acceptPublicContentTerms,
+  hasAcceptedPublicContentTerms,
+} from "../services/publicContentConsent";
 
 if (Platform.OS === "web") {
   WebBrowser.maybeCompleteAuthSession();
@@ -62,6 +66,8 @@ type WebGoogleButtonProps = {
   finishSocialLogin: (provider: ProviderId, providerToken: string) => Promise<void>;
   failureTitle: string;
   buttonLabel: string;
+  accepted: boolean;
+  onBeforePrompt: () => Promise<boolean>;
 };
 
 // Keep browser OAuth isolated in a web-only component. Calling Google's
@@ -73,6 +79,8 @@ function WebGoogleSignInButton({
   finishSocialLogin,
   failureTitle,
   buttonLabel,
+  accepted,
+  onBeforePrompt,
 }: WebGoogleButtonProps) {
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     webClientId: WEB_CLIENT_ID,
@@ -101,6 +109,7 @@ function WebGoogleSignInButton({
 
   const onPress = async () => {
     if (submitting || !request) return;
+    if (!(await onBeforePrompt())) return;
     setSubmitting("google");
     try {
       await promptAsync();
@@ -112,7 +121,7 @@ function WebGoogleSignInButton({
 
   return (
     <TouchableOpacity
-      style={styles.providerButton}
+      style={[styles.providerButton, !accepted && styles.providerMuted]}
       onPress={onPress}
       disabled={!request || submitting !== null}
     >
@@ -135,6 +144,31 @@ export default function SignInScreen() {
   // button that was tapped while still letting the user pick another one
   // if the first popup was cancelled.
   const [submitting, setSubmitting] = React.useState<ProviderId | null>(null);
+  const [agreed, setAgreed] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    hasAcceptedPublicContentTerms().then((accepted) => {
+      if (!cancelled && accepted) setAgreed(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const requireAgreement = async () => {
+    if (!agreed) {
+      Alert.alert(t("signin.agreeRequiredTitle"), t("signin.agreeRequiredBody"));
+      return false;
+    }
+    try {
+      await acceptPublicContentTerms();
+    } catch {
+      Alert.alert(t("signin.agreeRequiredTitle"), t("common.somethingWentWrong"));
+      return false;
+    }
+    return true;
+  };
 
   // Shared: send the provider token to the backend, store JWT(s), then
   // optionally prompt for biometric and route the user.
@@ -201,6 +235,7 @@ export default function SignInScreen() {
 
   const onPressGoogle = async () => {
     if (submitting) return;
+    if (!(await requireAgreement())) return;
     setSubmitting("google");
     try {
       if (Platform.OS === "android") {
@@ -252,6 +287,37 @@ export default function SignInScreen() {
         <Text style={styles.title}>{t("signin.title")}</Text>
         <Text style={styles.subtitle}>{t("signin.subtitle")}</Text>
 
+        <View style={styles.agreeRow}>
+          <TouchableOpacity
+            onPress={() => setAgreed((current) => !current)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: agreed }}
+          >
+            <View style={[styles.agreeBox, agreed && styles.agreeBoxOn]}>
+              {agreed ? <Text style={styles.agreeTick}>✓</Text> : null}
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.agreeText}>
+            {t("signin.agreeLead")}
+            <Text
+              style={styles.agreeLink}
+              onPress={() => router.push("/terms" as Href)}
+            >
+              {t("legalLinks.terms")}
+            </Text>
+            {t("signin.agreeAnd")}
+            <Text
+              style={styles.agreeLink}
+              onPress={() => router.push("/privacy" as Href)}
+            >
+              {t("legalLinks.privacy")}
+            </Text>
+            {t("signin.agreeEnd")}
+          </Text>
+        </View>
+        <Text style={styles.agreeHint}>{t("signin.agreeHint")}</Text>
+
         {Platform.OS === "web" ? (
           <WebGoogleSignInButton
             submitting={submitting}
@@ -259,10 +325,12 @@ export default function SignInScreen() {
             finishSocialLogin={finishSocialLogin}
             failureTitle={t("signin.googleFailed")}
             buttonLabel={t("signin.google")}
+            accepted={agreed}
+            onBeforePrompt={requireAgreement}
           />
         ) : (
           <TouchableOpacity
-            style={styles.providerButton}
+            style={[styles.providerButton, !agreed && styles.providerMuted]}
             onPress={onPressGoogle}
             disabled={submitting !== null}
           >
@@ -346,6 +414,55 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontFamily: "Nunito-Bold",
+  },
+  providerMuted: {
+    opacity: 0.45,
+  },
+  agreeRow: {
+    width: 328,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  agreeBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  agreeBoxOn: {
+    backgroundColor: "#fff",
+  },
+  agreeTick: {
+    color: "#000",
+    fontSize: 14,
+    lineHeight: 16,
+    fontFamily: "Nunito-Bold",
+  },
+  agreeText: {
+    flex: 1,
+    marginLeft: 10,
+    color: "#fff",
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: "Nunito-Regular",
+  },
+  agreeLink: {
+    color: "#fff",
+    textDecorationLine: "underline",
+    fontFamily: "Nunito-Bold",
+  },
+  agreeHint: {
+    width: 328,
+    color: "rgba(255,255,255,0.75)",
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: "Nunito-Regular",
+    marginBottom: 16,
   },
   linksContainer: {
     position: "absolute",
