@@ -37,6 +37,7 @@ export default function TermsScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <Text style={styles.updated}>{t('legal.terms.updated')}</Text>
         {sections.map((section, index) => (
           <View key={index} style={{ marginBottom: 30 }}>
             <Text style={styles.sectionTitle}>{section.heading}</Text>
@@ -92,6 +93,13 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     color: '#fff',
     fontFamily: 'Nunito-Bold',
+  },
+  updated: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 24,
+    fontFamily: 'SFProDisplay-Regular',
   },
   paragraph: {
     fontSize: 12,

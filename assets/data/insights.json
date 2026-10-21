@@ -162,7 +162,7 @@
         },
         {
           "question": "How accurate is my birth chart?",
-          "answer": "The accuracy of your chart depends entirely on the date, time, and city of birth that you enter. A small error in birth time can shift your rising sign and houses; an unknown time will limit the accuracy of those calculations. You can update your information any time from Edit Profile, and we will recompute your chart on the next sync."
+          "answer": "The accuracy of your chart depends entirely on the date, time, and city of birth that you enter during registration. A small error in birth time can shift your rising sign and houses; an unknown time will limit the accuracy of those calculations. After registration, your name, birthday, birth city, and birth time are locked. To ask for a correction, open the menu → Account settings → Contact support."
         },
         {
           "question": "Why do you need my date, time and city of birth?",
@@ -182,11 +182,11 @@
         },
         {
           "question": "Can I change my name, birthday, or birth city after onboarding?",
-          "answer": "Yes. Open the side menu → Edit Profile, change the fields you want, and tap Save. Your chart and personalised content will update on the next sync."
+          "answer": "No. After registration, your name, birthday, birth city, and birth time are locked. Open the menu → Account settings → Contact support to ask for a correction. You can still change your profile photo on the Profile screen, and your Facebook and Instagram handles in Account settings."
         },
         {
           "question": "How do I delete my account and data?",
-          "answer": "From the side menu, tap Log out, then send a deletion request to support@astroinsights.io from the email tied to your account. We will delete or anonymise your personal data within 90 days, except where we are legally required to retain certain records."
+          "answer": "Open the menu → Account settings → Delete Account. The App deletes the account and signs you out. You can also delete it at astroinsights.io/delete-account. Deleting the account does not cancel a Google Play subscription; cancel that in your Google Play account. We delete or anonymise your personal data within 90 days, except records the law requires us to keep and a record of the store entitlement so we can recognise an existing subscription."
         },
         {
           "question": "Will AstroInsights tell me what to do?",
