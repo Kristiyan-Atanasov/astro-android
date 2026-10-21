@@ -5,6 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 const SIZE_KEY = 'astro-reading-size';
 const HINT_KEY = 'astro-reading-hint-users';
 
+/** @type {readonly ('standard' | 'large')[]} */
 export const READING_SIZES = ['standard', 'large'];
 
 const SCALE = {

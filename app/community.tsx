@@ -865,7 +865,7 @@ const styles = StyleSheet.create({
   },
   bannerImage: { borderRadius: 18, resizeMode: 'cover' },
   bannerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(10,8,26,0.35)',
   },
   bannerContent: { padding: 18 },

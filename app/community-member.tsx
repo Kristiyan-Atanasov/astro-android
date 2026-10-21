@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  thumbImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  thumbImage: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
   learningName: {
     color: '#fff',
     fontSize: 14,
