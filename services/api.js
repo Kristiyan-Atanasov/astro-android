@@ -1419,8 +1419,95 @@ function subscriptionError(status, data, fallback) {
   return err;
 }
 
-// Current entitlements. Not cached: the response is Cache-Control: no-store
-// and a pending plan change must be read again after checkout.
+function firstSubscriptionDate(...values) {
+  for (const value of values) {
+    if (typeof value !== 'string' || !value.trim()) continue;
+    if (!Number.isNaN(new Date(value).getTime())) return value;
+  }
+  return null;
+}
+
+function withSubscriptionDates(row) {
+  if (!row || typeof row !== 'object') return row;
+  const until = firstSubscriptionDate(
+    row.access_until,
+    row.current_period_end,
+    row.end_date,
+    row.expires_at,
+    row.expiration_date,
+    row.expiry_date,
+    row.renews_at,
+    row.trial_ends_at,
+  );
+  return {
+    ...row,
+    access_until: row.access_until || until,
+    current_period_end: row.current_period_end || firstSubscriptionDate(row.end_date, until),
+    renews_at: row.renews_at || null,
+  };
+}
+
+function subscriptionRowGrantsAccess(row) {
+  if (!row || typeof row !== 'object') return false;
+  if (row.has_access === true || row.is_trial === true || row.pending_change) return true;
+  const status = String(row.status || '').toLowerCase();
+  return status === 'active' || status === 'trial' || status === 'trialing' || status === 'in_grace_period';
+}
+
+// A missing or empty body must not be treated as "free". A cached GET is
+// what showed the plan picker to an account that already has premium.
+function normalizeSubscriptionSummary(data) {
+  let body = data;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      body = null;
+    }
+  }
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    const direct = Object.prototype.hasOwnProperty.call(body, 'has_active_subscription')
+      || Array.isArray(body.subscriptions);
+    if (!direct && body.data && typeof body.data === 'object' && !Array.isArray(body.data)) {
+      body = body.data;
+    }
+  }
+  const malformed = () => {
+    const err = new Error('Could not load subscription');
+    err.code = 'subscription-malformed';
+    return err;
+  };
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw malformed();
+
+  const hasFlag = Object.prototype.hasOwnProperty.call(body, 'has_active_subscription');
+  const hasList = Array.isArray(body.subscriptions);
+  const single = body.subscription && typeof body.subscription === 'object' ? body.subscription : null;
+  if (!hasFlag && !hasList && !single) throw malformed();
+
+  let subscriptions = hasList ? body.subscriptions : [];
+  if (subscriptions.length === 0 && single) subscriptions = [single];
+  const nested = body.active_subscription || body.current_subscription;
+  if (subscriptions.length === 0 && nested && typeof nested === 'object') subscriptions = [nested];
+  subscriptions = subscriptions.map(withSubscriptionDates);
+  const accessUntil = firstSubscriptionDate(
+    body.access_until,
+    body.end_date,
+    body.expires_at,
+    body.expiration_date,
+    body.current_period_end,
+    body.renews_at,
+    ...subscriptions.map((row) => row?.access_until || row?.current_period_end || row?.renews_at),
+  );
+  return {
+    has_active_subscription: body.has_active_subscription === true || subscriptions.some(subscriptionRowGrantsAccess),
+    access_until: accessUntil,
+    subscriptions,
+  };
+}
+
+// Current entitlements. The query changes every call so a cached "no
+// subscription" response cannot be shown to a premium account. A pending
+// plan change is read again after checkout.
 export async function getSubscriptionSummary() {
   const accessToken = await getAccessToken();
   if (!accessToken) {
@@ -1439,7 +1526,8 @@ export async function getSubscriptionSummary() {
         headers: {
           Accept: 'application/json',
           Authorization: `Bearer ${accessToken}`,
-          'Cache-Control': 'no-store',
+          'Cache-Control': 'no-cache, no-store, max-age=0',
+          Pragma: 'no-cache',
         },
       },
       VERIFY_FETCH_TIMEOUT_MS,
@@ -1469,11 +1557,7 @@ export async function getSubscriptionSummary() {
     );
   }
 
-  return data || {
-    has_active_subscription: false,
-    access_until: null,
-    subscriptions: [],
-  };
+  return normalizeSubscriptionSummary(data);
 }
 
 // Asks the backend for the current Google purchase token and deferred

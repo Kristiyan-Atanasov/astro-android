@@ -58,6 +58,7 @@ function withTimeout(promise, ms, label) {
       reject(err);
     }, ms);
   });
+  promise.catch(() => {});
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 

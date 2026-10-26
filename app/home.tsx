@@ -653,7 +653,7 @@ export default function HomeScreen() {
               {/* Menu Items */}
               {[
                 { label: t('menu.items.home'), icon: icons.home, route: '/home' as const, replace: true },
-                { label: t('menu.items.myProfile'), icon: icons.profile, route: '/profile' as const },
+                { label: t('menu.items.myProfile'), icon: icons.profile, route: '/profile' as const, accent: true },
                 { label: t('menu.items.notifications'), icon: icons.notifications, route: '/notifications' as const },
                 { label: t('menu.items.community'), icon: icons.community, route: '/community' as const },
                 {
@@ -689,8 +689,13 @@ export default function HomeScreen() {
                     }
                   }}
                 >
-                  <Image source={(item as any).icon} style={styles.menuItemIcon} />
-                  <Text style={styles.menuItemText}>{item.label}</Text>
+                  <Image
+                    source={(item as any).icon}
+                    style={[styles.menuItemIcon, (item as any).accent && styles.menuItemIconTint]}
+                  />
+                  <Text style={[styles.menuItemText, (item as any).accent && styles.menuItemTextAccent]}>
+                    {item.label}
+                  </Text>
                   {(item as any).status ? (
                     <View style={styles.statusPill}>
                       <Text style={styles.statusPillText}>{(item as any).status}</Text>
@@ -1029,11 +1034,17 @@ const styles = StyleSheet.create({
     marginRight: 16,
     resizeMode: 'contain',
   },
+  menuItemIconTint: {
+    tintColor: '#C4B5FD',
+  },
   menuItemText: {
     flex: 1,
     color: '#fff',
     fontSize: 16,
     fontFamily: 'SFProDisplay-Regular',
+  },
+  menuItemTextAccent: {
+    color: '#E4D7FF',
   },
   statusPill: {
     backgroundColor: 'rgba(255,255,255,0.08)',

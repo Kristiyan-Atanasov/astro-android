@@ -27,6 +27,7 @@ import {
   isPremiumStatus,
   describeSubscriptionProduct,
   profileSubscriptionState,
+  isUserPremiumFromQualities,
 } from '../services/iap';
 import {
   MONTHLY_SUBSCRIPTION_SKU,
@@ -100,20 +101,140 @@ function sleep(ms: number) {
 
 function formatWhen(iso: string | null | undefined, language: string): string {
   if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
   const locale = language.toLowerCase().startsWith('bg') ? 'bg-BG' : 'en-GB';
+  const calendar = /^(\d{4})-(\d{2})-(\d{2})(?:$|T00:00:00(?:\.0+)?Z$)/.exec(iso.trim());
+  const date = calendar
+    ? new Date(Date.UTC(Number(calendar[1]), Number(calendar[2]) - 1, Number(calendar[3]), 12))
+    : new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat(locale, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
+    timeZone: calendar ? 'UTC' : undefined,
   }).format(date);
+}
+
+function firstIso(...values: Array<string | null | undefined>): string | null {
+  for (const value of values) {
+    if (typeof value !== 'string' || !value.trim()) continue;
+    if (!Number.isNaN(new Date(value).getTime())) return value;
+  }
+  return null;
+}
+
+function rowDateValues(row: SubscriptionRow): Array<string | null | undefined> {
+  const extra = row as SubscriptionRow & {
+    end_date?: string | null;
+    expires_at?: string | null;
+    expiration_date?: string | null;
+  };
+  return [
+    row.current_period_end,
+    row.access_until,
+    extra.expires_at,
+    extra.end_date,
+    extra.expiration_date,
+    row.renews_at,
+    row.trial_ends_at,
+  ];
+}
+
+function rowWhen(row: SubscriptionRow | null | undefined): string | null {
+  if (!row) return null;
+  return firstIso(...rowDateValues(row));
+}
+
+function nextBillingIso(row: SubscriptionRow | null | undefined): string | null {
+  if (!row) return null;
+  const now = Date.now();
+  const upcoming = rowDateValues(row)
+    .map((value) => ({ value, time: value ? new Date(value).getTime() : NaN }))
+    .filter((item): item is { value: string; time: number } => typeof item.value === 'string' && item.time > now)
+    .sort((a, b) => a.time - b.time);
+  return upcoming[0]?.value ?? null;
 }
 
 function shouldManage(row: SubscriptionRow): boolean {
   if (!row) return false;
-  if (row.has_access || row.pending_change) return true;
-  return row.status === 'on_hold' || row.status === 'in_grace_period' || row.status === 'paused';
+  if (row.has_access || row.pending_change || row.is_trial || rowWhen(row)) return true;
+  const status = String(row.status || '').toLowerCase();
+  return status === 'active'
+    || status === 'trial'
+    || status === 'trialing'
+    || status === 'on_hold'
+    || status === 'in_grace_period'
+    || status === 'paused';
+}
+
+function summaryGrantsAccess(summary: SubscriptionSummary | null | undefined): boolean {
+  if (!summary) return false;
+  return summary.has_active_subscription || (summary.subscriptions || []).some(shouldManage);
+}
+
+function dateFromProfile(profile: any): string | null {
+  if (!profile || typeof profile !== 'object') return null;
+  const nested = profile.subscription || profile.user_subscription || profile.active_subscription;
+  return firstIso(
+    profile.access_until,
+    profile.subscription_end,
+    profile.subscription_ends_at,
+    profile.premium_until,
+    profile.end_date,
+    profile.expires_at,
+    nested?.access_until,
+    nested?.renews_at,
+    nested?.current_period_end,
+    nested?.end_date,
+    nested?.expires_at,
+  );
+}
+
+function entitleFromKnownPremium(summary: SubscriptionSummary, profileDate?: string | null): SubscriptionSummary {
+  const rows = summary.subscriptions || [];
+  const until = firstIso(summary.access_until, ...rows.map((row) => rowWhen(row)), profileDate);
+  if (rows.length > 0) {
+    return {
+      ...summary,
+      has_active_subscription: true,
+      access_until: until,
+      subscriptions: rows.map((row) => {
+        const when = rowWhen(row) || until;
+        return {
+          ...row,
+          has_access: true,
+          access_until: row.access_until || when,
+          current_period_end: row.current_period_end || when,
+          renews_at: row.renews_at || null,
+          is_auto_renewing: Boolean(row.renews_at) && row.is_auto_renewing !== false,
+        };
+      }),
+    };
+  }
+  const row: SubscriptionRow = {
+    id: 0,
+    provider: 'google',
+    product_id: null,
+    plan: null,
+    base_plan_id: null,
+    status: 'active',
+    has_access: true,
+    is_auto_renewing: false,
+    current_period_end: until,
+    renews_at: null,
+    access_until: until,
+    is_trial: false,
+    trial_ends_at: null,
+    pending_change: null,
+    manage_url: null,
+    can_change_plan: false,
+    available_changes: [],
+  };
+  return {
+    has_active_subscription: true,
+    access_until: until,
+    subscriptions: [row],
+  };
 }
 
 function planKeyFor(
@@ -147,6 +268,7 @@ export default function SubscriptionScreen() {
   const [restoring, setRestoring] = useState(false);
 
   const isMounted = useRef(true);
+  const refreshSeq = useRef(0);
   useEffect(() => {
     isMounted.current = true;
     return () => {
@@ -155,22 +277,48 @@ export default function SubscriptionScreen() {
   }, []);
 
   const refreshDetails = useCallback(async () => {
+    const seq = ++refreshSeq.current;
     try {
-      const [nextSummary] = await Promise.all([
+      const [nextSummary, profile] = await Promise.all([
         getSubscriptionSummary(),
         getUserProfile(),
       ]);
-      if (!isMounted.current) return null;
-      setSummary(nextSummary);
+      if (!isMounted.current || seq !== refreshSeq.current) return null;
+
+      let summary = nextSummary as SubscriptionSummary;
+      if (!summaryGrantsAccess(summary)) {
+        let knownPremium = profileSubscriptionState(profile) === 'active';
+        if (!knownPremium) {
+          try {
+            const qualities = await getUserQualities();
+            if (isUserPremiumFromQualities(qualities) === true) knownPremium = true;
+          } catch (e: any) {
+            console.log('subscription premium check failed:', e?.message ?? String(e));
+          }
+        }
+        if (!isMounted.current || seq !== refreshSeq.current) return null;
+        if (knownPremium) {
+          try {
+            const retried = await getSubscriptionSummary() as SubscriptionSummary;
+            summary = summaryGrantsAccess(retried) ? retried : entitleFromKnownPremium(summary, dateFromProfile(profile));
+          } catch (e: any) {
+            console.log('subscription summary retry failed:', e?.message ?? String(e));
+            summary = entitleFromKnownPremium(summary, dateFromProfile(profile));
+          }
+        }
+      }
+
+      if (!isMounted.current || seq !== refreshSeq.current) return null;
+      setSummary(summary);
       setSummaryError(null);
-      return nextSummary as SubscriptionSummary;
+      return summary;
     } catch (e: any) {
       console.log('subscription summary error:', e?.code ?? null, e?.message ?? String(e));
-      if (!isMounted.current) return null;
+      if (!isMounted.current || seq !== refreshSeq.current) return null;
       setSummaryError(e?.message || t('subscription.summaryFailed'));
       return null;
     } finally {
-      if (isMounted.current) setSummaryLoading(false);
+      if (isMounted.current && seq === refreshSeq.current) setSummaryLoading(false);
     }
   }, [t]);
 
@@ -383,23 +531,16 @@ export default function SubscriptionScreen() {
   };
 
   const membershipHeadline = (row: SubscriptionRow): { label: string; value: string } | null => {
-    if (row.is_trial === true) {
-      const value = formatWhen(row.trial_ends_at || row.access_until, i18n.language);
-      return value ? { label: t('subscription.trialEndsLabel'), value } : null;
+    const when = nextBillingIso(row);
+    const value = formatWhen(when, i18n.language);
+    if (!value) return null;
+    if (row.is_trial === true && when === row.trial_ends_at) {
+      return { label: t('subscription.trialEndsLabel'), value };
     }
-    if (row.plan === 'complimentary') {
-      const value = formatWhen(row.access_until, i18n.language);
-      return value ? { label: t('subscription.accessEndsLabel'), value } : null;
+    if (row.plan === 'complimentary' || row.is_auto_renewing === false) {
+      return { label: t('subscription.accessEndsLabel'), value };
     }
-    if (row.has_access && row.is_auto_renewing && row.renews_at) {
-      const value = formatWhen(row.renews_at, i18n.language);
-      return value ? { label: t('subscription.renewsLabel'), value } : null;
-    }
-    if (row.has_access && row.is_auto_renewing === false) {
-      const value = formatWhen(row.access_until || row.current_period_end, i18n.language);
-      return value ? { label: t('subscription.accessEndsLabel'), value } : null;
-    }
-    return null;
+    return { label: t('subscription.renewsLabel'), value };
   };
 
   const membershipNotes = (row: SubscriptionRow): string[] => {
@@ -666,14 +807,14 @@ export default function SubscriptionScreen() {
         <View style={styles.plansStack}>
           {summaryLoading && !summary ? (
             <ActivityIndicator color="#fff" style={styles.planLoading} />
-          ) : summaryError && !summary ? (
+          ) : !summary ? (
             <View style={styles.planCard}>
-              <Text style={styles.planSubtitle}>{summaryError}</Text>
+              <Text style={styles.planSubtitle}>{summaryError || t('subscription.summaryFailed')}</Text>
               <TouchableOpacity style={styles.changeButton} onPress={() => { void refreshDetails(); }}>
                 <Text style={styles.changeButtonText}>{t('subscription.retry')}</Text>
               </TouchableOpacity>
             </View>
-          ) : managementRows.length > 0 || summary?.has_active_subscription ? (
+          ) : managementRows.length > 0 || summary.has_active_subscription ? (
             <>
               {managementRows.map((row) => {
                 const headline = membershipHeadline(row);
@@ -690,10 +831,14 @@ export default function SubscriptionScreen() {
                   />
                 );
               })}
-              {managementRows.length === 0 && summary?.has_active_subscription ? (
+              {managementRows.length === 0 && summary.has_active_subscription ? (
                 <StatusCard
                   pill={t('subscription.statusActive')}
                   plan={t('subscription.planNamePremium')}
+                  headline={formatWhen(summary.access_until, i18n.language) ? {
+                    label: t('subscription.accessEndsLabel'),
+                    value: formatWhen(summary.access_until, i18n.language),
+                  } : null}
                 />
               ) : null}
               {canChangePlan ? (
