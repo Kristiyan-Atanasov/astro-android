@@ -287,36 +287,42 @@ export default function SignInScreen() {
         <Text style={styles.title}>{t("signin.title")}</Text>
         <Text style={styles.subtitle}>{t("signin.subtitle")}</Text>
 
-        <View style={styles.agreeRow}>
-          <TouchableOpacity
-            onPress={() => setAgreed((current) => !current)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: agreed }}
-          >
-            <View style={[styles.agreeBox, agreed && styles.agreeBoxOn]}>
-              {agreed ? <Text style={styles.agreeTick}>✓</Text> : null}
+        <View style={styles.agreeBlock}>
+          <View style={styles.agreeRow}>
+            <TouchableOpacity
+              onPress={() => setAgreed((current) => !current)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: agreed }}
+            >
+              <View style={[styles.agreeBox, agreed && styles.agreeBoxOn]}>
+                {agreed ? <Text style={styles.agreeTick}>✓</Text> : null}
+              </View>
+            </TouchableOpacity>
+            <View style={styles.agreeCopy}>
+              <Text style={styles.agreeText}>
+                {t("signin.agreeLead")}
+                <Text
+                  style={styles.agreeLink}
+                  onPress={() => router.push("/terms" as Href)}
+                >
+                  {t("legalLinks.terms")}
+                </Text>
+              </Text>
+              <Text style={styles.agreeText}>
+                {t("signin.agreeAnd").trim()}{" "}
+                <Text
+                  style={styles.agreeLink}
+                  onPress={() => router.push("/privacy" as Href)}
+                >
+                  {t("legalLinks.privacy")}
+                </Text>
+                {t("signin.agreeEnd")}
+              </Text>
             </View>
-          </TouchableOpacity>
-          <Text style={styles.agreeText}>
-            {t("signin.agreeLead")}
-            <Text
-              style={styles.agreeLink}
-              onPress={() => router.push("/terms" as Href)}
-            >
-              {t("legalLinks.terms")}
-            </Text>
-            {t("signin.agreeAnd")}
-            <Text
-              style={styles.agreeLink}
-              onPress={() => router.push("/privacy" as Href)}
-            >
-              {t("legalLinks.privacy")}
-            </Text>
-            {t("signin.agreeEnd")}
-          </Text>
+          </View>
+          <Text style={styles.agreeHint}>{t("signin.agreeHint")}</Text>
         </View>
-        <Text style={styles.agreeHint}>{t("signin.agreeHint")}</Text>
 
         {Platform.OS === "web" ? (
           <WebGoogleSignInButton
@@ -418,11 +424,24 @@ const styles = StyleSheet.create({
   providerMuted: {
     opacity: 0.45,
   },
-  agreeRow: {
+  agreeBlock: {
     width: 328,
+    maxWidth: "100%",
+    marginBottom: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    backgroundColor: "rgba(0, 0, 0, 0.62)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.18)",
+  },
+  agreeRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 8,
+    alignItems: "center",
+  },
+  agreeCopy: {
+    flex: 1,
+    marginLeft: 10,
   },
   agreeBox: {
     width: 22,
@@ -432,7 +451,7 @@ const styles = StyleSheet.create({
     borderColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 1,
+    marginTop: 0,
   },
   agreeBoxOn: {
     backgroundColor: "#fff",
@@ -444,11 +463,10 @@ const styles = StyleSheet.create({
     fontFamily: "Nunito-Bold",
   },
   agreeText: {
-    flex: 1,
-    marginLeft: 10,
     color: "#fff",
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 20,
+    textAlign: "left",
     fontFamily: "Nunito-Regular",
   },
   agreeLink: {
@@ -457,12 +475,13 @@ const styles = StyleSheet.create({
     fontFamily: "Nunito-Bold",
   },
   agreeHint: {
-    width: 328,
-    color: "rgba(255,255,255,0.75)",
+    marginTop: 8,
+    marginLeft: 32,
+    color: "rgba(255,255,255,0.88)",
     fontSize: 12,
     lineHeight: 16,
+    textAlign: "left",
     fontFamily: "Nunito-Regular",
-    marginBottom: 16,
   },
   linksContainer: {
     position: "absolute",

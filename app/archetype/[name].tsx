@@ -60,7 +60,13 @@ import {
   isUserPremiumFromProfile,
   isUserPremiumFromQualities,
 } from '../../services/iap';
-import { rememberScroll, takeScrollRestore } from '../../services/scrollRestore';
+import {
+  rememberScroll,
+  rememberTab,
+  peekTabRestore,
+  takeScrollRestore,
+  takeTabRestore,
+} from '../../services/scrollRestore';
 
 type QualityStatus = 'ACTIVE' | 'INACTIVE' | 'LOCKED';
 
@@ -216,7 +222,9 @@ export default function ArchetypeDetailScreen() {
 
   const [allQualities, setAllQualities] = useState<QualityItem[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<TabKey>('mastering');
+  const [tab, setTab] = useState<TabKey>(
+    () => peekTabRestore(`archetype:${code}`) ?? 'mastering',
+  );
   const [explainExpanded, setExplainExpanded] = useState(false);
   // Authoritative completion percentage from the backend
   // (user_archetypes.completed_percentage). null until first loaded; we fall
@@ -264,6 +272,7 @@ export default function ArchetypeDetailScreen() {
   useEffect(() => {
     hasLoadedOnce.current = false;
     pendingRestoreY.current = null;
+    setTab(peekTabRestore(`archetype:${code}`) ?? 'mastering');
     setAllQualities(null);
     setServerPercent(null);
     setLoading(true);
@@ -381,6 +390,8 @@ export default function ArchetypeDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
+      const restoredTab = takeTabRestore(scrollRestoreKey);
+      if (restoredTab) setTab(restoredTab);
       const restoreY = takeScrollRestore(scrollRestoreKey);
       if (restoreY != null) {
         pendingRestoreY.current = restoreY;
@@ -411,7 +422,7 @@ export default function ArchetypeDetailScreen() {
     if (pendingRestoreY.current != null) {
       applyPendingScroll();
     }
-  }, [allQualities, applyPendingScroll]);
+  }, [allQualities, tab, applyPendingScroll]);
 
   const archetypeQualities = useMemo(() => {
     if (!allQualities) return [];
@@ -491,6 +502,7 @@ export default function ArchetypeDetailScreen() {
       }
 
       rememberScroll(scrollRestoreKey, scrollYRef.current);
+      rememberTab(scrollRestoreKey, tab);
       router.push({
         pathname: '/archetype/quality/[id]',
         params: {
@@ -501,7 +513,7 @@ export default function ArchetypeDetailScreen() {
         },
       } as any);
     },
-    [router, code, handleLockedQuality, scrollRestoreKey],
+    [router, code, handleLockedQuality, scrollRestoreKey, tab],
   );
 
   // Tap: toggle notification activation (purple = active in daily insights).
